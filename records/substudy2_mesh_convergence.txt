@@ -1,0 +1,71 @@
+PHASE 1.6 SUB-STUDY 2 - MESH CONVERGENCE REPORT
+====================================================================
+Requirement: sweep mesh resolution on one representative geometry and
+confirm the transmittance gradient falls below ~1e-4 (method modelled on
+Paper 10, Section 2.3).
+Representative geometry: R = 10 um, w = 450 nm, g = 200 nm, Lc = 1.5 um
+Sweep variable: scalar mesh override d (dx = dy = dz = d) over both
+coupling regions, global mesh accuracy held at 3.
+
+THREE SWEEPS WERE RUN. ONLY THE THIRD IS USED.
+--------------------------------------------------------------------
+Sweep A - full ring, 2-D, 50 ps window, 2,001 frequency points
+  File: DEFECTIVE_sweep_50ps_2001pts.csv       STATUS: INVALID
+  Three defects were found in it and corrected in the code:
+   1. Spectral grid 0.050 nm against a true linewidth of 0.029 nm. The
+      Section 4.1.4 item 3 check ("verify against the narrowest expected
+      linewidth") failed. Raised to 20,001 points (0.005 nm).
+   2. The 50 ps window truncated the ringdown: measured FWHM (0.1450 nm)
+      matched the window's transform limit (0.1411 nm) to 3%, so FWHM
+      and Q_L measured the DFT window, not the resonator.
+   3. "Nearest 1550 nm" hopped between adjacent resonances 9.2 nm apart,
+      because 1550 nm sat at their midpoint. Four of six points compared
+      different physical modes.
+  Also: an override coarser than the ~32 nm global mesh in silicon is
+  inert, so the original 40 and 30 nm points did not test the override.
+
+Sweep B - coupler only, 2-D, 5 ps window
+  File: substudy2_coupler_convergence_2d.csv   STATUS: setup check only
+  Confirmed the coupler build and monitors: kappa^2 + t^2 = 0.9999-1.0000
+  at every mesh (energy conserved), ~11-25 s per point. Not used for
+  production, because 2-D understates kappa^2 ~9x against 3-D.
+
+Sweep C - coupler only, 3-D, 5 ps window     STATUS: ADOPTED
+  File: substudy2_coupler_convergence_3d.csv
+
+   d(nm)  cells   kappa^2    t^2      sum     |dk2/dN|   runtime
+    32    6.25   0.077259 0.922755  1.0000       -      15.2 min
+    24    8.33   0.075997 0.923834  0.9998   6.06e-04   22.9 min
+    20   10.00   0.074542 0.925215  0.9998   8.73e-04   30.4 min
+    16   12.50   0.073510 0.926161  0.9997   4.13e-04   44.3 min
+    12   16.67   0.076375 0.923240  0.9996   6.88e-04   77.0 min
+     8   25.00   0.076138 0.923435  0.9996   2.85e-05  187.1 min
+
+FINDING: THE 1e-4 CRITERION IS NOT MET IN A MEANINGFUL SENSE
+--------------------------------------------------------------------
+The script reported "converged at d = 8 nm" because the final pair of
+points happened to land close together. That verdict is not valid: the
+sequence is non-monotonic (falls for four points, then rises), so a
+gradient test on adjacent pairs cannot establish convergence. kappa^2
+instead scatters by about +/-2.5% around 0.0754 across a 4x refinement.
+The probable cause is staircasing: the bends are curved and the mesh is
+rectangular, so each mesh size discretises the curve slightly
+differently, shifting the coupling by an amount that does not shrink
+with refinement.
+
+DECISION: PRODUCTION MESH d = 32 nm
+--------------------------------------------------------------------
+  - d = 32 nm is the only point inside the 16.8 min/sample budget
+    established by sub-study 1 (N = 800 in the four-week window).
+  - Refining 4x changes kappa^2 by at most ~2.5% while costing 12x in
+    runtime; the coarse mesh sits inside the scatter band.
+  - kappa^2 is therefore reported as 0.0754 +/- 2.5% at this geometry,
+    and this scatter is carried as a stated uncertainty rather than
+    claimed as convergence.
+
+CONSEQUENCE FOR THE DATASET
+--------------------------------------------------------------------
+The 5-parameter kappa^2 model reaches 3.37% cross-validated MAPE, of
+which ~2.5% is this mesh-scatter floor: 20 of the 48 held-out errors lie
+inside +/-2.5%. The model is at the limit the measurements can support.
+====================================================================

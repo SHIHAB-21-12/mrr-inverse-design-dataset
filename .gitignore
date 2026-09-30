@@ -1,0 +1,5 @@
+# regenerable Lumerical files - large, and rebuilt by mrr_template.py
+*.fsp
+*.ckpt
+*_p0.log
+__pycache__/

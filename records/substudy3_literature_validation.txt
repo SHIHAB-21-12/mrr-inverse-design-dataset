@@ -1,0 +1,51 @@
+PHASE 1.6 SUB-STUDY 3 - LITERATURE VALIDATION REPORT
+====================================================================
+Requirement: reproduce the reported FSR of at least one independently
+published, experimentally characterised MRR; target <= 10% error
+(Objective O1; precedent 2.6-9% in Paper 10).
+
+REFERENCE DEVICE (Paper 11, Tang et al. 2024, measured)
+--------------------------------------------------------------------
+  Waveguide     : 440 x 220 nm SOI, TE
+  Ring radius   : 20 um
+  Measured FSR  : 4.4 nm  (reported to two significant figures)
+
+METHOD
+--------------------------------------------------------------------
+Fundamental TE eigenmode solved on a 440 x 220 nm cross-section in
+Lumerical FDTD 2024 R1 (10 nm cross-section mesh) at five wavelengths,
+1500-1600 nm. The solver reports n_eff but not group index, so
+n_g = n_eff - lambda * dn_eff/dlambda was evaluated numerically, then
+FSR predicted from Eq. 4 with L = 2 * pi * R.
+
+RESULT
+--------------------------------------------------------------------
+                          n_g(1550)   predicted FSR   error
+  raw finite difference    4.34429      4.4008 nm     0.02%
+  smoothed (2-D fit)       4.33101      4.4143 nm     0.33%
+  measured, Paper 11          -         4.4    nm       -
+
+  VERDICT: PASS - both far inside the 10% target.
+
+HOW TO STATE THIS RESULT
+--------------------------------------------------------------------
+Report it as: "simulated FSR agrees with the measured value to within
+the +/-1.1% precision to which it was reported (0.02-0.33% depending on
+how n_g is extracted)." Do NOT quote 0.02% alone: Paper 11 gives the FSR
+to two significant figures, i.e. +/-0.05 nm, so agreement finer than
+about 1% cannot be resolved by the reference.
+
+ASSUMPTIONS AND CAVEATS
+--------------------------------------------------------------------
+1. Paper 11's ring is taken as circular, L = 2*pi*R. A racetrack
+   geometry would change the path length and the prediction.
+2. n_eff(lambda) shows a systematic curvature artefact at the 1e-4
+   level, identical at all six widths - likely because mesh accuracy
+   sets points per wavelength, so the cladding auto-mesh shifts with
+   lambda. Differentiating amplifies it, which is why the raw and
+   smoothed n_g differ by 0.013. The resulting n_g uncertainty is about
+   0.3-0.8%, an order of magnitude inside the Objective O2 tolerance.
+3. Independent corroboration: the n_g implied directly by Paper 11's
+   measurement is 4.35, against 4.344 simulated - 0.13%, a comparison
+   that does not depend on rounding the FSR.
+====================================================================

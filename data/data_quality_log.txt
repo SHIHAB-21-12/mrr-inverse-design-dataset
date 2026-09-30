@@ -1,0 +1,7 @@
+DATA-QUALITY LOG  (Phase 1.5 step 7)
+N=1000, LHS seed 42
+generated in 0.49 s
+flagged samples: 0
+Q_L range: 763.9 to 187650.4 (log10 2.88 to 5.27)
+NOTE: FSR is the spacing to the NEAREST adjacent resonance; with
+dispersion it can differ slightly from the spacing across 1550 nm.

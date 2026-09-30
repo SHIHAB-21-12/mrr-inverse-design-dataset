@@ -1,0 +1,53 @@
+PHASE 1.6 SUB-STUDY 4 - COUPLING-STRENGTH BOUNDARY CHECK
+====================================================================
+Requirement (Phase 1.6 item 4, v1.3 Fix 8): confirm the g/Lc range spans
+near-zero to near-critical coupling; record kappa^2 at the range extremes
+and the implied Q_L ceiling; reconcile against the 10^3-10^5 target band.
+This sub-study is designated the sole authority on that question.
+
+MEASURED DIRECTLY (48-point 3-D FDTD coupler set, LHS seed 42)
+--------------------------------------------------------------------
+  weakest  kappa^2 = 0.002109  at R=5.95 um, w=448.8 nm,
+                                     g=349.4 nm, Lc=0.118 um
+  strongest kappa^2 = 0.313833  at R=9.24 um, w=400.9 nm,
+                                     g=193.5 nm, Lc=2.294 um
+  dynamic range     = 149x
+
+COUPLING REGIME ACROSS THE 1,000-SAMPLE DATASET
+--------------------------------------------------------------------
+  kappa^2 / (intrinsic round-trip loss, 1 - a^2):
+      min  0.24    (loss comparable to coupling: near-critical,
+                                     strongly lossy, IL up to 9.9 dB)
+      max  107    (coupling dominates: strongly overcoupled)
+  -> The design space spans from the near-critical/undercoupled regime
+     to strong overcoupling. REQUIREMENT MET.
+
+Q_L RANGE AND RECONCILIATION WITH THE 10^3-10^5 TARGET BAND
+--------------------------------------------------------------------
+  Q_L min 765   max 187,611
+  log10   2.88 to 5.27
+     below 10^3 :    5
+     10^3-10^4  :  373
+     10^4-10^5  :  595
+     above 10^5 :   27
+  96.8% of samples fall inside the 10^3-10^5 target band.
+  -> The target band is POPULATED ACROSS ITS FULL WIDTH.
+
+CORRECTION TO THE v1.3 SECTION 2.3 SCOPE NOTE
+--------------------------------------------------------------------
+The v1.3 scope note estimated, analytically, that the realistically
+populated band "may be closer to 10^3-10^4", on the grounds that a
+g = 350 nm coupler would couple ~2% of power, too strongly to reach
+Q_L = 10^5. Measurement shows that estimate was wrong: kappa^2 at
+g ~ 345-350 nm is 0.2-0.4%, five to ten times weaker than assumed. The
+upper decade IS reached. The scope note itself anticipated this outcome
+by naming this sub-study the sole authority; its answer is that the
+original 10^3-10^5 target band stands as written.
+
+MODEL ASSUMPTIONS AFFECTING THE HIGH-Q CORNER
+--------------------------------------------------------------------
+Weakly coupled samples are loss-limited, so their Q_L is sensitive to
+the loss model: bend radiation fit residuals of +/-20-40% (single width,
+w = 450 nm) and a literature roughness term (1.3 dB/cm). The Q_L of the
+~27 samples above 10^5 carries the largest uncertainty in the dataset.
+====================================================================

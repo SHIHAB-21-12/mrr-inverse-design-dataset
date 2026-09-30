@@ -1,0 +1,18 @@
+{
+  "model": "theta = kappa0(w) * exp(-gamma(w)*g) * (Lc + B*sqrt(2*pi*R/gamma(w))); kappa^2 = sin^2(theta)",
+  "units": "R um, w nm, g nm, Lc um; gamma in 1/nm",
+  "ln_kappa0": -1.0799350392136793,
+  "a1_per_nm": -0.008339441358276635,
+  "gamma0_per_nm": 0.008197836054118845,
+  "gamma1_per_nm2": 7.470492765361732e-06,
+  "B": 1.0425464905899562,
+  "w_ref_nm": 450.0,
+  "n_points": 48,
+  "lhs_seed": 42,
+  "mesh_nm": 32,
+  "solver": "Lumerical FDTD 2024 R1, 3-D",
+  "cv_8fold_MAPE_pct": 3.3728964247405324,
+  "cv_median_pct": 3.0004090042363574,
+  "cv_max_pct": 9.272176997133204,
+  "cv_R2": 0.9960502598747452
+}

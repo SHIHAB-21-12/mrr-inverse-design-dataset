@@ -1,0 +1,109 @@
+PHASE 1.6 SUB-STUDY 1 - TIMING CALIBRATION: VERDICT
+====================================================================
+Device under test : R = 10.000 um, w = 450 nm, g = 200 nm, Lc = 1.500 um
+Machine           : 6 MPI processes, 437.8 Mnodes/s aggregate,
+                    5.36 GB available RAM
+Solver            : Ansys Lumerical FDTD 2024 R1 (v241)
+
+DECISION RULE (Phase 1.6 sub-study 1, as written)
+--------------------------------------------------------------------
+  <= 10 min/sample   stretch target N = 1,500 realistic
+  10 - 15 min        target N = 1,000 realistic
+  15 - 25 min        reduce to the N = 800 floor
+  >  25 min          trigger the Section 7 fallback
+
+MEASUREMENTS
+--------------------------------------------------------------------
+Run 1 - 3-D FDTD, mesh override d = 40 nm
+  Evidence      : timing_3D_evidence_d40nm.log
+  Grid          : 281 x 378 x 55 = 5.84 M points, 792,531 iterations
+  Progress      : 14.189% after 4.95 h wall clock
+  Projection    : ~35 h/sample  = 2,100 min/sample
+  Caveat        : the 50 ps window used here was later shown to be
+                  ~10x too short, so the true 3-D cost is HIGHER.
+
+Run 2 - 2-D FDTD, mesh override d = 32 nm, 600 ps window
+  Evidence      : calibration_evidence_600ps.log
+  Completed     : 5,882,920 iterations = 422.4 ps elapsed
+  Auto shutoff  : 9.95017e-06 (below the 1e-5 threshold - field decayed,
+                  so the result is not truncation-limited)
+  Wall clock    : 148.8 min/sample
+  Checkpointing : 1.16 s of 8,925 s = 0.013% overhead
+
+VERDICT
+--------------------------------------------------------------------
+Both solver paths exceed the 25 min/sample trigger:
+
+  3-D : 2,100 min/sample  = 84x the trigger, 140x the 15 min target
+  2-D :   148.8 min/sample =  6.0x the trigger, 9.9x the 15 min target
+
+Required to reach N = 800 within the 4-week window at ~8 unattended
+batch hours/day: 16.8 min/sample. Neither path is within an order of
+magnitude of this.
+
+Continuous compute implied by the 2-D figure:
+  N =   800 -> 82.8 days
+  N = 1,000 -> 103.5 days
+
+=> The Section 7 fallback is triggered on timing grounds alone.
+
+SECOND, INDEPENDENT GROUND: 2-D VALIDITY
+--------------------------------------------------------------------
+2-D FDTD has no vertical radiation loss and overstates Q accordingly:
+
+  Q_L (2-D, measured from linewidth)      : 53,917
+  Q_L (3-D, estimated from log decay)     :  4,753
+  Ratio                                   : 11.3x
+
+A 2-D bulk dataset would therefore train the ML models on a quality
+factor roughly an order of magnitude from the 3-D truth. Section 7
+requires this offset be quantified with a 100-150 sample 3-D subset,
+but at this magnitude it is a dominant correction, not a small one.
+This is a validity objection to 2-D for this device, independent of
+runtime.
+
+SUPPORTING RESULT: THE DUAL-FIDELITY PATH IS VIABLE
+--------------------------------------------------------------------
+From the single calibrated 2-D spectrum, Eqs. 3, 4 and 6 were inverted
+to recover the underlying coupled-mode parameters:
+
+  n_g      = 3.9457      (Eq. 4)
+  t1*t2*a  = 0.990256    (Eq. 6 inverted)
+  t        = 0.995674    (Eq. 3 at resonance, t1 = t2)
+  a        = 0.998879
+  kappa^2  = 0.008633
+  alpha    = 1.480 dB/cm
+
+Paper 11 (Tang et al. 2024) reports 1.3 dB/cm measured on a fabricated
+440 x 220 nm SOI TE ring. Agreement to 0.18 dB/cm, from three mutually
+independent equations, indicates the extraction is sound.
+
+Because a coupler-only simulation contains no closed loop, its cost
+does not scale with Q - which is precisely why the dual-fidelity route
+escapes the constraint that defeats both full-ring paths.
+
+ACTIONS TAKEN
+--------------------------------------------------------------------
+1. Section 7 fallback invoked and logged (this record).
+2. Sub-study 2 re-aimed at the coupler geometry, retaining the same
+   method and the same 1e-4 gradient criterion, applied to kappa^2.
+3. Full-ring 3-D retained for the offset-quantification subset.
+
+DEFECTS FOUND AND CORRECTED DURING THIS SUB-STUDY
+--------------------------------------------------------------------
+a. Spectral grid 2,001 points (0.050 nm) against a true 0.029 nm
+   linewidth. The Section 4.1.4 item 3 verification clause failed.
+   Raised to 20,001 points (0.005 nm).
+b. Resonance selection by "nearest 1550 nm" hopped between adjacent
+   modes 9.2 nm apart, because 1550 sits at their midpoint. Sub-study
+   sweeps now track a fixed mode.
+c. Peak position snapped to the DFT grid. Parabolic sub-grid
+   interpolation added.
+
+Impact of (a)-(c) on the same geometry:
+  T_peak  0.14083 -> 0.78407   IL 8.51 dB -> 1.06 dB
+  FWHM    0.14498 -> 0.02866   Q_L 10,660 -> 53,917
+
+The first sweep (DEFECTIVE_sweep_50ps_2001pts.csv) is retained as
+evidence of why these corrections were required.
+====================================================================

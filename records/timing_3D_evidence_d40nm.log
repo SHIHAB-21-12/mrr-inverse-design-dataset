@@ -1,0 +1,139 @@
+Ansys Lumerical 2024 R1 FDTD Solver Version 8.31.3633 (Windows 64bit)
+ expires (month/day/year): 12/31/2035
+using config file: Ansys Licensing set with ANSYSLMD_LICENSE_FILE
+license host: 1055@localhost
+current time: Wed Sep 16 14:06:56 2026
+Running on host: DEATH
+host available memory (GB): 5.364965
+All processes are communicating and ready to proceed to simulation...
+Running fsp file: C:\Program Files\Lumerical\v241\bin\fdtd-engine-msmpi.exe -t 1 -remote -shared-solve-license QU5TWVNfTElDRU5TSU5HX0NPTlRFWFRfREFUQT08QU5TWVNfTElDRU5TSU5HX0NPTlRFWFRfREFUQT48SUQ+YWFiZGQ0YWUtOTdmNy00N2Y1LTg0NTAtNDY0ZjhkZjQzNGRiPC9JRD48VFlQRT5IUENfUEFSQU1FVFJJQzwvVFlQRT48TkFNRT5IUEMgUGFyYW1ldHJpYzwvTkFNRT48SEFORExFUj40OTI0MEBERUFUSDwvSEFORExFUj48L0FOU1lTX0xJQ0VOU0lOR19DT05URVhUX0RBVEE+Cg== D:/Abroad/full guide/Phase1/substudy2_d40nm.fsp
+Starting meshing
+Simulation size in gridpoints: 1 x 58 x 37
+Refined 0 mesh cells (0%)
+Completed meshing!
+Meshing complete in 0 seconds of CPU time
+Starting meshing
+Simulation size in gridpoints: 1 x 58 x 37
+Refined 0 mesh cells (0%)
+Completed meshing!
+Meshing complete in 0 seconds of CPU time
+Starting meshing
+Simulation size in gridpoints: 1 x 58 x 37
+Refined 0 mesh cells (0%)
+Completed meshing!
+Meshing complete in 0 seconds of CPU time
+number of processors is 6
+processors are distributed as: 3x2x1
+Running 3D Simulation
+Starting meshing
+Simulation size in gridpoints: 281 x 378 x 55
+Refined 0 mesh cells (0%)
+Completed meshing!
+Meshing complete in 1.8125 seconds of CPU time
+0 0
+Starting meshing
+Simulation size in gridpoints: 281 x 378 x 55
+Refined 0 mesh cells (0%)
+Completed meshing!
+Meshing complete in 2.07812 seconds of CPU time
+0 0
+Starting meshing
+Simulation size in gridpoints: 281 x 378 x 55
+Refined 0 mesh cells (0%)
+Completed meshing!
+Meshing complete in 1.92188 seconds of CPU time
+0 0
+finished material properties
+Meshing Time: 6.43163 seconds, Init Electrical Material Time: 0.685188 seconds, Init Magnetic Material Time: 0.0251927
+Using selected optimization level: 2
+Selecting 3d kernel for splitFieldDirection=0 and optLevel=2
+-----------------------------------------
+Beginning initialization of 3D Simulation
+Starting to add sources to simulation
+Adding 3D Mode source propagating in X
+Starting to add boundary conditions to simulation
+Adding 3D PML BC
+Adding 3D Parallel BC
+Adding 3D PML BC
+Adding 3D Parallel BC
+Adding 3D PML BC
+Adding 3D PML BC
+Starting to add monitors to Simulation
+Adding analysis monitor
+Adding 3D DFT monitor
+Adding 3D DFT monitor
+Adding 3D index monitor
+Finished initialization of 3D Simulation
+-----------------------------------------
+All processes are communicating and ready to proceed to simulation...
+Starting 792531 total iterations
+0.00302827% complete. Elapsed simulation time: 1.51414e-15 secs. Max time remaining: 34 hrs, 23 mins, 24 secs. Auto Shutoff: 1
+0.243776% complete. Elapsed simulation time: 1.21888e-13 secs. Max time remaining: 34 hrs, 36 mins, 13 secs. Auto Shutoff: 0.993841
+0.482% complete. Elapsed simulation time: 2.41e-13 secs. Max time remaining: 34 hrs, 40 mins, 55 secs. Auto Shutoff: 0.994078
+0.708111% complete. Elapsed simulation time: 3.54056e-13 secs. Max time remaining: 35 hrs, 14 mins, 54 secs. Auto Shutoff: 0.988331
+0.93826% complete. Elapsed simulation time: 4.6913e-13 secs. Max time remaining: 35 hrs, 22 mins, 35 secs. Auto Shutoff: 0.183719
+1.16437% complete. Elapsed simulation time: 5.82186e-13 secs. Max time remaining: 35 hrs, 31 mins, 3 secs. Auto Shutoff: 0.186591
+Checkpointing to D:\Abroad\full guide\Phase1\substudy2_d40nm_1789547817_p0.fsp.ckpt
+1.39755% complete. Elapsed simulation time: 6.98774e-13 secs. Max time remaining: 35 hrs, 24 mins, 23 secs. Auto Shutoff: 0.181698
+1.63678% complete. Elapsed simulation time: 8.18391e-13 secs. Max time remaining: 35 hrs, 10 mins, 44 secs. Auto Shutoff: 0.153018
+1.87299% complete. Elapsed simulation time: 9.36494e-13 secs. Max time remaining: 35 hrs, 3 mins, 11 secs. Auto Shutoff: 0.101798
+2.1097% complete. Elapsed simulation time: 1.05485e-12 secs. Max time remaining: 34 hrs, 55 mins, 33 secs. Auto Shutoff: 0.106579
+2.356% complete. Elapsed simulation time: 1.178e-12 secs. Max time remaining: 34 hrs, 39 mins, 40 secs. Auto Shutoff: 0.104723
+2.6023% complete. Elapsed simulation time: 1.30115e-12 secs. Max time remaining: 34 hrs, 25 mins, 34 secs. Auto Shutoff: 0.0816031
+Checkpointing to D:\Abroad\full guide\Phase1\substudy2_d40nm_1789549620_p0.fsp.ckpt
+2.8486% complete. Elapsed simulation time: 1.4243e-12 secs. Max time remaining: 34 hrs, 12 mins, 46 secs. Auto Shutoff: 0.0707937
+3.0959% complete. Elapsed simulation time: 1.54795e-12 secs. Max time remaining: 34 hrs, 37 secs. Auto Shutoff: 0.0711757
+3.34321% complete. Elapsed simulation time: 1.67161e-12 secs. Max time remaining: 33 hrs, 49 mins, 32 secs. Auto Shutoff: 0.0706603
+3.59052% complete. Elapsed simulation time: 1.79526e-12 secs. Max time remaining: 33 hrs, 39 mins, 29 secs. Auto Shutoff: 0.0548078
+3.83783% complete. Elapsed simulation time: 1.91892e-12 secs. Max time remaining: 33 hrs, 30 mins, 8 secs. Auto Shutoff: 0.0556851
+4.08514% complete. Elapsed simulation time: 2.04257e-12 secs. Max time remaining: 33 hrs, 21 mins, 9 secs. Auto Shutoff: 0.0546698
+Checkpointing to D:\Abroad\full guide\Phase1\substudy2_d40nm_1789551423_p0.fsp.ckpt
+4.33245% complete. Elapsed simulation time: 2.16622e-12 secs. Max time remaining: 33 hrs, 12 mins, 49 secs. Auto Shutoff: 0.0552938
+4.57976% complete. Elapsed simulation time: 2.28988e-12 secs. Max time remaining: 33 hrs, 4 mins, 41 secs. Auto Shutoff: 0.0459184
+4.82808% complete. Elapsed simulation time: 2.41404e-12 secs. Max time remaining: 32 hrs, 56 mins, 37 secs. Auto Shutoff: 0.0446656
+5.0764% complete. Elapsed simulation time: 2.5382e-12 secs. Max time remaining: 32 hrs, 48 mins, 35 secs. Auto Shutoff: 0.0445238
+5.32471% complete. Elapsed simulation time: 2.66236e-12 secs. Max time remaining: 32 hrs, 40 mins, 60 secs. Auto Shutoff: 0.0445685
+5.57303% complete. Elapsed simulation time: 2.78652e-12 secs. Max time remaining: 32 hrs, 33 mins, 46 secs. Auto Shutoff: 0.0379109
+Checkpointing to D:\Abroad\full guide\Phase1\substudy2_d40nm_1789553225_p0.fsp.ckpt
+5.82135% complete. Elapsed simulation time: 2.91068e-12 secs. Max time remaining: 32 hrs, 26 mins, 38 secs. Auto Shutoff: 0.0384385
+6.06967% complete. Elapsed simulation time: 3.03483e-12 secs. Max time remaining: 32 hrs, 19 mins, 34 secs. Auto Shutoff: 0.0379558
+6.31799% complete. Elapsed simulation time: 3.15899e-12 secs. Max time remaining: 32 hrs, 12 mins, 48 secs. Auto Shutoff: 0.0342456
+6.56631% complete. Elapsed simulation time: 3.28315e-12 secs. Max time remaining: 32 hrs, 6 mins, 7 secs. Auto Shutoff: 0.0326315
+6.81462% complete. Elapsed simulation time: 3.40731e-12 secs. Max time remaining: 31 hrs, 59 mins, 33 secs. Auto Shutoff: 0.0338547
+7.06294% complete. Elapsed simulation time: 3.53147e-12 secs. Max time remaining: 31 hrs, 53 mins, 9 secs. Auto Shutoff: 0.032738
+Checkpointing to D:\Abroad\full guide\Phase1\substudy2_d40nm_1789555028_p0.fsp.ckpt
+7.31126% complete. Elapsed simulation time: 3.65563e-12 secs. Max time remaining: 31 hrs, 46 mins, 46 secs. Auto Shutoff: 0.0283003
+7.55958% complete. Elapsed simulation time: 3.77979e-12 secs. Max time remaining: 31 hrs, 40 mins, 27 secs. Auto Shutoff: 0.0290411
+7.8079% complete. Elapsed simulation time: 3.90395e-12 secs. Max time remaining: 31 hrs, 34 mins, 16 secs. Auto Shutoff: 0.0299559
+8.05622% complete. Elapsed simulation time: 4.02811e-12 secs. Max time remaining: 31 hrs, 28 mins, 9 secs. Auto Shutoff: 0.0282426
+8.30353% complete. Elapsed simulation time: 4.15176e-12 secs. Max time remaining: 31 hrs, 22 mins, 13 secs. Auto Shutoff: 0.0251451
+8.55184% complete. Elapsed simulation time: 4.27592e-12 secs. Max time remaining: 31 hrs, 16 mins, 13 secs. Auto Shutoff: 0.0254335
+Checkpointing to D:\Abroad\full guide\Phase1\substudy2_d40nm_1789556830_p0.fsp.ckpt
+8.80016% complete. Elapsed simulation time: 4.40008e-12 secs. Max time remaining: 31 hrs, 10 mins, 14 secs. Auto Shutoff: 0.0253057
+9.04747% complete. Elapsed simulation time: 4.52374e-12 secs. Max time remaining: 31 hrs, 4 mins, 28 secs. Auto Shutoff: 0.0243481
+9.29478% complete. Elapsed simulation time: 4.64739e-12 secs. Max time remaining: 30 hrs, 58 mins, 52 secs. Auto Shutoff: 0.0224837
+9.54209% complete. Elapsed simulation time: 4.77104e-12 secs. Max time remaining: 30 hrs, 53 mins, 12 secs. Auto Shutoff: 0.0220547
+9.7894% complete. Elapsed simulation time: 4.8947e-12 secs. Max time remaining: 30 hrs, 47 mins, 39 secs. Auto Shutoff: 0.0230712
+10.0367% complete. Elapsed simulation time: 5.01835e-12 secs. Max time remaining: 30 hrs, 42 mins, 8 secs. Auto Shutoff: 0.021149
+Checkpointing to D:\Abroad\full guide\Phase1\substudy2_d40nm_1789558632_p0.fsp.ckpt
+10.284% complete. Elapsed simulation time: 5.14201e-12 secs. Max time remaining: 30 hrs, 36 mins, 38 secs. Auto Shutoff: 0.0199187
+10.5293% complete. Elapsed simulation time: 5.26465e-12 secs. Max time remaining: 30 hrs, 31 mins, 26 secs. Auto Shutoff: 0.0199399
+10.7746% complete. Elapsed simulation time: 5.3873e-12 secs. Max time remaining: 30 hrs, 26 mins, 23 secs. Auto Shutoff: 0.0205929
+11.0189% complete. Elapsed simulation time: 5.50944e-12 secs. Max time remaining: 30 hrs, 21 mins, 27 secs. Auto Shutoff: 0.0187622
+11.2632% complete. Elapsed simulation time: 5.63158e-12 secs. Max time remaining: 30 hrs, 16 mins, 35 secs. Auto Shutoff: 0.0189286
+11.5084% complete. Elapsed simulation time: 5.75422e-12 secs. Max time remaining: 30 hrs, 11 mins, 28 secs. Auto Shutoff: 0.0179868
+Checkpointing to D:\Abroad\full guide\Phase1\substudy2_d40nm_1789560434_p0.fsp.ckpt
+11.7527% complete. Elapsed simulation time: 5.87636e-12 secs. Max time remaining: 30 hrs, 6 mins, 34 secs. Auto Shutoff: 0.0187613
+11.996% complete. Elapsed simulation time: 5.998e-12 secs. Max time remaining: 30 hrs, 1 min, 50 secs. Auto Shutoff: 0.0167748
+12.2393% complete. Elapsed simulation time: 6.11964e-12 secs. Max time remaining: 29 hrs, 57 mins, 4 secs. Auto Shutoff: 0.0171552
+12.4846% complete. Elapsed simulation time: 6.24228e-12 secs. Max time remaining: 29 hrs, 51 mins, 59 secs. Auto Shutoff: 0.0168976
+12.7299% complete. Elapsed simulation time: 6.36493e-12 secs. Max time remaining: 29 hrs, 46 mins, 49 secs. Auto Shutoff: 0.0157897
+12.9762% complete. Elapsed simulation time: 6.48808e-12 secs. Max time remaining: 29 hrs, 41 mins, 37 secs. Auto Shutoff: 0.0151775
+Checkpointing to D:\Abroad\full guide\Phase1\substudy2_d40nm_1789562238_p0.fsp.ckpt
+13.2225% complete. Elapsed simulation time: 6.61123e-12 secs. Max time remaining: 29 hrs, 36 mins, 23 secs. Auto Shutoff: 0.0153553
+13.4688% complete. Elapsed simulation time: 6.73438e-12 secs. Max time remaining: 29 hrs, 31 mins, 8 secs. Auto Shutoff: 0.0152967
+13.714% complete. Elapsed simulation time: 6.85702e-12 secs. Max time remaining: 29 hrs, 26 mins, 2 secs. Auto Shutoff: 0.0140378
+13.9508% complete. Elapsed simulation time: 6.97538e-12 secs. Max time remaining: 29 hrs, 22 mins, 11 secs. Auto Shutoff: 0.0136612
+14.189% complete. Elapsed simulation time: 7.09449e-12 secs. Max time remaining: 29 hrs, 18 mins, 6 secs. Auto Shutoff: 0.0151528
+14.4322% complete. Elapsed simulation time: 7.21612e-12 secs. Max time remaining: 29 hrs, 13 mins, 16 secs. Auto Shutoff: 0.0145511
+Checkpointing to D:\Abroad\full guide\Phase1\substudy2_d40nm_1789564040_p0.fsp.ckpt
