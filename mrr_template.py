@@ -27,6 +27,8 @@ Usage:
     py -3 mrr_template.py --phase4          # Phase 4 naive inverse + tandem
     py -3 mrr_template.py --phase5          # Phase 5 RF / XGBoost (resumable)
     py -3 mrr_template.py --phase6          # Phase 6 master tables + curves
+    py -3 mrr_template.py --phase7          # Phase 7 CPO scenario validation
+    py -3 mrr_template.py --phase7sim       # re-simulate the candidates (Lumerical)
     py -3 mrr_template.py --closedloop      # closed-loop re-verification (Lumerical)
          optional:  --tandem  --rf_norm  --xgb_norm   --n=20
 
@@ -194,6 +196,25 @@ XGB_N_ITER = 60                 # Phase 5.2 permits RandomizedSearchCV >= 60
 # --- Phase 6: evaluation ---------------------------------------------------
 SAMPLE_SIZES = [100, 200, 400, 600, None]   # Phase 6.3; None = full pool
 CLOSEDLOOP_N = 20                           # Phase 6.2 requires n >= 20
+
+# --- Phase 7: CPO scenarios ------------------------------------------------
+C_LIGHT = 2.99792458e8
+# Phase 7.3 fixes each scenario as a BAND or a BOUND, not a point target,
+# while Phase 7.4 step 1 asks for a target TUPLE. The construction rule used
+# here is stated in the report: a bound is targeted at its stated value, a
+# band at its geometric mean, and IL at half its limit so the query asks for
+# a design with margin rather than one at the edge of failure.
+SCENARIOS = {
+    "A": dict(name="Moderate-density CPO link (4 channels, 4 nm grid)",
+              lam=1550.0, dlam_ch=4.0, n_ch_req=4,
+              fsr_min=16.0, q_lo=1500.0, q_hi=8000.0, il_max=1.5,
+              target=(1550.0, 16.0, float(np.sqrt(1500.0*8000.0)), 0.75)),
+    "B": dict(name="Dense CPO link (8 channels, 100 GHz / 0.8 nm ITU grid)",
+              lam=1550.0, dlam_ch=0.8, n_ch_req=8,
+              fsr_min=6.4, q_lo=7750.0, q_hi=None, il_max=1.0,
+              target=(1550.0, 6.4, 7750.0, 0.50)),
+}
+IL_THROUGH_DB = 0.1      # Fix 6's assumed off-resonance through-port loss
 SUBSTUDY2_CSV = "substudy2_mesh_convergence_{dim}.csv"
 
 # --- movie monitor settings ------------------------------------------------
@@ -3015,7 +3036,35 @@ def run_closedloop(method="naive", n=CLOSEDLOOP_N):
               "not a",
               "  missing measurement. It is counted in the denominator below."]
     L.append("")
+
+    # ---- free held-out validation of the Phase 1 kappa^2 model ----------
+    # These geometries were never in the 48-point coupler set, so their
+    # freshly measured kappa^2 is an out-of-sample test of the fitted model.
     if ok:
+        respond = _make_responder()
+        er = []
+        for k in ok:
+            R, w, g, Lc = done[k]["geom"]
+            km = done[k]["kappa2"]
+            kp = respond(R, w, g, Lc)["kappa2"]
+            er.append(100.0 * (kp - km) / km)
+        er = np.array(er)
+        L += ["  HELD-OUT VALIDATION OF THE PHASE 1 kappa^2 MODEL",
+              "  " + "-" * 74,
+              "  These geometries were not in the 48-point coupler set the "
+              "model was",
+              "  fitted on, so this is an out-of-sample test obtained free "
+              "from this run.",
+              f"    MAPE {np.mean(np.abs(er)):.2f} %   "
+              f"RMS {np.sqrt(np.mean(er**2)):.2f} %   "
+              f"bias {np.mean(er):+.2f} %   max {np.max(np.abs(er)):.2f} %",
+              f"    within 10%: {100*np.mean(np.abs(er)<=10):.0f} %   "
+              f"within 5%: {100*np.mean(np.abs(er)<=5):.0f} %",
+              "    (Phase 1 reported 3.37 % MAPE by 8-fold CV on the "
+              "training points)",
+              "  energy conservation on every run: kappa^2 + t^2 = "
+              + f"{np.mean([done[k]['kappa2']+done[k].get('t2',np.nan) for k in ok]):.4f}"
+              " (mean)", ""]
         L += ["  per-target closed-loop error (re-simulated vs requested)",
               f"  {'target':16s} {'MAPE %':>10s} {'RMS %':>10s} {'max %':>10s}"]
         rms_all = []
@@ -3043,6 +3092,332 @@ def run_closedloop(method="naive", n=CLOSEDLOOP_N):
     txt = "\n".join(L)
     open(os.path.join(resdir, f"closedloop_{method}.txt"), "w").write(
         txt + "\n")
+    print("\n" + txt)
+
+
+# ---------------------------------------------------------------------------
+# PHASE 7 -- CPO / INTERCONNECT MAPPING
+# ---------------------------------------------------------------------------
+
+def _df3db_ghz(fwhm_nm, lam_nm):
+    """Eq. 16: 3-dB optical bandwidth in GHz."""
+    return C_LIGHT * (fwhm_nm * 1e-9) / (lam_nm * 1e-9) ** 2 / 1e9
+
+
+def _scale_target(tup, sc):
+    """Physical target tuple -> the scaled vector the inverse models expect."""
+    out = []
+    for v, k in zip(tup, TARGETS):
+        p = sc[k]
+        x = np.log10(v) if p["transform"].startswith("log10") else v
+        out.append((x - p["min"]) / (p["max"] - p["min"]))
+    return np.array([out], dtype=np.float32)
+
+
+def run_phase7():
+    import json
+    torch = _torch()
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+    p5 = json.load(open(os.path.join(resdir, "phase5_results.json")))
+    respond = _make_responder()
+    Gr_tr, _ = _load_split_raw("train")
+
+    L = ["PHASE 7 -- APPLICATION-SPECIFIC VALIDATION (CPO MAPPING)", "=" * 86,
+         "Target tuples are CONSTRUCTED here, because Phase 7.3 states each",
+         "spec as a band or a bound while Phase 7.4 step 1 needs a point "
+         "target.",
+         "Rule used: a bound is targeted at its stated value, a band at its",
+         "geometric mean, and IL at half its limit so the query asks for "
+         "margin",
+         "rather than for a design sitting exactly at the failure edge.",
+         "A different construction would move these numbers; state the rule "
+         "in the",
+         "thesis alongside the results.", ""]
+
+    # --- the inverse models ----------------------------------------------
+    models = {}
+    for mth in ("naive", "tandem"):
+        f = os.path.join(resdir, f"phase4_{mth}_inverse.pt")
+        if os.path.isfile(f):
+            models[f"{mth} DNN"] = ("dnn", f)
+    for kind in ("rf", "xgb"):
+        for cond in ("raw", "norm"):
+            if f"inverse_{kind}_{cond}" in p5:
+                models[f"{kind.upper()} ({cond})"] = ("tree",
+                                                      f"inverse_{kind}_{cond}")
+
+    cands = {}
+    for sk, S in SCENARIOS.items():
+        tgt = S["target"]
+        L += ["=" * 86, f"SCENARIO {sk} -- {S['name']}", "=" * 86,
+              f"  spec: lambda_res = {S['lam']:g} nm, FSR >= {S['fsr_min']:g} "
+              f"nm, " + (f"Q_L {S['q_lo']:.0f}-{S['q_hi']:.0f}"
+                         if S["q_hi"] else f"Q_L >= {S['q_lo']:.0f}")
+              + f", IL <= {S['il_max']:g} dB",
+              f"  constructed target tuple: lambda {tgt[0]:.1f} nm, "
+              f"FSR {tgt[1]:.2f} nm, Q_L {tgt[2]:.0f}, IL {tgt[3]:.2f} dB", ""]
+
+        # --- Fix 7b: how close is this scenario to the training data? ----
+        if sk == "A":
+            ng = 4.2
+            Lmax = (S["lam"] ** 2) / (ng * S["fsr_min"]) / 1e3
+            Rmax = Lmax / (2 * np.pi)
+            inreg = int(np.sum((Gr_tr[:, 0] <= Rmax)))
+            L += ["  BOUNDARY-PROXIMITY CHECK (v1.3 Fix 7b -- report this "
+                  "explicitly)",
+                  f"    FSR >= {S['fsr_min']:g} nm at n_g = {ng} needs "
+                  f"L <= {Lmax:.2f} um, i.e. R <= {Rmax:.2f} um at Lc = 0.",
+                  f"    That is the lowest {100*(Rmax-5.0)/10.0:.1f} % of the "
+                  f"R range.",
+                  f"    Training samples with R <= {Rmax:.2f} um: {inreg} of "
+                  f"{len(Gr_tr)} ({100*inreg/len(Gr_tr):.1f} %).",
+                  "    Scenario A queries therefore sit near the edge of the "
+                  "training",
+                  "    distribution -- Paper 9 probed exactly this with its "
+                  "'furthest data' test.", ""]
+
+        Xs = _scale_target(tgt, sc)
+        Xr = np.array([tgt])
+        L += ["  CANDIDATE GEOMETRIES AND THEIR PREDICTED RESPONSE",
+              f"  {'method':16s} {'R um':>8s} {'w nm':>8s} {'g nm':>8s} "
+              f"{'Lc um':>8s} | {'lam':>9s} {'FSR':>7s} {'Q_L':>9s} "
+              f"{'IL':>7s}  verdict"]
+        cands[sk] = {}
+        for name, (kind, ref) in models.items():
+            if kind == "dnn":
+                P, _ = _dnn_predict(torch, ref, Xs)
+                geo = _geo_physical(P, sc)[0]
+            else:
+                est_cond = ref.endswith("norm")
+                from sklearn.ensemble import RandomForestRegressor  # noqa
+                # the Phase 5 models were not pickled; refit is cheap and
+                # deterministic from the recorded best configuration
+                kk = "rf" if "_rf_" in ref else "xgb"
+                Gn_tr, Rn_tr, _ = _load_split("train")
+                bp = p5[ref]["best"]
+                e = _fit_sized(kk, "inverse", len(Gn_tr),
+                               Rn_tr if est_cond else _load_split_raw(
+                                   "train")[1],
+                               Gn_tr if est_cond else Gr_tr, bp)
+                X = Xs if est_cond else Xr
+                geo = (_geo_physical(e.predict(X), sc)[0] if est_cond
+                       else e.predict(X)[0])
+            R, w, g, Lc = [float(v) for v in geo]
+            bad = []
+            for nm, v, (lo, hi) in (("R", R, (5., 15.)), ("w", w, (400., 500.)),
+                                    ("g", g, (150., 350.)), ("Lc", Lc, (0., 3.))):
+                if not (lo <= v <= hi):
+                    bad.append(nm)
+            if bad:
+                L.append(f"  {name:16s} {R:8.3f} {w:8.1f} {g:8.1f} {Lc:8.3f} "
+                         f"| UNREALISABLE -- outside range: {', '.join(bad)}")
+                cands[sk][name] = dict(geom=[R, w, g, Lc],
+                                       status="unrealisable")
+                continue
+            r = respond(R, w, g, Lc)
+            ok = (abs(r["lambda_res_nm"] - S["lam"]) <= S["dlam_ch"] / 2
+                  and r["FSR_nm"] >= S["fsr_min"]
+                  and r["Q_L"] >= S["q_lo"]
+                  and (S["q_hi"] is None or r["Q_L"] <= S["q_hi"])
+                  and r["IL_dB"] <= S["il_max"])
+            miss = []
+            if abs(r["lambda_res_nm"] - S["lam"]) > S["dlam_ch"] / 2:
+                miss.append(f"lam off by "
+                            f"{r['lambda_res_nm']-S['lam']:+.2f} nm")
+            if r["FSR_nm"] < S["fsr_min"]:
+                miss.append(f"FSR short by "
+                            f"{S['fsr_min']-r['FSR_nm']:.2f} nm")
+            if r["Q_L"] < S["q_lo"]:
+                miss.append(f"Q_L low by {S['q_lo']-r['Q_L']:.0f}")
+            if S["q_hi"] and r["Q_L"] > S["q_hi"]:
+                miss.append(f"Q_L high by {r['Q_L']-S['q_hi']:.0f}")
+            if r["IL_dB"] > S["il_max"]:
+                miss.append(f"IL over by {r['IL_dB']-S['il_max']:.2f} dB")
+            L.append(f"  {name:16s} {R:8.3f} {w:8.1f} {g:8.1f} {Lc:8.3f} | "
+                     f"{r['lambda_res_nm']:9.3f} {r['FSR_nm']:7.3f} "
+                     f"{r['Q_L']:9.0f} {r['IL_dB']:7.3f}  "
+                     + ("PASS" if ok else "FAIL: " + "; ".join(miss)))
+            cands[sk][name] = dict(geom=[R, w, g, Lc], status="ok",
+                                   pred={k: float(r[k]) for k in TARGETS},
+                                   fwhm=float(r["FWHM_nm"]), passes=bool(ok))
+
+        # --- 7.1 / 7.2 translation for whichever candidates are realisable
+        L += ["", "  CPO TRANSLATION (Eqs. 16-18) for each realisable "
+              "candidate", "  " + "-" * 82,
+              f"  {'method':16s} {'FWHM nm':>9s} {'df_3dB GHz':>11s} "
+              f"{'N_ch':>6s} {'IL worst-case':>14s} {'IL per-channel':>15s}"]
+        for name, d in cands[sk].items():
+            if d["status"] != "ok":
+                L.append(f"  {name:16s}   (unrealisable geometry -- no CPO "
+                         "translation)")
+                continue
+            fw = d["fwhm"]
+            df = _df3db_ghz(fw, d["pred"]["lambda_res_nm"])
+            nch = d["pred"]["FSR_nm"] / S["dlam_ch"]
+            il = d["pred"]["IL_dB"]
+            N = S["n_ch_req"]
+            worst = N * il                                   # Eq. 18
+            perch = il + (N - 1) * IL_THROUGH_DB             # Fix 6 refinement
+            L.append(f"  {name:16s} {fw:9.4f} {df:11.1f} {nch:6.1f} "
+                     f"{worst:11.2f} dB {perch:12.2f} dB")
+        L += ["",
+              f"  Eq. 18 bound assumes every one of the {S['n_ch_req']} rings "
+              "contributes its full",
+              "  drop-port loss. Fix 6 states this deliberately overstates "
+              "the real",
+              "  per-channel loss: a channel dropped at ring k sees one drop "
+              "loss plus",
+              f"  (k-1) off-resonance transits, so the refined column uses "
+              f"IL + {S['n_ch_req']-1} x {IL_THROUGH_DB:g} dB.",
+              "  The threshold itself is unchanged -- only its justification.",
+              f"  Data-rate note: with {S['n_ch_req']} channels on a "
+              f"{S['dlam_ch']:g} nm grid, a 3-dB bandwidth of",
+              "  df_3dB supports roughly df_3dB/0.75 Gb/s NRZ under the "
+              "common assumption",
+              "  that the optical filter bandwidth must exceed ~0.75x the "
+              "symbol rate.", ""]
+
+    # --- scenario verdict summary (Phase 7.4 step 4, mandatory) ----------
+    L += ["=" * 86, "SCENARIO VERDICT SUMMARY (Phase 7.4 step 4)", "=" * 86]
+    for sk in SCENARIOS:
+        p = [n for n, d in cands[sk].items()
+             if d["status"] == "ok" and d["passes"]]
+        L.append(f"  Scenario {sk}: "
+                 + (f"MET by {len(p)} method(s) -- {', '.join(p)}" if p
+                    else "NOT met by any method on every spec simultaneously"))
+    allp = any(d["status"] == "ok" and d["passes"]
+               for sk in SCENARIOS for d in cands[sk].values())
+    L += ["", "  O7 requires >= 1 method to meet all four specs in >= 1 "
+          "scenario: "
+          + ("MET" if allp else "NOT MET"),
+          "  Section 5 revision trigger for Phase 7: if no method meets IL or "
+          "Q",
+          "  tolerance, revisit the Phase 1.6 coupling-boundary check."]
+
+    # --- 7.5 thermal tunability -------------------------------------------
+    L += ["", "=" * 86, "7.5  THERMAL TUNABILITY (qualitative, out of core "
+          "scope)", "=" * 86]
+    dndT = 1.86e-4
+    for ng_ in (4.2, 4.31):
+        L.append(f"  at n_g = {ng_}: dlambda/dT ~ 1550/{ng_} x {dndT:.2e} "
+                 f"= {1550/ng_*dndT*1e3:.1f} pm/K")
+    L += ["  v1.3 note: Eq. 19 needs the MODAL dn_eff/dT, while 1.86e-4 is "
+          "the MATERIAL",
+          "  dn/dT for silicon; the two coincide only at unity confinement, "
+          "so the",
+          "  quoted 70-90 pm/K band is right at its lower end and optimistic "
+          "at its upper.",
+          "  A fabrication offset of one channel spacing would need:"]
+    for sk, S in SCENARIOS.items():
+        L.append(f"    Scenario {sk}: {S['dlam_ch']:g} nm / "
+                 f"{1550/4.2*dndT*1e3:.1f} pm/K = "
+                 f"{S['dlam_ch']*1e3/(1550/4.2*dndT*1e3):.0f} K of tuning")
+    L += ["  Use the mode solver's own dn_eff/dT if this extension is "
+          "pursued.", "",
+          "=" * 86, "STILL OUTSTANDING", "=" * 86,
+          "  Phase 7.4 step 3 asks for the candidate geometries to be "
+          "RE-SIMULATED,",
+          "  not just evaluated through the analytic model. The verdicts "
+          "above use",
+          "  the analytic response, which is the same model that produced the "
+          "labels.",
+          "  For the independent check run:",
+          "      py -3 mrr_template.py --phase7sim",
+          "  That puts each realisable candidate through a 3-D FDTD coupler "
+          "run,",
+          "  as the Phase 6.2 closed-loop procedure does."]
+
+    json.dump(cands, open(os.path.join(resdir, "phase7_candidates.json"), "w"),
+              indent=1)
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "phase7_report.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+    print(f"\n[phase7] wrote phase7_report.txt and phase7_candidates.json "
+          f"to {resdir}/")
+
+
+def run_phase7sim():
+    """
+    Phase 7.4 step 3: re-simulate every realisable Scenario candidate through
+    a fresh 3-D FDTD coupler run, so the scenario verdicts rest on an
+    independent measurement rather than on the analytic model that produced
+    the training labels. Resumable.
+    """
+    import json
+    resdir = "results" if os.path.isdir("results") else "."
+    cpath = os.path.join(resdir, "phase7_candidates.json")
+    if not os.path.isfile(cpath):
+        raise SystemExit("[phase7sim] run --phase7 first")
+    cands = json.load(open(cpath))
+    ck = os.path.join(resdir, "phase7_resim.json")
+    done = json.load(open(ck)) if os.path.isfile(ck) else {}
+
+    jobs = [(sk, nm, d) for sk, mm in cands.items() for nm, d in mm.items()
+            if d["status"] == "ok"]
+    print(f"[phase7sim] {len(jobs)} realisable candidates, "
+          f"{len(done)} already simulated")
+    for i, (sk, nm, d) in enumerate(jobs, 1):
+        key = f"{sk}|{nm}"
+        if key in done:
+            continue
+        R, w, g, Lc = d["geom"]
+        print(f"[phase7sim] {i}/{len(jobs)}  {sk} {nm}: R={R:.3f}um "
+              f"w={w:.1f}nm g={g:.1f}nm Lc={Lc:.3f}um ...")
+        t0 = time.time()
+        try:
+            k2, t2 = _coupler_kappa2_fdtd(R, w, g, Lc)
+        except Exception as exc:                        # noqa: BLE001
+            print(f"[phase7sim]   FAILED: {exc} -- re-run to retry")
+            time.sleep(20)
+            continue
+        r = _ring_given_kappa2(R, w, g, Lc, k2)
+        done[key] = dict(kappa2=float(k2), t2=float(t2),
+                         resim={k: float(r[k]) for k in TARGETS},
+                         minutes=(time.time() - t0) / 60.0)
+        json.dump(done, open(ck, "w"), indent=1)
+        print(f"[phase7sim]   kappa^2 {k2:.6f}  "
+              f"({(time.time()-t0)/60:.1f} min)")
+
+    L = ["PHASE 7.4 STEP 3 -- RE-SIMULATED SCENARIO VERDICTS", "=" * 86,
+         "Each candidate geometry was re-simulated with a fresh 3-D FDTD "
+         "coupler run.",
+         "These verdicts replace the analytic ones in phase7_report.txt.", ""]
+    for sk, S in SCENARIOS.items():
+        L += [f"SCENARIO {sk} -- {S['name']}", "-" * 86,
+              f"  {'method':16s} {'lam':>9s} {'FSR':>7s} {'Q_L':>9s} "
+              f"{'IL':>7s} {'df_3dB':>9s} {'N_ch':>6s}  verdict"]
+        for nm, d in cands.get(sk, {}).items():
+            key = f"{sk}|{nm}"
+            if d["status"] != "ok":
+                L.append(f"  {nm:16s}  unrealisable geometry -- counts as a "
+                         "FAIL for this scenario")
+                continue
+            if key not in done:
+                L.append(f"  {nm:16s}  not simulated yet")
+                continue
+            r = done[key]["resim"]
+            miss = []
+            if abs(r["lambda_res_nm"] - S["lam"]) > S["dlam_ch"] / 2:
+                miss.append(f"lam {r['lambda_res_nm']-S['lam']:+.2f} nm")
+            if r["FSR_nm"] < S["fsr_min"]:
+                miss.append(f"FSR -{S['fsr_min']-r['FSR_nm']:.2f} nm")
+            if r["Q_L"] < S["q_lo"]:
+                miss.append(f"Q_L -{S['q_lo']-r['Q_L']:.0f}")
+            if S["q_hi"] and r["Q_L"] > S["q_hi"]:
+                miss.append(f"Q_L +{r['Q_L']-S['q_hi']:.0f}")
+            if r["IL_dB"] > S["il_max"]:
+                miss.append(f"IL +{r['IL_dB']-S['il_max']:.2f} dB")
+            fw = r["lambda_res_nm"] / r["Q_L"]
+            L.append(f"  {nm:16s} {r['lambda_res_nm']:9.3f} {r['FSR_nm']:7.3f}"
+                     f" {r['Q_L']:9.0f} {r['IL_dB']:7.3f} "
+                     f"{_df3db_ghz(fw, r['lambda_res_nm']):9.1f} "
+                     f"{r['FSR_nm']/S['dlam_ch']:6.1f}  "
+                     + ("PASS" if not miss else "FAIL: " + "; ".join(miss)))
+        L.append("")
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "phase7_resim.txt"), "w").write(txt + "\n")
     print("\n" + txt)
 
 
@@ -3314,6 +3689,14 @@ def run_substudy2(dimension="3D"):
 # ---------------------------------------------------------------------------
 
 def main():
+    if "--phase7sim" in sys.argv:
+        run_phase7sim()
+        return
+
+    if "--phase7" in sys.argv:
+        run_phase7()
+        return
+
     if "--closedloop" in sys.argv:
         mth = "naive"
         for a in ("naive", "tandem", "rf_norm", "rf_raw", "xgb_norm",
