@@ -1,0 +1,69 @@
+PHASE 2 -- DATA PREPROCESSING
+====================================================================
+source: data\mrr_dataset.csv
+rows in: 1000
+
+2.1 CLEANING
+--------------------------------------------------------------------
+  removed: 0
+  N_clean = 1000
+
+2.2 COVERAGE CHECK
+--------------------------------------------------------------------
+  Scenario A feasible samples: 3
+  Scenario B feasible samples: 304
+  GAP: only 3 samples meet all Scenario A specs -> generating a targeted supplementary batch
+  added 150 samples in R (5.0, 5.6) um, g (150.0, 290.0) nm, Lc (0.0, 1.6) um
+  Scenario A feasible after: 24  (was 3)
+  Scenario B feasible after: 331  (was 304)
+  these rows are marked in the origin column
+
+  N_clean (final) = 1150
+
+  marginal ranges:
+--------------------------------------------------------------------
+    R_um                  5.0025        9.2511       14.9926
+    w_nm                400.0421      450.0671      499.9463
+    g_nm                150.0438      245.2005      349.8374
+    Lc_um                 0.0027        1.2957        2.9975
+    lambda_res_nm      1541.1891     1550.0715     1558.2371
+    FSR_nm                5.4818        9.0448       17.5640
+    Q_L                 763.9248    14201.5949   187650.3514
+    IL_dB                 0.0314        0.6128        9.8586
+
+2.4 SPLIT (whole geometry samples, seed 42)
+--------------------------------------------------------------------
+  train   805  (70.0%)  supplementary rows: 107
+  val     172  (15.0%)  supplementary rows: 20
+  test    173  (15.0%)  supplementary rows: 23
+
+2.3 TRANSFORMS
+--------------------------------------------------------------------
+  scaler fitted on the TRAINING split only, then applied to val
+  and test, so no test information reaches the fit
+  Q_L: log10 before min-max (Phase 2.3); the others stay linear
+    R_um            minmax         min      5.00371  max     14.99257
+    w_nm            minmax         min    400.04208  max    499.94626
+    g_nm            minmax         min    150.04382  max    349.45553
+    Lc_um           minmax         min      0.00520  max      2.99752
+    lambda_res_nm   minmax         min   1541.18908  max   1558.23711
+    FSR_nm          minmax         min      5.48182  max     17.56396
+    Q_L             log10+minmax   min      2.88305  max      5.27335
+    IL_dB           minmax         min      0.03143  max      9.85862
+
+2.5 ENGINEERED FEATURE (ablation, optional)
+--------------------------------------------------------------------
+  The dataset already carries kappa2 as a column. Note before
+  using it as an input feature: in this dual-fidelity dataset
+  kappa2 is the exact intermediate the targets were computed
+  from, not an independent estimate. Feeding it to a model
+  hands over most of the forward map, so any gain is not
+  comparable to the Paper 6-style engineered-feature result.
+  Report it as a diagnostic, not as a fair feature-set comparison.
+
+2.2 FIGURE SET
+--------------------------------------------------------------------
+  phase2_marginals.png
+  phase2_pairwise_inputs.png
+  phase2_output_coverage.png
+  phase2_split_check.png

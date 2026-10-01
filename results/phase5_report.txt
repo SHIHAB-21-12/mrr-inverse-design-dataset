@@ -1,0 +1,160 @@
+PHASE 5 -- RANDOM FOREST / XGBOOST BASELINES
+==========================================================================
+5-fold CV on the 805-sample training pool, minimising mean MAPE
+MAPE is always computed in PHYSICAL units, so the normalized and
+unnormalized conditions of Phase 5.3 are directly comparable.
+
+forward_rf_raw
+--------------------------------------------------------------------------
+  search: GridSearchCV, full grid, 240 configurations
+  best CV MAPE: 14.3773 %
+  selected: max_depth=40, max_features=None, min_samples_leaf=1, n_estimators=500
+  output                  R2    MAPE %         RMSE
+  lambda_res_nm      -0.1033     0.166       3.1005
+  FSR_nm              0.6849    17.479       2.0186
+  Q_L                 0.9521    12.523       5300.9
+  IL_dB               0.9325    25.638      0.33549
+
+forward_rf_norm
+--------------------------------------------------------------------------
+  search: GridSearchCV, full grid, 240 configurations
+  best CV MAPE: 13.3771 %
+  selected: max_depth=40, max_features=sqrt, min_samples_leaf=1, n_estimators=500
+  output                  R2    MAPE %         RMSE
+  lambda_res_nm      -0.0678     0.164       3.0501
+  FSR_nm              0.9921     2.727      0.31948
+  Q_L                 0.9166    17.233       6996.3
+  IL_dB               0.9075    27.251      0.39267
+
+inverse_rf_raw
+--------------------------------------------------------------------------
+  search: GridSearchCV, full grid, 240 configurations
+  best CV MAPE: 59.1149 %
+  selected: max_depth=40, max_features=sqrt, min_samples_leaf=1, n_estimators=300
+  output                  R2    MAPE %         RMSE
+  R_um                0.9771     4.130      0.48182
+  w_nm                0.1836     4.685       25.585
+  g_nm                0.6949    10.659       31.192
+  Lc_um               0.2002   406.286      0.81635
+  RMS-RGE = 15.856 %   (R,w,g only: 9.403 %)   O3 <= 15%: NOT MET
+
+inverse_rf_norm
+--------------------------------------------------------------------------
+  search: GridSearchCV, full grid, 240 configurations
+  best CV MAPE: 58.5425 %
+  selected: max_depth=40, max_features=None, min_samples_leaf=1, n_estimators=500
+  output                  R2    MAPE %         RMSE
+  R_um                0.9894     2.913      0.32807
+  w_nm                0.1336     4.793       26.357
+  g_nm                0.6872    10.669        31.58
+  Lc_um               0.2002   437.164      0.81633
+  RMS-RGE = 15.706 %   (R,w,g only: 9.061 %)   O3 <= 15%: NOT MET
+
+forward_xgb_raw
+--------------------------------------------------------------------------
+  search: RandomizedSearchCV, 60 of 972 configurations (Phase 5.2 fallback, full grid too large)
+  best CV MAPE: 5.7963 %
+  selected: colsample_bytree=1.0, learning_rate=0.05, max_depth=6, n_estimators=300, reg_lambda=0, subsample=0.7
+  output                  R2    MAPE %         RMSE
+  lambda_res_nm      -0.0837     0.168       3.0728
+  FSR_nm              0.9992     0.699      0.10256
+  Q_L                 0.9658     8.452       4481.2
+  IL_dB               0.9569    11.940      0.26795
+
+forward_xgb_norm
+--------------------------------------------------------------------------
+  search: RandomizedSearchCV, 60 of 972 configurations (Phase 5.2 fallback, full grid too large)
+  best CV MAPE: 5.7213 %
+  selected: colsample_bytree=1.0, learning_rate=0.05, max_depth=6, n_estimators=300, reg_lambda=0, subsample=0.7
+  output                  R2    MAPE %         RMSE
+  lambda_res_nm      -0.0795     0.168       3.0669
+  FSR_nm              0.9992     0.695      0.10114
+  Q_L                 0.9805     7.617       3386.8
+  IL_dB               0.9571    11.736      0.26756
+
+inverse_xgb_raw
+--------------------------------------------------------------------------
+  search: RandomizedSearchCV, 60 of 972 configurations (Phase 5.2 fallback, full grid too large)
+  best CV MAPE: 55.5699 %
+  selected: colsample_bytree=1.0, learning_rate=0.1, max_depth=9, n_estimators=100, reg_lambda=1, subsample=0.7
+  output                  R2    MAPE %         RMSE
+  R_um                0.9927     2.293      0.27223
+  w_nm                0.1485     4.799       26.129
+  g_nm                0.6850    10.395       31.694
+  Lc_um               0.1048   324.595      0.86366
+  RMS-RGE = 16.370 %   (R,w,g only: 9.002 %)   O3 <= 15%: NOT MET
+
+inverse_xgb_norm
+--------------------------------------------------------------------------
+  search: RandomizedSearchCV, 60 of 972 configurations (Phase 5.2 fallback, full grid too large)
+  best CV MAPE: 55.5759 %
+  selected: colsample_bytree=1.0, learning_rate=0.1, max_depth=9, n_estimators=100, reg_lambda=1, subsample=0.7
+  output                  R2    MAPE %         RMSE
+  R_um                0.9926     2.343      0.27342
+  w_nm                0.1511     4.786       26.089
+  g_nm                0.6750    10.592       32.192
+  Lc_um               0.1014   325.959       0.8653
+  RMS-RGE = 16.449 %   (R,w,g only: 9.135 %)   O3 <= 15%: NOT MET
+
+==========================================================================
+5.3 NORMALIZATION TEST (mandatory)
+==========================================================================
+  Paper 6 found normalization helped two targets and hurt one.
+  This design space, same comparison:
+
+  model                  raw MAPE   norm MAPE      verdict
+  forward_rf               13.951      11.844 normalization helps
+  inverse_rf              106.440     113.885 raw is better
+  forward_xgb               5.315       5.054 normalization helps
+  inverse_xgb              85.520      85.920 raw is better
+
+  Note: tree splits are order-based, so a monotone rescaling of
+  the INPUTS cannot change a tree's structure. Any difference here
+  comes from rescaling the TARGETS, which reweights the multi-output
+  variance criterion, plus the log10 on Q_L in the normalized set.
+
+==========================================================================
+FEATURE IMPORTANCES (forward models)
+==========================================================================
+  forward_rf_raw: g_nm 55.4%, w_nm 29.3%, Lc_um 10.6%, R_um 4.6%
+  forward_rf_norm: R_um 52.8%, g_nm 23.1%, w_nm 13.5%, Lc_um 10.6%
+  forward_xgb_raw: R_um 32.6%, g_nm 30.7%, w_nm 21.1%, Lc_um 15.6%
+  forward_xgb_norm: R_um 32.5%, g_nm 32.3%, w_nm 20.5%, Lc_um 14.7%
+
+  CAUTION on reading these. A multi-output tree splits to
+  reduce SUMMED variance across the four targets, so whichever
+  target has the largest numerical spread dominates. In raw
+  units Q_L spans ~10^3-10^5 and swamps lambda_res, FSR and IL,
+  so the ranking mostly reflects what drives Q_L. Normalizing
+  equalises the targets and the ranking can change completely.
+  Report BOTH rankings and say which preprocessing produced
+  each; a single ranking presented alone is not meaningful.
+
+==========================================================================
+NOTE ON THE SELECTION METRIC FOR THE INVERSE MODELS
+==========================================================================
+  Phase 5.2 fixes the search criterion as mean MAPE across all four
+  outputs, and that is what was used here. For the INVERSE models
+  the outputs are geometries, and Lc reaches 0 by design (Phase
+  1.2), so a relative error on Lc is unbounded -- Lc MAPE runs to
+  several hundred percent and dominates the mean, meaning the
+  hyperparameter selection is driven almost entirely by Lc.
+  This is the same pathology that Phase 6.2 Fix 4b already fixed
+  for RMS-RGE by range-normalising the Lc term; the Phase 5.2
+  selection metric was not given the matching treatment.
+  Reported, not changed: Phase 5.2's criterion is a fixed default.
+  Worth raising with the supervisor -- an RMS-RGE-based selection
+  criterion would make the inverse search consistent with the
+  metric the thesis actually reports.
+
+==========================================================================
+O3 INVERSE-DESIGN THRESHOLD
+==========================================================================
+  Phase 4:  naive DNN 15.501 %, tandem 31.438 %
+  inverse_rf_raw             15.856 %   (R,w,g only 9.403 %)
+  inverse_rf_norm            15.706 %   (R,w,g only 9.061 %)
+  inverse_xgb_raw            16.370 %   (R,w,g only 9.002 %)
+  inverse_xgb_norm           16.449 %   (R,w,g only 9.135 %)
+
+  best Phase 5 method: inverse_rf_norm at 15.706 %
+  O3 requires RMS-RGE <= 15% for AT LEAST ONE method: NOT MET by Phase 5 either

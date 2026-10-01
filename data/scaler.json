@@ -1,0 +1,64 @@
+{
+ "seed": 42,
+ "fractions": [
+  0.7,
+  0.15,
+  0.15
+ ],
+ "n_clean": 1150,
+ "fitted_on": "train split only",
+ "inputs": [
+  "R_um",
+  "w_nm",
+  "g_nm",
+  "Lc_um"
+ ],
+ "targets": [
+  "lambda_res_nm",
+  "FSR_nm",
+  "Q_L",
+  "IL_dB"
+ ],
+ "scaler": {
+  "R_um": {
+   "min": 5.0037145104669225,
+   "max": 14.99257093690142,
+   "transform": "minmax"
+  },
+  "w_nm": {
+   "min": 400.0420780431058,
+   "max": 499.9462562426646,
+   "transform": "minmax"
+  },
+  "g_nm": {
+   "min": 150.04382394870368,
+   "max": 349.4555281298807,
+   "transform": "minmax"
+  },
+  "Lc_um": {
+   "min": 0.005195744685538347,
+   "max": 2.997518479726438,
+   "transform": "minmax"
+  },
+  "lambda_res_nm": {
+   "min": 1541.189082803349,
+   "max": 1558.237111019069,
+   "transform": "minmax"
+  },
+  "FSR_nm": {
+   "min": 5.48182332167903,
+   "max": 17.563960050070364,
+   "transform": "minmax"
+  },
+  "Q_L": {
+   "min": 2.8830506058302787,
+   "max": 5.273349382016023,
+   "transform": "log10+minmax"
+  },
+  "IL_dB": {
+   "min": 0.031430574273924865,
+   "max": 9.858616139705909,
+   "transform": "minmax"
+  }
+ }
+}

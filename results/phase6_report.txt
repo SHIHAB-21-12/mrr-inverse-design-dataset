@@ -1,0 +1,147 @@
+PHASE 6 -- UNIFIED EVALUATION
+============================================================================================
+identical held-out test set, n = 173, used once.
+Every method appears in every table (Phase 6.4), including where it performs worst.
+
+============================================================================================
+6.1  MASTER TABLE -- FORWARD DIRECTION (geometry -> response)
+============================================================================================
+  all three metrics reported for every target, never only one
+
+  --- R2 ---
+  method                   lambda_res          FSR          Q_L           IL
+  DNN (Phase 3)                0.0058       0.9994       0.9983       0.9972
+  RF (raw)                    -0.1033       0.6849       0.9521       0.9325
+  RF (norm)                   -0.0678       0.9921       0.9166       0.9075
+  XGB (raw)                   -0.0837       0.9992       0.9658       0.9569
+  XGB (norm)                  -0.0795       0.9992       0.9805       0.9571
+
+  --- MAPE % ---
+  method                   lambda_res          FSR          Q_L           IL
+  DNN (Phase 3)                 0.159        0.537        3.469        9.612
+  RF (raw)                      0.166       17.479       12.523       25.638
+  RF (norm)                     0.164        2.727       17.233       27.251
+  XGB (raw)                     0.168        0.699        8.452       11.940
+  XGB (norm)                    0.168        0.695        7.617       11.736
+
+  --- RMSE ---
+  method                   lambda_res          FSR          Q_L           IL
+  DNN (Phase 3)                2.9431     0.090123       1005.8     0.068512
+  RF (raw)                     3.1005       2.0186       5300.9      0.33549
+  RF (norm)                    3.0501      0.31948       6996.3      0.39267
+  XGB (raw)                    3.0728      0.10256       4481.2      0.26795
+  XGB (norm)                   3.0669      0.10114       3386.8      0.26756
+
+  aggregate (mean MAPE across the four targets):
+    DNN (Phase 3)               3.444 %
+    RF (raw)                   13.951 %
+    RF (norm)                  11.844 %
+    XGB (raw)                   5.315 %
+    XGB (norm)                  5.054 %
+  best forward method: DNN (Phase 3) (3.444 %)
+
+============================================================================================
+6.2  MASTER TABLE -- INVERSE DIRECTION (response -> geometry)
+============================================================================================
+  --- R2 ---
+  method                            R            w            g           Lc
+  naive DNN                    0.9930       0.2894       0.6978       0.2131
+  Tandem                       0.9697      -0.8661       0.5951      -2.9019
+  RF (raw)                     0.9771       0.1836       0.6949       0.2002
+  RF (norm)                    0.9894       0.1336       0.6872       0.2002
+  XGB (raw)                    0.9927       0.1485       0.6850       0.1048
+  XGB (norm)                   0.9926       0.1511       0.6750       0.1014
+
+  --- MAPE % ---
+  method                            R            w            g           Lc
+  naive DNN                     2.458        4.424       10.702      327.310
+  Tandem                        5.503        6.906       12.014      364.564
+  RF (raw)                      4.130        4.685       10.659      406.286
+  RF (norm)                     2.913        4.793       10.669      437.164
+  XGB (raw)                     2.293        4.799       10.395      324.595
+  XGB (norm)                    2.343        4.786       10.592      325.959
+
+  --- RMSE ---
+  method                            R            w            g           Lc
+  naive DNN                   0.26656       23.869       31.043      0.80976
+  Tandem                      0.55437       38.681       35.934       1.8031
+  RF (raw)                    0.48182       25.585       31.192      0.81635
+  RF (norm)                   0.32807       26.357        31.58      0.81633
+  XGB (raw)                   0.27223       26.129       31.694      0.86366
+  XGB (norm)                  0.27342       26.089       32.192       0.8653
+
+  RMS-RGE (Eq. 15), with the per-parameter breakdown Phase 6.2 requires:
+  method                   aggregate           R           w           g          Lc  R,w,g only
+  naive DNN                   15.501       2.852       5.336      14.000      26.992       8.805
+  Tandem                      31.438       6.678       8.177      15.154      60.103      10.663
+  RF (raw)                    15.856       5.895       5.783      14.037      27.212       9.403
+  RF (norm)                   15.706       3.628       5.943      14.065      27.211       9.061
+  XGB (raw)                   16.370       2.855       5.871      14.159      28.789       9.002
+  XGB (norm)                  16.449       2.893       5.867      14.407      28.843       9.135
+
+  best inverse method: naive DNN (15.501 %)
+  O3 requires RMS-RGE <= 15% for at least one method: NOT MET
+  (Paper 12 reports 3.46% FDTD / 5.14% analytical under the R,w,g convention)
+
+============================================================================================
+6.4  PER-PARAMETER DIFFICULTY RANKING (mandatory)
+============================================================================================
+  The document hypothesises that the coupling gap g is the hardest
+  parameter, by analogy with Paper 6 finding radius hardest. Confirm or refute:
+
+  parameter                    mean R2    mean RGE %
+  R_um                          0.9857         4.133
+  w_nm                          0.0067         6.163
+  g_nm                          0.6725        14.304
+  Lc_um                        -0.3470        33.192
+
+  hardest by mean R2:      Lc_um (R2 = -0.3470)
+  easiest by mean R2:      R_um (R2 = 0.9857)
+  full ranking, hardest first: Lc_um > w_nm > g_nm > R_um
+
+  VERDICT: the g hypothesis is REFUTED -- Lc_um is harder than g_nm.
+  (g_nm mean R2 = 0.6725, mean RGE term = 14.304 %)
+
+============================================================================================
+6.3  SAMPLE-EFFICIENCY CURVE
+============================================================================================
+
+  FORWARD -- aggregate test MAPE (%) vs training-set size
+  method                        100        200        400        600        805
+  DNN forward                19.949     18.468      4.774      5.535      3.444
+  RF forward                 35.720     25.760     16.275     12.986     11.844
+  XGB forward                15.140     10.580      7.456      5.604      5.054
+
+  INVERSE -- RMS-RGE (%) vs training-set size
+  method                        100        200        400        600        805
+  naive DNN inverse          16.489     16.277     15.997     15.821     15.501
+  Tandem inverse             35.543     40.508    103.883     65.256     31.438
+  RF inverse                 17.144     16.522     15.620     15.559     15.706
+  XGB inverse                17.810     17.215     16.806     16.605     16.449
+
+  MANDATORY VERDICT (Objective O5, Phase 6.3 Fix 1)
+  ----------------------------------------------------------------------------------------
+  (a) In the <= 300-sample regime, the lowest aggregate test MAPE
+      in the FORWARD direction is achieved by XGB forward (12.860 % mean over n = [100, 200]).
+      In the INVERSE direction the lowest RMS-RGE is achieved by
+      naive DNN inverse (16.383 % mean over the same sizes).
+  (b) At the full dataset size (n = 805), the lowest aggregate test MAPE
+      in the FORWARD direction is achieved by DNN forward (3.444 %),
+      and the lowest RMS-RGE by naive DNN inverse (15.501 %).
+
+  Anchors for the discussion: Paper 6 drew its headline result from
+  462 FEM samples and Paper 12 from 2,500 geometries, so this curve's
+  100-805 range sits inside the operating range of the closest published work.
+
+  figure: results\phase6_sample_efficiency.png
+
+============================================================================================
+STILL OUTSTANDING
+============================================================================================
+  Closed-loop response error (Phase 6.2 / Phase 4.4 step 4) is MANDATORY and
+  is not covered by this run -- it needs Lumerical. Run:
+      py -3 mrr_template.py --closedloop
+  That re-simulates the predicted geometries for 20 representative test
+  targets through the same dual-fidelity pipeline that built the dataset
+  (3-D coupler FDTD -> kappa^2 -> analytic ring), so it is an
+  independent check and not a replay of the analytic model.

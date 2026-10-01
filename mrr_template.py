@@ -22,6 +22,13 @@ Usage:
     py -3 mrr_template.py --couplerset      # LHS coupler training set (3-D)
     py -3 mrr_template.py --modesweep       # n_eff, n_g vs w  +  sub-study 3
     py -3 mrr_template.py --generate        # build the dataset from the raw CSVs
+    py -3 mrr_template.py --phase2          # Phase 2 preprocessing and split
+    py -3 mrr_template.py --phase3          # Phase 3 forward model (resumable)
+    py -3 mrr_template.py --phase4          # Phase 4 naive inverse + tandem
+    py -3 mrr_template.py --phase5          # Phase 5 RF / XGBoost (resumable)
+    py -3 mrr_template.py --phase6          # Phase 6 master tables + curves
+    py -3 mrr_template.py --closedloop      # closed-loop re-verification (Lumerical)
+         optional:  --tandem  --rf_norm  --xgb_norm   --n=20
 
 The movie monitor (movie_xy) is ON by default. It records field data at every
 time step over a large plane, which inflates runtime and memory, so it must
@@ -129,6 +136,64 @@ DATASET_N = 1000                    # Phase 1.5 step 4 target
 DATASET_SEED = 42                   # Phase 1.5 step 4
 ROUGHNESS_DB_CM = 1.3               # Paper 11, measured; FDTD models none
 DATASET_CSV = "mrr_dataset.csv"
+
+# --- Phase 2: preprocessing ------------------------------------------------
+SPLIT_SEED = 42                 # Phase 2.4
+SPLIT_FRAC = (0.70, 0.15, 0.15) # train / val / test, Phase 2.4
+TARGETS = ["lambda_res_nm", "FSR_nm", "Q_L", "IL_dB"]
+INPUTS = ["R_um", "w_nm", "g_nm", "Lc_um"]
+# Phase 2.2 step 3: supplementary LHS batch aimed at an under-sampled region.
+# Scenario A needs FSR >= 16 nm, i.e. L <= lambda^2/(n_g*FSR) ~ 34.85 um, so
+# 2*pi*R + 2*Lc <= 34.85 -- a thin corner that plain LHS barely reaches.
+SUPP_N = 150
+SUPP_SEED = 202                 # distinct from the main LHS seed
+SUPP_BOX = dict(R=(5.0, 5.6), w=(400.0, 500.0), g=(150.0, 290.0), Lc=(0.0, 1.6))
+SUPP_L_MAX_UM = 34.85
+
+# --- Phase 3: forward model ------------------------------------------------
+NN_SEED = 42
+NN_HIDDEN = (64, 128, 64)       # Phase 3.2 fixed default
+NN_LEAKY = 0.2                  # Phase 3.2 Leaky ReLU alpha
+NN_BATCH = 16                   # Phase 3.3
+NN_LR = 1e-3                    # Phase 3.3 initial
+NN_LR_DECAY = 0.97              # Phase 3.3 exponential decay, per epoch
+NN_PATIENCE = 40                # Phase 3.3 early stopping
+NN_MAX_EPOCHS = 600
+# Phase 3.4 search grid -- report this verbatim in the thesis appendix
+GRID_DEPTH = [2, 3, 4]
+GRID_WIDTH = [32, 64, 128, 256]
+GRID_LR = [1e-4, 5e-4, 1e-3, 5e-3]
+GRID_WD = [1e-6, 1e-5, 1e-4]
+GRID_SEARCH_EPOCHS = 300        # shorter budget during the search itself
+
+# --- Phase 4: inverse + tandem ---------------------------------------------
+# Phase 4.3 fixes the topology for BOTH inverse networks at the Phase 3.2
+# default 64-128-64 -- deliberately NOT the Phase 3.4 search winner, so that
+# the naive-vs-tandem comparison isolates the loss function, not the size.
+INV_HIDDEN = (64, 128, 64)
+INV_LR = NN_LR                  # Phase 4.4: "same optimizer ... as Phase 3.3"
+INV_WD = 1e-5                   # Phase 3.3 states lambda in [1e-6, 1e-5]
+INV_SEED_NAIVE = NN_SEED        # Phase 4.4 step 2 requires the tandem network
+INV_SEED_TANDEM = NN_SEED + 1   # to use a DIFFERENT random initialisation
+LC_RANGE_UM = 3.0               # Phase 6.2 Fix 4b: s_p for Lc is the range width
+
+# --- Phase 5: Random Forest / XGBoost --------------------------------------
+CV_FOLDS = 5                    # Phase 2.4 / 5.2: 5-fold CV on the 70% pool
+RF_GRID = dict(n_estimators=[100, 200, 300, 500],
+               max_depth=[10, 20, 40, 80, None],
+               min_samples_leaf=[1, 2, 5, 7],
+               max_features=["sqrt", "log2", None])
+XGB_GRID = dict(n_estimators=[100, 300, 500],
+                max_depth=[3, 6, 9],
+                learning_rate=[0.01, 0.05, 0.1, 0.3],
+                subsample=[0.7, 0.85, 1.0],
+                colsample_bytree=[0.7, 0.85, 1.0],
+                reg_lambda=[0, 1, 5])
+XGB_N_ITER = 60                 # Phase 5.2 permits RandomizedSearchCV >= 60
+
+# --- Phase 6: evaluation ---------------------------------------------------
+SAMPLE_SIZES = [100, 200, 400, 600, None]   # Phase 6.3; None = full pool
+CLOSEDLOOP_N = 20                           # Phase 6.2 requires n >= 20
 SUBSTUDY2_CSV = "substudy2_mesh_convergence_{dim}.csv"
 
 # --- movie monitor settings ------------------------------------------------
@@ -1242,9 +1307,9 @@ def _fit_models():
     return kq, nc, bp
 
 
-def run_generate(n=DATASET_N):
+def _make_responder():
+    """Build the analytic response function from the fitted models."""
     from scipy.optimize import brentq
-    from scipy.stats import qmc
     kq, nc, bp = _fit_models()
     b = lambda x, y: np.array([1, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3])
     db = lambda x, y: np.array([0, 1, 0, 2*x, y, 0, 2*x*y, y*y, 0])
@@ -1281,6 +1346,12 @@ def run_generate(n=DATASET_N):
                     origin="dual-fidelity: 3D FDTD coupler/mode/bend + CMT Eqs 2-7",
                     flag=flag)
 
+    return respond
+
+
+def run_generate(n=DATASET_N):
+    from scipy.stats import qmc
+    respond = _make_responder()
     keys = ("R", "w", "g", "Lc"); sc = (1e6, 1e9, 1e9, 1e6)
     lo = np.array([RANGES[k][0]*s for k, s in zip(keys, sc)])
     hi = np.array([RANGES[k][1]*s for k, s in zip(keys, sc)])
@@ -1305,6 +1376,1674 @@ def run_generate(n=DATASET_N):
     print(f"[generate] flagged: {len(flagged)}   Q_L log10 "
           f"{np.log10(Q.min()):.2f} to {np.log10(Q.max()):.2f}")
     print("[generate] also wrote model_fits.json and data_quality_log.txt")
+
+
+# ---------------------------------------------------------------------------
+# PHASE 2 -- DATA PREPROCESSING
+# ---------------------------------------------------------------------------
+
+def _load_dataset():
+    path = _find(DATASET_CSV) if os.path.isfile(DATASET_CSV) else os.path.join(
+        "data", DATASET_CSV)
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"{DATASET_CSV} not found; run --generate first")
+    with open(path, newline="") as fh:
+        return list(csv.DictReader(fh)), path
+
+
+def _clean(rows, log):
+    """Phase 2.1. Returns the surviving rows and N_clean."""
+    keep, dropped = [], []
+    for i, r in enumerate(rows):
+        why = []
+        if r.get("flag"):
+            why.append(f"flag={r['flag']}")
+        for k in TARGETS + INPUTS:
+            v = float(r[k])
+            if not np.isfinite(v):
+                why.append(f"{k} not finite")
+        if float(r["Q_L"]) <= 0:
+            why.append("Q_L <= 0")
+        if float(r["FSR_nm"]) <= 0:
+            why.append("FSR <= 0")
+        # Phase 2.1 step 2: clip a drop-port peak fractionally above 1
+        if float(r["IL_dB"]) < 0:
+            r["IL_dB"] = "0.0"
+            log.append(f"  row {i}: IL < 0 (T_drop > 1) clipped to 0 dB")
+        if why:
+            dropped.append((i, "; ".join(why)))
+        else:
+            keep.append(r)
+    for i, why in dropped:
+        log.append(f"  row {i}: REMOVED -- {why}")
+    return keep, len(keep)
+
+
+def _scenario_counts(A):
+    """Phase 7 scenario feasibility, used as the coverage criterion."""
+    a = ((A["FSR_nm"] >= 16.0) & (A["Q_L"] >= 1500) & (A["Q_L"] <= 8000)
+         & (A["IL_dB"] <= 1.5))
+    b = (A["FSR_nm"] >= 6.4) & (A["Q_L"] >= 7750) & (A["IL_dB"] <= 1.0)
+    return int(a.sum()), int(b.sum())
+
+
+def _supplementary(n_have_A):
+    """
+    Phase 2.2 step 3: one targeted LHS batch in the under-sampled corner.
+    Rejects draws whose round-trip length cannot reach FSR >= 16 nm.
+    """
+    from scipy.stats import qmc
+    respond = _make_responder()
+    lo = np.array([SUPP_BOX[k][0] for k in ("R", "w", "g", "Lc")])
+    hi = np.array([SUPP_BOX[k][1] for k in ("R", "w", "g", "Lc")])
+    u = qmc.LatinHypercube(d=4, seed=SUPP_SEED).random(SUPP_N * 3)
+    P = lo + u * (hi - lo)
+    out = []
+    for R, w, g, Lc in P:
+        if 2 * np.pi * R + 2 * Lc > SUPP_L_MAX_UM:
+            continue                       # cannot reach FSR >= 16 nm
+        r = respond(R, w, g, Lc)
+        r["origin"] = ("supplementary targeted batch (Phase 2.2 step 3); "
+                       + r["origin"])
+        out.append(r)
+        if len(out) >= SUPP_N:
+            break
+    return out
+
+
+def _fit_scaler(rows):
+    """Min-max on inputs and targets, fitted on the TRAINING split only."""
+    sc = {}
+    for k in INPUTS:
+        v = np.array([float(r[k]) for r in rows])
+        sc[k] = dict(min=float(v.min()), max=float(v.max()), transform="minmax")
+    for k in TARGETS:
+        v = np.array([float(r[k]) for r in rows])
+        if k == "Q_L":                     # Phase 2.3: log10 before scaling
+            v = np.log10(v)
+            sc[k] = dict(min=float(v.min()), max=float(v.max()),
+                         transform="log10+minmax")
+        else:
+            sc[k] = dict(min=float(v.min()), max=float(v.max()),
+                         transform="minmax")
+    return sc
+
+
+def _apply_scaler(rows, sc):
+    out = []
+    for r in rows:
+        d = dict(r)
+        for k, p in sc.items():
+            v = float(r[k])
+            if p["transform"].startswith("log10"):
+                v = np.log10(v)
+            rng = p["max"] - p["min"]
+            d[k + "_scaled"] = (v - p["min"]) / rng if rng else 0.0
+        out.append(d)
+    return out
+
+
+def _coverage_figures(rows, parts, outdir):
+    """Phase 2.2 figure set: marginals, pairwise scatter, split check."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("[phase2] matplotlib not installed -- skipping figures")
+        print("[phase2] install with:  py -3 -m pip install matplotlib")
+        return []
+    written = []
+    sup = np.array([r["origin"].startswith("supplementary") for r in rows])
+    V = {k: np.array([float(r[k]) for r in rows]) for k in INPUTS + TARGETS}
+    lbl = {"R_um": "R (um)", "w_nm": "w (nm)", "g_nm": "g (nm)",
+           "Lc_um": "Lc (um)", "lambda_res_nm": "lambda_res (nm)",
+           "FSR_nm": "FSR (nm)", "Q_L": "Q_L", "IL_dB": "IL (dB)"}
+
+    # --- figure 1: marginal distributions, 4 inputs + 4 outputs -----------
+    fig, ax = plt.subplots(2, 4, figsize=(15, 6.5))
+    for i, k in enumerate(INPUTS + TARGETS):
+        a = ax[i // 4][i % 4]
+        v = np.log10(V[k]) if k == "Q_L" else V[k]
+        a.hist(v[~sup], bins=40, color="#4C72B0", label="LHS main")
+        if sup.any():
+            a.hist(v[sup], bins=40, color="#DD8452", alpha=0.85,
+                   label="supplementary")
+        a.set_xlabel("log10(Q_L)" if k == "Q_L" else lbl[k], fontsize=9)
+        a.tick_params(labelsize=8)
+        if i == 0:
+            a.set_ylabel("count", fontsize=9); a.legend(fontsize=7)
+    ax[0][0].figure.suptitle(
+        f"Phase 2.2 marginal distributions  (N = {len(rows)})", fontsize=11)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    f = os.path.join(outdir, "phase2_marginals.png")
+    fig.savefig(f, dpi=150); plt.close(fig); written.append(f)
+
+    # --- figure 2: pairwise input scatter, coloured by log10(Q_L) --------
+    q = np.log10(V["Q_L"])
+    pairs = [(a, b) for i, a in enumerate(INPUTS) for b in INPUTS[i + 1:]]
+    fig, ax = plt.subplots(2, 3, figsize=(14, 8))
+    for i, (a_, b_) in enumerate(pairs):
+        a = ax[i // 3][i % 3]
+        sc = a.scatter(V[a_], V[b_], c=q, s=7, cmap="viridis")
+        a.set_xlabel(lbl[a_], fontsize=9); a.set_ylabel(lbl[b_], fontsize=9)
+        a.tick_params(labelsize=8)
+    fig.colorbar(sc, ax=ax, label="log10(Q_L)", shrink=0.8)
+    fig.suptitle("Phase 2.2 pairwise input coverage", fontsize=11)
+    f = os.path.join(outdir, "phase2_pairwise_inputs.png")
+    fig.savefig(f, dpi=150); plt.close(fig); written.append(f)
+
+    # --- figure 3: output space with the two scenario targets ------------
+    fig, ax = plt.subplots(1, 2, figsize=(13, 5.2))
+    a = ax[0]
+    a.scatter(V["FSR_nm"][~sup], V["Q_L"][~sup], s=8, c="#4C72B0",
+              label="LHS main")
+    if sup.any():
+        a.scatter(V["FSR_nm"][sup], V["Q_L"][sup], s=10, c="#DD8452",
+                  label="supplementary")
+    a.axvline(16.0, ls="--", c="crimson", lw=1)
+    a.axhspan(1500, 8000, color="crimson", alpha=0.10)
+    a.axvline(6.4, ls="--", c="seagreen", lw=1)
+    a.axhline(7750, ls="--", c="seagreen", lw=1)
+    a.set_yscale("log"); a.set_xlabel("FSR (nm)", fontsize=9)
+    a.set_ylabel("Q_L", fontsize=9)
+    a.set_title("output space (red = Scenario A, green = Scenario B)",
+                fontsize=10)
+    a.legend(fontsize=8); a.tick_params(labelsize=8)
+
+    a = ax[1]
+    a.scatter(V["Q_L"], V["IL_dB"], s=8, c="#4C72B0")
+    a.axhline(1.5, ls="--", c="crimson", lw=1)
+    a.axhline(1.0, ls="--", c="seagreen", lw=1)
+    a.set_xscale("log"); a.set_xlabel("Q_L", fontsize=9)
+    a.set_ylabel("IL (dB)", fontsize=9)
+    a.set_title("insertion loss vs Q_L", fontsize=10)
+    a.tick_params(labelsize=8)
+    fig.tight_layout()
+    f = os.path.join(outdir, "phase2_output_coverage.png")
+    fig.savefig(f, dpi=150); plt.close(fig); written.append(f)
+
+    # --- figure 4: split check -- the three splits must overlap ----------
+    fig, ax = plt.subplots(1, 4, figsize=(15, 3.6))
+    cols = dict(train="#4C72B0", val="#DD8452", test="#55A868")
+    for i, k in enumerate(TARGETS):
+        a = ax[i]
+        for name, part in parts.items():
+            v = np.array([float(r[k]) for r in part])
+            if k == "Q_L":
+                v = np.log10(v)
+            a.hist(v, bins=30, histtype="step", density=True, lw=1.4,
+                   color=cols[name], label=name)
+        a.set_xlabel("log10(Q_L)" if k == "Q_L" else lbl[k], fontsize=9)
+        a.tick_params(labelsize=8)
+        if i == 0:
+            a.set_ylabel("density", fontsize=9); a.legend(fontsize=8)
+    fig.suptitle("Phase 2.4 split check -- target distributions "
+                 "(train / val / test should overlap)", fontsize=11)
+    fig.tight_layout(rect=[0, 0, 1, 0.92])
+    f = os.path.join(outdir, "phase2_split_check.png")
+    fig.savefig(f, dpi=150); plt.close(fig); written.append(f)
+    return written
+
+
+def run_phase2():
+    import json
+    rows, src = _load_dataset()
+    log = ["PHASE 2 -- DATA PREPROCESSING", "=" * 68,
+           f"source: {src}", f"rows in: {len(rows)}", "",
+           "2.1 CLEANING", "-" * 68]
+
+    n_in = len(rows)
+    rows, n_clean = _clean(rows, log)
+    log += [f"  removed: {n_in - n_clean}", f"  N_clean = {n_clean}", ""]
+
+    A = {k: np.array([float(r[k]) for r in rows]) for k in INPUTS + TARGETS}
+    nA, nB = _scenario_counts(A)
+    log += ["2.2 COVERAGE CHECK", "-" * 68,
+            f"  Scenario A feasible samples: {nA}",
+            f"  Scenario B feasible samples: {nB}"]
+
+    # --- Phase 2.2 step 3: supplementary batch if a clear gap exists --------
+    added = []
+    if nA < 30:
+        log.append(f"  GAP: only {nA} samples meet all Scenario A specs -> "
+                   "generating a targeted supplementary batch")
+        added = _supplementary(nA)
+        rows += added
+        A = {k: np.array([float(r[k]) for r in rows]) for k in INPUTS + TARGETS}
+        nA2, nB2 = _scenario_counts(A)
+        log += [f"  added {len(added)} samples in R {SUPP_BOX['R']} um, "
+                f"g {SUPP_BOX['g']} nm, Lc {SUPP_BOX['Lc']} um",
+                f"  Scenario A feasible after: {nA2}  (was {nA})",
+                f"  Scenario B feasible after: {nB2}  (was {nB})",
+                "  these rows are marked in the origin column"]
+        n_clean = len(rows)
+    else:
+        log.append("  no supplementary batch needed")
+    log += ["", f"  N_clean (final) = {n_clean}", ""]
+
+    log += ["  marginal ranges:", "-" * 68]
+    for k in INPUTS + TARGETS:
+        v = A[k]
+        log.append(f"    {k:15s} {v.min():12.4f}  {np.median(v):12.4f}  "
+                   f"{v.max():12.4f}")
+
+    # --- Phase 2.4 split ----------------------------------------------------
+    rng = np.random.default_rng(SPLIT_SEED)
+    idx = rng.permutation(len(rows))
+    n_tr = int(round(SPLIT_FRAC[0] * len(rows)))
+    n_va = int(round(SPLIT_FRAC[1] * len(rows)))
+    parts = dict(train=[rows[i] for i in idx[:n_tr]],
+                 val=[rows[i] for i in idx[n_tr:n_tr + n_va]],
+                 test=[rows[i] for i in idx[n_tr + n_va:]])
+    log += ["", "2.4 SPLIT (whole geometry samples, seed "
+            f"{SPLIT_SEED})", "-" * 68]
+    for name, part in parts.items():
+        sup = sum(1 for r in part if r["origin"].startswith("supplementary"))
+        log.append(f"  {name:5s} {len(part):5d}  "
+                   f"({100*len(part)/len(rows):4.1f}%)  "
+                   f"supplementary rows: {sup}")
+
+    # --- Phase 2.3 transforms, fitted on TRAIN ONLY -------------------------
+    sc = _fit_scaler(parts["train"])
+    log += ["", "2.3 TRANSFORMS", "-" * 68,
+            "  scaler fitted on the TRAINING split only, then applied to val",
+            "  and test, so no test information reaches the fit",
+            "  Q_L: log10 before min-max (Phase 2.3); the others stay linear"]
+    for k, p in sc.items():
+        log.append(f"    {k:15s} {p['transform']:14s} "
+                   f"min {p['min']:12.5f}  max {p['max']:12.5f}")
+
+    outdir = "data" if os.path.isdir("data") else "."
+    for name, part in parts.items():
+        scaled = _apply_scaler(part, sc)
+        with open(os.path.join(outdir, f"{name}.csv"), "w", newline="") as fh:
+            wr = csv.DictWriter(fh, fieldnames=list(scaled[0]))
+            wr.writeheader(); wr.writerows(scaled)
+    json.dump(dict(seed=SPLIT_SEED, fractions=SPLIT_FRAC, n_clean=n_clean,
+                   fitted_on="train split only", inputs=INPUTS,
+                   targets=TARGETS, scaler=sc),
+              open(os.path.join(outdir, "scaler.json"), "w"), indent=1)
+
+    log += ["", "2.5 ENGINEERED FEATURE (ablation, optional)", "-" * 68,
+            "  The dataset already carries kappa2 as a column. Note before",
+            "  using it as an input feature: in this dual-fidelity dataset",
+            "  kappa2 is the exact intermediate the targets were computed",
+            "  from, not an independent estimate. Feeding it to a model",
+            "  hands over most of the forward map, so any gain is not",
+            "  comparable to the Paper 6-style engineered-feature result.",
+            "  Report it as a diagnostic, not as a fair feature-set comparison."]
+
+    figs = _coverage_figures(rows, parts, outdir)
+    if figs:
+        log += ["", "2.2 FIGURE SET", "-" * 68]
+        log += [f"  {os.path.basename(f)}" for f in figs]
+
+    with open(os.path.join(outdir, "phase2_log.txt"), "w") as fh:
+        fh.write("\n".join(x for x in log if x is not None) + "\n")
+    print("\n".join(x for x in log if x is not None))
+    print(f"\n[phase2] wrote train/val/test.csv, scaler.json and "
+          f"phase2_log.txt to {outdir}/")
+
+
+# ---------------------------------------------------------------------------
+# PHASE 3 -- FORWARD MODEL  (geometry -> response)
+# ---------------------------------------------------------------------------
+
+def _torch():
+    try:
+        import torch
+        return torch
+    except ImportError:
+        raise SystemExit(
+            "\n[phase3] PyTorch is not installed.\n"
+            "  install it with:\n"
+            "    py -3 -m pip install torch --index-url "
+            "https://download.pytorch.org/whl/cpu\n"
+            "  (CPU build is enough -- the networks here are tiny)\n")
+
+
+def _load_split(name):
+    d = "data" if os.path.isdir("data") else "."
+    path = os.path.join(d, f"{name}.csv")
+    if not os.path.isfile(path):
+        raise SystemExit(f"[phase3] {path} not found -- run --phase2 first")
+    with open(path, newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    X = np.array([[float(r[k + "_scaled"]) for k in INPUTS] for r in rows],
+                 dtype=np.float32)
+    Y = np.array([[float(r[k + "_scaled"]) for k in TARGETS] for r in rows],
+                 dtype=np.float32)
+    return X, Y, rows
+
+
+def _build_mlp(torch, depth, width, n_in=4, n_out=4):
+    """
+    Phase 3.2 topology. At the default depth 3 the widths are the fixed
+    64-128-64; other depths use a flat `width`, which is what the Phase 3.4
+    grid varies.
+    """
+    import torch.nn as nn
+    widths = list(NN_HIDDEN) if (depth == 3 and width == 128) else [width] * depth
+    layers, prev = [], n_in
+    for h in widths:
+        layers += [nn.Linear(prev, h), nn.LeakyReLU(NN_LEAKY)]
+        prev = h
+    layers += [nn.Linear(prev, n_out)]
+    net = nn.Sequential(*layers)
+    for m in net:                       # Phase 3.3 Glorot/Xavier uniform
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+            nn.init.zeros_(m.bias)
+    return net, widths
+
+
+def _train_mlp(torch, net, Xtr, Ytr, Xva, Yva, lr, wd,
+               max_epochs=NN_MAX_EPOCHS, patience=NN_PATIENCE, quiet=True):
+    """Phase 3.3 training loop. Returns best val MSE and the loss curves."""
+    import torch.nn as nn
+    from torch.utils.data import TensorDataset, DataLoader
+    dl = DataLoader(TensorDataset(torch.from_numpy(Xtr), torch.from_numpy(Ytr)),
+                    batch_size=NN_BATCH, shuffle=True)
+    opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=wd)
+    sch = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=NN_LR_DECAY)
+    lossf = nn.MSELoss()
+    xva, yva = torch.from_numpy(Xva), torch.from_numpy(Yva)
+    best, best_state, bad = float("inf"), None, 0
+    tr_curve, va_curve = [], []
+    for ep in range(max_epochs):
+        net.train(); tot = 0.0
+        for xb, yb in dl:
+            opt.zero_grad()
+            l = lossf(net(xb), yb)
+            l.backward(); opt.step()
+            tot += l.item() * len(xb)
+        sch.step()
+        net.eval()
+        with torch.no_grad():
+            v = lossf(net(xva), yva).item()
+        tr_curve.append(tot / len(Xtr)); va_curve.append(v)
+        if v < best - 1e-9:
+            best, bad = v, 0
+            best_state = {k: t.clone() for k, t in net.state_dict().items()}
+        else:
+            bad += 1
+            if bad >= patience:
+                break
+        if not quiet and ep % 25 == 0:
+            print(f"    epoch {ep:4d}  train {tot/len(Xtr):.5f}  val {v:.5f}")
+    if best_state is not None:
+        net.load_state_dict(best_state)
+    return best, tr_curve, va_curve, ep + 1
+
+
+def _unscale(v, p):
+    v = v * (p["max"] - p["min"]) + p["min"]
+    return 10.0 ** v if p["transform"].startswith("log10") else v
+
+
+def _metrics(y_true, y_pred):
+    """R2, MAPE (%), RMSE -- computed in physical units."""
+    ss_res = float(np.sum((y_true - y_pred) ** 2))
+    ss_tot = float(np.sum((y_true - y_true.mean()) ** 2))
+    r2 = 1.0 - ss_res / ss_tot if ss_tot else float("nan")
+    mape = float(np.mean(np.abs((y_true - y_pred) / y_true)) * 100.0)
+    rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+    return r2, mape, rmse
+
+
+def run_phase3():
+    import json
+    torch = _torch()
+    torch.manual_seed(NN_SEED); np.random.seed(NN_SEED)
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+
+    Xtr, Ytr, _ = _load_split("train")
+    Xva, Yva, _ = _load_split("val")
+    Xte, Yte, _ = _load_split("test")
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+    print(f"[phase3] train {len(Xtr)}  val {len(Xva)}  test {len(Xte)}")
+
+    # --- Phase 3.4 hyperparameter search, resumable -----------------------
+    ckpt = os.path.join(resdir, "phase3_gridsearch.csv")
+    done = {}
+    if os.path.isfile(ckpt):
+        with open(ckpt, newline="") as fh:
+            for r in csv.DictReader(fh):
+                done[(int(r["depth"]), int(r["width"]), float(r["lr"]),
+                      float(r["wd"]))] = float(r["val_mse"])
+        print(f"[phase3] resuming -- {len(done)} configurations already done")
+    grid = [(d, wd_, lr, l2) for d in GRID_DEPTH for wd_ in GRID_WIDTH
+            for lr in GRID_LR for l2 in GRID_WD]
+    todo = [c for c in grid if c not in done]
+    print(f"[phase3] grid: {len(grid)} configurations, {len(todo)} to run")
+
+    new_file = not os.path.isfile(ckpt)
+    fh = open(ckpt, "a", newline="")
+    wr = csv.writer(fh)
+    if new_file:
+        wr.writerow(["depth", "width", "lr", "wd", "val_mse", "epochs"])
+        fh.flush()
+    t0 = time.time()
+    for i, (d, w, lr, l2) in enumerate(todo, 1):
+        torch.manual_seed(NN_SEED)
+        net, _ = _build_mlp(torch, d, w)
+        v, _, _, eps = _train_mlp(torch, net, Xtr, Ytr, Xva, Yva, lr, l2,
+                                  max_epochs=GRID_SEARCH_EPOCHS)
+        done[(d, w, lr, l2)] = v
+        wr.writerow([d, w, lr, l2, f"{v:.8f}", eps]); fh.flush()
+        el = time.time() - t0
+        print(f"[phase3] {i}/{len(todo)}  depth {d} width {w:3d} "
+              f"lr {lr:g} wd {l2:g}  val MSE {v:.6f}  "
+              f"({el/i:.0f} s/config, ~{(len(todo)-i)*el/i/60:.0f} min left)")
+    fh.close()
+
+    best_cfg = min(done, key=done.get)
+    d, w, lr, l2 = best_cfg
+    print(f"\n[phase3] best: depth {d} width {w} lr {lr:g} wd {l2:g}  "
+          f"val MSE {done[best_cfg]:.6f}")
+
+    # --- Phase 3.5 step 4: retrain the winner, full budget ----------------
+    torch.manual_seed(NN_SEED)
+    net, widths = _build_mlp(torch, d, w)
+    vbest, tr_c, va_c, eps = _train_mlp(torch, net, Xtr, Ytr, Xva, Yva,
+                                        lr, l2, quiet=False)
+    print(f"[phase3] retrained: {eps} epochs, best val MSE {vbest:.6f}")
+
+    # --- Phase 3.5 step 5: freeze and save --------------------------------
+    wpath = os.path.join(resdir, "phase3_forward_model.pt")
+    torch.save(dict(state_dict=net.state_dict(), depth=d, width=w,
+                    widths=widths, lr=lr, wd=l2, leaky=NN_LEAKY,
+                    inputs=INPUTS, targets=TARGETS, seed=NN_SEED), wpath)
+
+    # --- Phase 3.5 step 6: test-set metrics, in physical units ------------
+    net.eval()
+    with torch.no_grad():
+        P = net(torch.from_numpy(Xte)).numpy()
+    lines = ["PHASE 3 -- FORWARD MODEL", "=" * 68,
+             f"grid searched: {len(done)} configurations "
+             f"({len(GRID_DEPTH)}x{len(GRID_WIDTH)}x{len(GRID_LR)}x"
+             f"{len(GRID_WD)})",
+             f"selected: depth {d}, widths {widths}, lr {lr:g}, "
+             f"weight decay {l2:g}",
+             f"selection criterion: minimum validation MSE "
+             f"({done[best_cfg]:.6f})",
+             f"retrained {eps} epochs, early stopping patience {NN_PATIENCE}",
+             "", "test-set accuracy (physical units, Q_L back-transformed "
+             "to linear)", "-" * 68,
+             f"  {'target':16s} {'R2':>9s} {'MAPE %':>9s} {'RMSE':>13s}"]
+    ok = 0
+    for j, k in enumerate(TARGETS):
+        yt = _unscale(Yte[:, j].astype(np.float64), sc[k])
+        yp = _unscale(P[:, j].astype(np.float64), sc[k])
+        r2, mape, rmse = _metrics(yt, yp)
+        flag = ""
+        if r2 >= 0.90 and mape <= 10.0:
+            ok += 1
+        else:
+            flag = "   <-- misses the Phase 3 criterion"
+        lines.append(f"  {k:16s} {r2:9.4f} {mape:9.3f} {rmse:13.5g}{flag}")
+    lines += ["", f"targets meeting R2 >= 0.90 AND MAPE <= 10%: {ok} of 4",
+              "Phase 3 success criterion is >= 3 of 4: "
+              + ("MET" if ok >= 3 else "NOT MET")]
+    if ok < 3:
+        lines += ["", "revision trigger (Section 5): if validation loss "
+                  "plateaus far above", "training loss, increase "
+                  "regularization before assuming insufficient data.",
+                  "Compare the two curves in phase3_loss_curves.png."]
+    lines += ["", f"frozen weights: {wpath}",
+              "This exact model is reused unmodified as f_theta in Phase 4."]
+
+    # --- loss curves ------------------------------------------------------
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(1, 2, figsize=(12, 4.4))
+        ax[0].plot(tr_c, label="train", lw=1.3)
+        ax[0].plot(va_c, label="validation", lw=1.3)
+        ax[0].set_yscale("log"); ax[0].set_xlabel("epoch")
+        ax[0].set_ylabel("MSE (scaled units)"); ax[0].legend()
+        ax[0].set_title(f"Phase 3.5 training curves "
+                        f"(depth {d}, width {w})", fontsize=10)
+        vm = np.array(sorted(done.values()))
+        ax[1].plot(vm, ".", ms=4)
+        ax[1].set_yscale("log"); ax[1].set_xlabel("configuration (sorted)")
+        ax[1].set_ylabel("best validation MSE")
+        ax[1].set_title(f"Phase 3.4 search over {len(done)} configurations",
+                        fontsize=10)
+        fig.tight_layout()
+        f = os.path.join(resdir, "phase3_loss_curves.png")
+        fig.savefig(f, dpi=150); plt.close(fig)
+        lines.append(f"loss curves: {f}")
+    except ImportError:
+        pass
+
+    txt = "\n".join(lines)
+    open(os.path.join(resdir, "phase3_report.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+    print(f"\n[phase3] wrote phase3_report.txt, phase3_gridsearch.csv, "
+          f"phase3_forward_model.pt to {resdir}/")
+
+
+# ---------------------------------------------------------------------------
+# PHASE 4 -- INVERSE MODEL AND TANDEM NETWORK
+# ---------------------------------------------------------------------------
+
+def _load_forward(torch):
+    """Load and FREEZE the Phase 3 forward model."""
+    resdir = "results" if os.path.isdir("results") else "."
+    path = os.path.join(resdir, "phase3_forward_model.pt")
+    if not os.path.isfile(path):
+        raise SystemExit(f"[phase4] {path} not found -- run --phase3 first")
+    ck = torch.load(path, weights_only=False)
+    net, _ = _build_mlp(torch, ck["depth"], ck["width"])
+    net.load_state_dict(ck["state_dict"])
+    for prm in net.parameters():
+        prm.requires_grad_(False)
+    net.eval()
+    return net, ck
+
+
+def _build_inverse(torch, seed):
+    """Phase 4.3 topology, fixed at 64-128-64 for both inverse networks."""
+    import torch.nn as nn
+    torch.manual_seed(seed)
+    layers, prev = [], 4
+    for h in INV_HIDDEN:
+        layers += [nn.Linear(prev, h), nn.LeakyReLU(NN_LEAKY)]
+        prev = h
+    layers += [nn.Linear(prev, 4)]
+    net = nn.Sequential(*layers)
+    for m in net:
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+            nn.init.zeros_(m.bias)
+    return net
+
+
+def _train_inverse(torch, g, Xgeo_tr, Yres_tr, Xgeo_va, Yres_va,
+                   forward=None, tag=""):
+    """
+    Phase 4.4. forward=None  -> naive baseline, Eq. 8 (parameter-space loss)
+               forward=f     -> tandem,         Eq. 9 (response-space loss)
+    In both cases the network input is the RESPONSE and its output is GEOMETRY.
+    """
+    import torch.nn as nn
+    from torch.utils.data import TensorDataset, DataLoader
+    dl = DataLoader(TensorDataset(torch.from_numpy(Yres_tr),
+                                  torch.from_numpy(Xgeo_tr)),
+                    batch_size=NN_BATCH, shuffle=True)
+    opt = torch.optim.Adam(g.parameters(), lr=INV_LR, weight_decay=INV_WD)
+    sch = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=NN_LR_DECAY)
+    lossf = nn.MSELoss()
+    rva, gva = torch.from_numpy(Yres_va), torch.from_numpy(Xgeo_va)
+    best, best_state, bad = float("inf"), None, 0
+    tr_c, va_c = [], []
+    for ep in range(NN_MAX_EPOCHS):
+        g.train(); tot = 0.0
+        for rb, gb in dl:                      # rb = response, gb = geometry
+            opt.zero_grad()
+            pred_geo = g(rb)
+            if forward is None:
+                l = lossf(pred_geo, gb)                    # Eq. 8
+            else:
+                l = lossf(forward(pred_geo), rb)           # Eq. 9
+            l.backward(); opt.step()
+            tot += l.item() * len(rb)
+        sch.step()
+        g.eval()
+        with torch.no_grad():
+            pv = g(rva)
+            v = (lossf(pv, gva) if forward is None
+                 else lossf(forward(pv), rva)).item()
+        tr_c.append(tot / len(Yres_tr)); va_c.append(v)
+        if v < best - 1e-9:
+            best, bad = v, 0
+            best_state = {k: t.clone() for k, t in g.state_dict().items()}
+        else:
+            bad += 1
+            if bad >= NN_PATIENCE:
+                break
+        if ep % 25 == 0:
+            print(f"    [{tag}] epoch {ep:4d}  train {tot/len(Yres_tr):.5f}  "
+                  f"val {v:.5f}")
+    if best_state is not None:
+        g.load_state_dict(best_state)
+    return best, tr_c, va_c, ep + 1
+
+
+def _rms_rge(geo_pred, geo_true):
+    """
+    Phase 6.2 Eq. 15 with the v1.3 Fix 4 convention.
+      R, w, g : s_p = p_target          (Paper 12 convention)
+      Lc      : s_p = 3 um range width  (well defined at Lc = 0)
+    geo arrays are in PHYSICAL units, columns ordered as INPUTS.
+    Returns the aggregate %, the four per-parameter RMS terms, and the
+    {R,w,g}-only Paper-12-convention value.
+    """
+    terms = []
+    for j, k in enumerate(INPUTS):
+        d = geo_pred[:, j] - geo_true[:, j]
+        sp = LC_RANGE_UM if k == "Lc_um" else geo_true[:, j]
+        terms.append((d / sp) ** 2)
+    per = [100.0 * float(np.sqrt(np.mean(t))) for t in terms]
+    agg = 100.0 * float(np.sqrt(np.mean(np.mean(np.stack(terms), axis=0))))
+    p12 = 100.0 * float(np.sqrt(np.mean(np.mean(np.stack(terms[:3]), axis=0))))
+    return agg, per, p12
+
+
+def _geo_physical(arr, sc):
+    out = np.empty_like(arr, dtype=np.float64)
+    for j, k in enumerate(INPUTS):
+        out[:, j] = _unscale(arr[:, j].astype(np.float64), sc[k])
+    return out
+
+
+def _res_physical(arr, sc):
+    out = np.empty_like(arr, dtype=np.float64)
+    for j, k in enumerate(TARGETS):
+        out[:, j] = _unscale(arr[:, j].astype(np.float64), sc[k])
+    return out
+
+
+def _theta(R, w, g, Lc):
+    """
+    The coupling phase from the Phase 1.6 kappa^2 model:
+        theta = exp(k0 + k1*dw) * exp(-gamma(w)*g) * (Lc + B*sqrt(2*pi*R/gamma))
+    kappa^2 = sin^2(theta), so every geometry on a level set of theta has the
+    SAME coupling and therefore the same Q_L and IL. This is the exact
+    degeneracy underlying Objective O6's one-to-many problem.
+    """
+    kq, _, _ = _fit_models()
+    dw = w - 450.0
+    gam = kq[2] + kq[3] * dw
+    return (np.exp(kq[0] + kq[1] * dw) * np.exp(-gam * g)
+            * (Lc + kq[4] * np.sqrt(2 * np.pi * R * 1e3 / gam) * 1e-3))
+
+
+def _degeneracy_check(Pred, True_, label):
+    """
+    Does the network land on the CORRECT level set of theta, even when its
+    (g, Lc) differ from the ground truth? If yes, its geometry 'error' is a
+    different valid solution, not a wrong answer.
+    """
+    th_p = np.array([_theta(*r) for r in Pred])
+    th_t = np.array([_theta(*r) for r in True_])
+    rel = 100.0 * np.abs(th_p - th_t) / np.abs(th_t)
+    # how far apart are the geometries themselves, in the degenerate plane?
+    dg = 100.0 * np.abs(Pred[:, 2] - True_[:, 2]) / True_[:, 2]
+    dl = 100.0 * np.abs(Pred[:, 3] - True_[:, 3]) / LC_RANGE_UM
+    return dict(label=label, theta_mape=float(np.mean(rel)),
+                theta_med=float(np.median(rel)),
+                g_mape=float(np.mean(dg)), lc_rge=float(np.mean(dl)),
+                within5=float(100.0 * np.mean(rel <= 5.0)))
+
+
+def run_phase4():
+    import json
+    torch = _torch()
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+
+    Gtr, Rtr, _ = _load_split("train")      # G = geometry, R = response
+    Gva, Rva, _ = _load_split("val")
+    Gte, Rte, _ = _load_split("test")
+    f, ck = _load_forward(torch)
+    print(f"[phase4] frozen forward model: depth {ck['depth']} "
+          f"width {ck['width']}  ({sum(p.numel() for p in f.parameters())} "
+          f"parameters, all frozen)")
+
+    L = ["PHASE 4 -- INVERSE MODEL AND TANDEM NETWORK", "=" * 70,
+         f"inverse topology (Phase 4.3): 4 -> {' -> '.join(map(str, INV_HIDDEN))}"
+         f" -> 4, Leaky ReLU alpha {NN_LEAKY}",
+         f"optimizer: Adam lr {INV_LR:g}, weight decay {INV_WD:g}, "
+         f"batch {NN_BATCH}, patience {NN_PATIENCE}",
+         f"naive init seed {INV_SEED_NAIVE}, tandem init seed "
+         f"{INV_SEED_TANDEM} (Phase 4.4 requires these to differ)", ""]
+
+    # ===================== step 1: naive inverse baseline =================
+    print("\n[phase4] step 1 -- naive inverse baseline (Eq. 8)")
+    gn = _build_inverse(torch, INV_SEED_NAIVE)
+    vn, trn, van, epn = _train_inverse(torch, gn, Gtr, Rtr, Gva, Rva,
+                                       forward=None, tag="naive")
+    gn.eval()
+    with torch.no_grad():
+        pn = gn(torch.from_numpy(Rte)).numpy()
+    Pn = _geo_physical(pn, sc); Gt = _geo_physical(Gte, sc)
+    agg_n, per_n, p12_n = _rms_rge(Pn, Gt)
+    # forward-consistency of the naive network: what response does its
+    # geometry actually produce, according to the frozen forward model?
+    with torch.no_grad():
+        rn = f(torch.from_numpy(pn)).numpy()
+    Rn = _res_physical(rn, sc); Rt = _res_physical(Rte, sc)
+
+    L += ["STEP 1 -- NAIVE INVERSE BASELINE (Eq. 8, parameter-space loss)",
+          "-" * 70, f"  trained {epn} epochs, best val loss {vn:.6f}", "",
+          "  geometry accuracy vs ground truth (its own training objective)",
+          f"  {'parameter':12s} {'R2':>9s} {'MAPE %':>9s} {'RMSE':>12s}"]
+    for j, k in enumerate(INPUTS):
+        r2, mp, rm = _metrics(Gt[:, j], Pn[:, j])
+        L.append(f"  {k:12s} {r2:9.4f} {mp:9.3f} {rm:12.5g}")
+    L += ["", f"  RMS-RGE (Eq. 15, v1.3 convention) = {agg_n:.3f} %",
+          f"    per-parameter terms: " + ", ".join(
+              f"{k} {v:.3f}%" for k, v in zip(INPUTS, per_n)),
+          f"    Paper-12 convention over R,w,g only = {p12_n:.3f} %  "
+          f"(Paper 12 reports 3.46 / 5.14 %)",
+          f"    O3 threshold is RMS-RGE <= 15%: "
+          + ("MET" if agg_n <= 15.0 else "NOT MET"), "",
+          "  forward consistency -- response of the naive network's geometry",
+          f"  {'target':16s} {'R2':>9s} {'MAPE %':>9s}"]
+    for j, k in enumerate(TARGETS):
+        r2, mp, _ = _metrics(Rt[:, j], Rn[:, j])
+        L.append(f"  {k:16s} {r2:9.4f} {mp:9.3f}")
+
+    # ===================== step 2: tandem network =========================
+    print("\n[phase4] step 2 -- tandem network (Eq. 9, frozen forward)")
+    gt = _build_inverse(torch, INV_SEED_TANDEM)
+    before = [p.clone() for p in f.parameters()]
+    vt, trt, vat, ept = _train_inverse(torch, gt, Gtr, Rtr, Gva, Rva,
+                                       forward=f, tag="tandem")
+    frozen_ok = all(bool(torch.equal(a, b))
+                    for a, b in zip(before, f.parameters()))
+    gt.eval()
+    with torch.no_grad():
+        pt = gt(torch.from_numpy(Rte)).numpy()
+        rt_ = f(torch.from_numpy(pt)).numpy()
+    Pt = _geo_physical(pt, sc); Rrec = _res_physical(rt_, sc)
+    agg_t, per_t, p12_t = _rms_rge(Pt, Gt)
+
+    L += ["", "STEP 2 -- TANDEM NETWORK (Eq. 9, response-space loss)",
+          "-" * 70, f"  trained {ept} epochs, best val loss {vt:.6f}",
+          f"  frozen-weight check: forward weights unchanged after training "
+          f"= {frozen_ok}", "",
+          "  PRIMARY METRIC -- reconstructed response f(g(R)) vs requested R",
+          f"  {'target':16s} {'R2':>9s} {'MAPE %':>9s} {'RMSE':>12s}"]
+    tand_mape = {}
+    for j, k in enumerate(TARGETS):
+        r2, mp, rm = _metrics(Rt[:, j], Rrec[:, j])
+        tand_mape[k] = mp
+        L.append(f"  {k:16s} {r2:9.4f} {mp:9.3f} {rm:12.5g}")
+    L += ["", "  DIAGNOSTIC -- predicted geometry vs ground-truth geometry",
+          "  (Phase 4.4 step 2 expects this to be WORSE than the naive "
+          "baseline's,", "   by construction -- the tandem network is never "
+          "asked to match it)",
+          f"  {'parameter':12s} {'R2':>9s} {'MAPE %':>9s}"]
+    for j, k in enumerate(INPUTS):
+        r2, mp, _ = _metrics(Gt[:, j], Pt[:, j])
+        L.append(f"  {k:12s} {r2:9.4f} {mp:9.3f}")
+    # Phase 4 risk check: the inverse networks' outputs are unconstrained,
+    # so they can propose geometries outside the Phase 1.2 design ranges,
+    # where the frozen forward model is extrapolating rather than predicting.
+    L += ["", "  DESIGN-RANGE CHECK (both networks output unconstrained "
+          "values)", "-" * 70]
+    for tagn, arr in (("naive", Pn), ("tandem", Pt)):
+        bad = []
+        for j, k in enumerate(INPUTS):
+            lo, hi = RANGES[{"R_um": "R", "w_nm": "w", "g_nm": "g",
+                             "Lc_um": "Lc"}[k]]
+            scl = {"R_um": 1e6, "w_nm": 1e9, "g_nm": 1e9, "Lc_um": 1e6}[k]
+            lo, hi = lo * scl, hi * scl
+            n_out = int(((arr[:, j] < lo) | (arr[:, j] > hi)).sum())
+            if n_out:
+                bad.append(f"{k} {n_out}/{len(arr)} "
+                           f"(range {arr[:, j].min():.3f}..{arr[:, j].max():.3f}"
+                           f", allowed {lo:g}..{hi:g})")
+        L.append(f"    {tagn:7s} outside the design space: "
+                 + ("; ".join(bad) if bad else "none -- all predictions "
+                    "are physically realisable"))
+
+    L += ["", f"  RMS-RGE (diagnostic) = {agg_t:.3f} %   "
+          f"[naive baseline: {agg_n:.3f} %]",
+          f"    per-parameter terms: " + ", ".join(
+              f"{k} {v:.3f}%" for k, v in zip(INPUTS, per_t)),
+          f"    Paper-12 convention over R,w,g only = {p12_t:.3f} %"]
+
+    # ---- O6 degeneracy test ---------------------------------------------
+    # The kappa^2 model makes Q_L and IL depend on (g, Lc) only through the
+    # single combination theta. A network that recovers theta correctly while
+    # missing g and Lc individually has found a DIFFERENT VALID geometry --
+    # which is the tandem network's entire purpose.
+    L += ["", "O6 DEGENERACY TEST -- did the network find a valid alternative?",
+          "-" * 70,
+          "  Q_L and IL depend on (g, Lc) only through theta, so any geometry",
+          "  on a level set of theta is an equally correct answer. If theta is",
+          "  recovered while g and Lc individually are not, the geometry error",
+          "  is degeneracy, not inaccuracy.",
+          f"  {'network':8s} {'theta MAPE':>11s} {'theta median':>13s} "
+          f"{'within 5%':>10s} {'g MAPE':>9s} {'Lc RGE':>9s}"]
+    for dd in (_degeneracy_check(Pn, Gt, "naive"),
+               _degeneracy_check(Pt, Gt, "tandem")):
+        L.append(f"  {dd['label']:8s} {dd['theta_mape']:11.3f} "
+                 f"{dd['theta_med']:13.3f} {dd['within5']:9.1f}% "
+                 f"{dd['g_mape']:9.3f} {dd['lc_rge']:9.3f}")
+    L += ["  (theta MAPE much smaller than g/Lc errors => the network is",
+          "   landing on the right level set with the wrong coordinates,",
+          "   i.e. proposing a legitimately different geometry)"]
+
+    # ---- per-target loss share, the Phase 3 lambda_res concern -----------
+    L += ["", "TANDEM LOSS BREAKDOWN BY TARGET (scaled units)", "-" * 70,
+          "  which target is actually driving the response-space gradient:"]
+    with torch.no_grad():
+        err = (torch.from_numpy(rt_) - torch.from_numpy(Rte)) ** 2
+    share = err.mean(dim=0).numpy()
+    for j, k in enumerate(TARGETS):
+        L.append(f"    {k:16s} {share[j]:.6f}   "
+                 f"{100*share[j]/share.sum():5.1f}% of the loss")
+
+    # ===================== O6 verdict =====================================
+    fwd_mape = {}
+    for j, k in enumerate(TARGETS):
+        _, mp, _ = _metrics(Rt[:, j], Rn[:, j])
+        fwd_mape[k] = mp
+    wins = sum(1 for k in TARGETS if tand_mape[k] <= fwd_mape[k])
+    L += ["", "=" * 70, "OBJECTIVE O6 -- one-to-many ambiguity test", "=" * 70,
+          "  O6 asks whether the naive direct-inverse DNN converges "
+          "acceptably, or",
+          "  shows the non-convergence/high-error pattern of Paper 3.", "",
+          f"  naive  RMS-RGE {agg_n:7.3f} %   "
+          + ("(converged acceptably, O3 threshold met)" if agg_n <= 15.0
+             else "(exceeds the O3 15% threshold)"),
+          f"  tandem RMS-RGE {agg_t:7.3f} %   (diagnostic only)", "",
+          "  response-space comparison (the criterion that matters for O6):",
+          f"  {'target':16s} {'naive MAPE':>12s} {'tandem MAPE':>13s}"]
+    for k in TARGETS:
+        L.append(f"  {k:16s} {fwd_mape[k]:12.3f} {tand_mape[k]:13.3f}")
+    L += ["", f"  tandem is better or equal on {wins} of 4 targets",
+          "  Section 5 criterion: tandem's reconstructed-response MAPE should "
+          "be",
+          "  competitive with the forward model's own accuracy.",
+          "", "  NOTE: this run covers Phase 4.4 steps 1-2 only. Step 3 (the",
+          "  physics-informed loss, Eq. 10-11) is a stretch goal the document",
+          "  says to run only after steps 1-2 are complete and documented."]
+
+    for name, net in (("phase4_naive_inverse.pt", gn),
+                      ("phase4_tandem_inverse.pt", gt)):
+        torch.save(dict(state_dict=net.state_dict(), hidden=INV_HIDDEN,
+                        leaky=NN_LEAKY), os.path.join(resdir, name))
+
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(1, 3, figsize=(16, 4.6))
+        ax[0].plot(trn, label="naive train", lw=1.2)
+        ax[0].plot(van, label="naive val", lw=1.2)
+        ax[0].set_yscale("log"); ax[0].legend(fontsize=8)
+        ax[0].set_xlabel("epoch"); ax[0].set_ylabel("MSE (geometry space)")
+        ax[0].set_title("naive inverse, Eq. 8", fontsize=10)
+        ax[1].plot(trt, label="tandem train", lw=1.2, color="#DD8452")
+        ax[1].plot(vat, label="tandem val", lw=1.2, color="#55A868")
+        ax[1].set_yscale("log"); ax[1].legend(fontsize=8)
+        ax[1].set_xlabel("epoch"); ax[1].set_ylabel("MSE (response space)")
+        ax[1].set_title("tandem, Eq. 9", fontsize=10)
+        x = np.arange(4); wdt = 0.35
+        ax[2].bar(x - wdt/2, [fwd_mape[k] for k in TARGETS], wdt, label="naive")
+        ax[2].bar(x + wdt/2, [tand_mape[k] for k in TARGETS], wdt,
+                  label="tandem")
+        ax[2].set_xticks(x); ax[2].set_xticklabels(
+            ["lam_res", "FSR", "Q_L", "IL"], fontsize=8)
+        ax[2].set_ylabel("response MAPE %"); ax[2].legend(fontsize=8)
+        ax[2].set_title("response-space accuracy (O6)", fontsize=10)
+        fig.tight_layout()
+        fp = os.path.join(resdir, "phase4_curves.png")
+        fig.savefig(fp, dpi=150); plt.close(fig)
+        L.append(f"\nfigures: {fp}")
+    except ImportError:
+        pass
+
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "phase4_report.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+    print(f"\n[phase4] wrote phase4_report.txt and both model files "
+          f"to {resdir}/")
+
+
+# ---------------------------------------------------------------------------
+# PHASE 5 -- RANDOM FOREST / XGBOOST BASELINES
+# ---------------------------------------------------------------------------
+
+def _load_split_raw(name):
+    """Physical-unit columns, for the Phase 5.3 unnormalized condition."""
+    d = "data" if os.path.isdir("data") else "."
+    with open(os.path.join(d, f"{name}.csv"), newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    X = np.array([[float(r[k]) for k in INPUTS] for r in rows])
+    Y = np.array([[float(r[k]) for k in TARGETS] for r in rows])
+    return X, Y
+
+
+def _to_physical(arr, cols, sc, scaled):
+    """Back-transform to physical units if the array is in scaled space."""
+    if not scaled:
+        return np.asarray(arr, dtype=np.float64)
+    out = np.empty(np.shape(arr), dtype=np.float64)
+    for j, k in enumerate(cols):
+        out[:, j] = _unscale(np.asarray(arr)[:, j].astype(np.float64), sc[k])
+    return out
+
+
+def _mape_scorer(cols, sc, scaled):
+    """
+    Phase 5.2: minimise the MEAN MAPE across all four outputs.
+    Always evaluated in PHYSICAL units, so the normalized and unnormalized
+    conditions of Phase 5.3 are directly comparable.
+    """
+    from sklearn.metrics import make_scorer
+
+    def neg_mean_mape(y_true, y_pred):
+        t = _to_physical(y_true, cols, sc, scaled)
+        p = _to_physical(y_pred, cols, sc, scaled)
+        m = [np.mean(np.abs((t[:, j] - p[:, j]) / t[:, j])) * 100.0
+             for j in range(t.shape[1])]
+        return -float(np.mean(m))
+
+    return make_scorer(neg_mean_mape, greater_is_better=True)
+
+
+def _make_estimator(kind):
+    if kind == "rf":
+        from sklearn.ensemble import RandomForestRegressor
+        # Phase 5.1: RF uses its NATIVE multi-output support
+        return RandomForestRegressor(random_state=NN_SEED, n_jobs=-1), RF_GRID
+    from sklearn.multioutput import MultiOutputRegressor
+    try:
+        from xgboost import XGBRegressor
+    except ImportError:
+        raise SystemExit(
+            "\n[phase5] xgboost is not installed.\n"
+            "  install it with:  py -3 -m pip install xgboost\n")
+    # Phase 5.1: XGBoost is wrapped in MultiOutputRegressor
+    base = MultiOutputRegressor(
+        XGBRegressor(random_state=NN_SEED, n_jobs=1, verbosity=0))
+    grid = {f"estimator__{k}": v for k, v in XGB_GRID.items()}
+    return base, grid
+
+
+def _search(kind, Xtr, Ytr, cols, sc, scaled, tag):
+    """
+    Phase 5.4 steps 2-3. RF gets the full grid; XGBoost uses the
+    RandomizedSearchCV fallback the document explicitly permits, and the
+    choice is logged either way.
+    """
+    from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, KFold
+    est, grid = _make_estimator(kind)
+    cv = KFold(n_splits=CV_FOLDS, shuffle=True, random_state=SPLIT_SEED)
+    sco = _mape_scorer(cols, sc, scaled)
+    n_full = int(np.prod([len(v) for v in grid.values()]))
+    if kind == "rf":
+        se = GridSearchCV(est, grid, scoring=sco, cv=cv, n_jobs=-1,
+                          refit=True)
+        how = f"GridSearchCV, full grid, {n_full} configurations"
+    else:
+        se = RandomizedSearchCV(est, grid, n_iter=XGB_N_ITER, scoring=sco,
+                                cv=cv, n_jobs=-1, random_state=NN_SEED,
+                                refit=True)
+        how = (f"RandomizedSearchCV, {XGB_N_ITER} of {n_full} configurations "
+               f"(Phase 5.2 fallback, full grid too large)")
+    t0 = time.time()
+    print(f"[phase5] {tag}: {how} x {CV_FOLDS}-fold CV ...")
+    se.fit(Xtr, Ytr)
+    print(f"[phase5] {tag}: best CV MAPE {-se.best_score_:.4f} %  "
+          f"({time.time()-t0:.0f} s)")
+    return se, how
+
+
+def run_phase5():
+    import json
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+
+    Gn_tr, Rn_tr, _ = _load_split("train")      # normalized
+    Gn_te, Rn_te, _ = _load_split("test")
+    Gr_tr, Rr_tr = _load_split_raw("train")     # raw physical units
+    Gr_te, Rr_te = _load_split_raw("test")
+
+    cache = os.path.join(resdir, "phase5_results.json")
+    done = json.load(open(cache)) if os.path.isfile(cache) else {}
+    if done:
+        print(f"[phase5] resuming -- {len(done)} of 8 searches already done")
+
+    L = ["PHASE 5 -- RANDOM FOREST / XGBOOST BASELINES", "=" * 74,
+         f"5-fold CV on the {len(Gn_tr)}-sample training pool, "
+         "minimising mean MAPE",
+         "MAPE is always computed in PHYSICAL units, so the normalized and",
+         "unnormalized conditions of Phase 5.3 are directly comparable.", ""]
+    imp_lines, rge_lines = [], []
+
+    # four models x two preprocessing conditions = eight searches
+    jobs = []
+    for kind in ("rf", "xgb"):
+        for direction in ("forward", "inverse"):
+            for cond in ("raw", "norm"):
+                jobs.append((kind, direction, cond))
+
+    for kind, direction, cond in jobs:
+        tag = f"{direction}_{kind}_{cond}"
+        scaled = (cond == "norm")
+        if direction == "forward":
+            Xtr = Gn_tr if scaled else Gr_tr
+            Ytr = Rn_tr if scaled else Rr_tr
+            Xte = Gn_te if scaled else Gr_te
+            Yte_phys = Rr_te
+            cols_out, cols_in = TARGETS, INPUTS
+        else:
+            Xtr = Rn_tr if scaled else Rr_tr
+            Ytr = Gn_tr if scaled else Gr_tr
+            Xte = Rn_te if scaled else Rr_te
+            Yte_phys = Gr_te
+            cols_out, cols_in = INPUTS, TARGETS
+
+        if tag in done:
+            rec = done[tag]
+            print(f"[phase5] {tag}: cached")
+        else:
+            se, how = _search(kind, Xtr, Ytr, cols_out, sc, scaled, tag)
+            P = _to_physical(se.best_estimator_.predict(Xte), cols_out, sc,
+                             scaled)
+            rec = dict(how=how, cv_mape=float(-se.best_score_),
+                       best=({k: (v if not isinstance(v, (np.integer,
+                                                          np.floating))
+                                  else v.item())
+                              for k, v in se.best_params_.items()}),
+                       per_target={}, pred=P.tolist())
+            for j, k in enumerate(cols_out):
+                r2, mp, rm = _metrics(Yte_phys[:, j], P[:, j])
+                rec["per_target"][k] = dict(R2=r2, MAPE=mp, RMSE=rm)
+            if direction == "forward":
+                est = se.best_estimator_
+                fi = (est.feature_importances_ if kind == "rf" else
+                      np.mean([e.feature_importances_
+                               for e in est.estimators_], axis=0))
+                rec["importance"] = {k: float(v)
+                                     for k, v in zip(cols_in, fi)}
+            else:
+                agg, per, p12 = _rms_rge(P, Gr_te)
+                rec["rms_rge"] = agg
+                rec["rms_rge_per"] = per
+                rec["rms_rge_p12"] = p12
+            done[tag] = rec
+            json.dump(done, open(cache, "w"), indent=1)
+
+        L += [f"{tag}", "-" * 74, f"  search: {rec['how']}",
+              f"  best CV MAPE: {rec['cv_mape']:.4f} %",
+              f"  selected: " + ", ".join(
+                  f"{k.replace('estimator__','')}={v}"
+                  for k, v in sorted(rec["best"].items())),
+              f"  {'output':16s} {'R2':>9s} {'MAPE %':>9s} {'RMSE':>12s}"]
+        for k in cols_out:
+            d = rec["per_target"][k]
+            L.append(f"  {k:16s} {d['R2']:9.4f} {d['MAPE']:9.3f} "
+                     f"{d['RMSE']:12.5g}")
+        if "rms_rge" in rec:
+            L.append(f"  RMS-RGE = {rec['rms_rge']:.3f} %   "
+                     f"(R,w,g only: {rec['rms_rge_p12']:.3f} %)   "
+                     f"O3 <= 15%: "
+                     + ("MET" if rec["rms_rge"] <= 15.0 else "NOT MET"))
+            rge_lines.append((tag, rec["rms_rge"], rec["rms_rge_p12"]))
+        if "importance" in rec:
+            imp_lines.append((tag, rec["importance"]))
+        L.append("")
+
+    # ---- Phase 5.3 verdict: did normalization help? ---------------------
+    L += ["=" * 74, "5.3 NORMALIZATION TEST (mandatory)", "=" * 74,
+          "  Paper 6 found normalization helped two targets and hurt one.",
+          "  This design space, same comparison:", "",
+          f"  {'model':20s} {'raw MAPE':>10s} {'norm MAPE':>11s} "
+          f"{'verdict':>12s}"]
+    for kind in ("rf", "xgb"):
+        for direction in ("forward", "inverse"):
+            a = done.get(f"{direction}_{kind}_raw")
+            b = done.get(f"{direction}_{kind}_norm")
+            if not (a and b):
+                continue
+            ma = np.mean([v["MAPE"] for v in a["per_target"].values()])
+            mb = np.mean([v["MAPE"] for v in b["per_target"].values()])
+            L.append(f"  {direction+'_'+kind:20s} {ma:10.3f} {mb:11.3f} "
+                     f"{('normalization helps' if mb < ma else 'raw is better'):>12s}")
+    L += ["", "  Note: tree splits are order-based, so a monotone rescaling of",
+          "  the INPUTS cannot change a tree's structure. Any difference here",
+          "  comes from rescaling the TARGETS, which reweights the multi-output",
+          "  variance criterion, plus the log10 on Q_L in the normalized set."]
+
+    # ---- feature importances (Phase 5.4 step 6) -------------------------
+    if imp_lines:
+        L += ["", "=" * 74, "FEATURE IMPORTANCES (forward models)", "=" * 74]
+        for tag, imp in imp_lines:
+            tot = sum(imp.values()) or 1.0
+            L.append(f"  {tag}: " + ", ".join(
+                f"{k} {100*v/tot:.1f}%" for k, v in sorted(
+                    imp.items(), key=lambda kv: -kv[1])))
+        L += ["", "  CAUTION on reading these. A multi-output tree splits to",
+              "  reduce SUMMED variance across the four targets, so whichever",
+              "  target has the largest numerical spread dominates. In raw",
+              "  units Q_L spans ~10^3-10^5 and swamps lambda_res, FSR and IL,",
+              "  so the ranking mostly reflects what drives Q_L. Normalizing",
+              "  equalises the targets and the ranking can change completely.",
+              "  Report BOTH rankings and say which preprocessing produced",
+              "  each; a single ranking presented alone is not meaningful."]
+
+    # ---- honest note on the Phase 5.2 selection metric -------------------
+    L += ["", "=" * 74, "NOTE ON THE SELECTION METRIC FOR THE INVERSE MODELS",
+          "=" * 74,
+          "  Phase 5.2 fixes the search criterion as mean MAPE across all four",
+          "  outputs, and that is what was used here. For the INVERSE models",
+          "  the outputs are geometries, and Lc reaches 0 by design (Phase",
+          "  1.2), so a relative error on Lc is unbounded -- Lc MAPE runs to",
+          "  several hundred percent and dominates the mean, meaning the",
+          "  hyperparameter selection is driven almost entirely by Lc.",
+          "  This is the same pathology that Phase 6.2 Fix 4b already fixed",
+          "  for RMS-RGE by range-normalising the Lc term; the Phase 5.2",
+          "  selection metric was not given the matching treatment.",
+          "  Reported, not changed: Phase 5.2's criterion is a fixed default.",
+          "  Worth raising with the supervisor -- an RMS-RGE-based selection",
+          "  criterion would make the inverse search consistent with the",
+          "  metric the thesis actually reports."]
+
+    if rge_lines:
+        L += ["", "=" * 74, "O3 INVERSE-DESIGN THRESHOLD", "=" * 74,
+              "  Phase 4:  naive DNN 15.501 %, tandem 31.438 %"]
+        for tag, agg, p12 in rge_lines:
+            L.append(f"  {tag:24s} {agg:8.3f} %   (R,w,g only {p12:.3f} %)")
+        best = min(rge_lines, key=lambda t: t[1])
+        L += ["", f"  best Phase 5 method: {best[0]} at {best[1]:.3f} %",
+              "  O3 requires RMS-RGE <= 15% for AT LEAST ONE method: "
+              + ("MET" if best[1] <= 15.0 else "NOT MET by Phase 5 either")]
+
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "phase5_report.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+    print(f"\n[phase5] wrote phase5_report.txt and phase5_results.json "
+          f"to {resdir}/")
+
+
+# ---------------------------------------------------------------------------
+# PHASE 6 -- UNIFIED EVALUATION
+# ---------------------------------------------------------------------------
+
+def _row(name, vals, w=11):
+    return f"  {name:<22s}" + "".join(f"{v:>{w}}" for v in vals)
+
+
+def _dnn_predict(torch, path, X):
+    ck = torch.load(path, weights_only=False)
+    if "depth" in ck:
+        net, _ = _build_mlp(torch, ck["depth"], ck["width"])
+    else:
+        net = _build_inverse(torch, NN_SEED)
+    net.load_state_dict(ck["state_dict"]); net.eval()
+    with torch.no_grad():
+        return net(torch.from_numpy(X)).numpy(), net
+
+
+def _fit_sized(kind, direction, n, Xtr, Ytr, best, seed=NN_SEED):
+    """Refit one tree model on the first n training rows (Phase 6.3)."""
+    est, _ = _make_estimator(kind)
+    est.set_params(**{k: v for k, v in best.items()})
+    est.fit(Xtr[:n], Ytr[:n])
+    return est
+
+
+def run_phase6():
+    import json
+    torch = _torch()
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+    p5 = json.load(open(os.path.join(resdir, "phase5_results.json")))
+
+    Gn_tr, Rn_tr, _ = _load_split("train")
+    Gn_va, Rn_va, _ = _load_split("val")
+    Gn_te, Rn_te, _ = _load_split("test")
+    Gr_tr, Rr_tr = _load_split_raw("train")
+    Gr_te, Rr_te = _load_split_raw("test")
+
+    L = ["PHASE 6 -- UNIFIED EVALUATION", "=" * 92,
+         f"identical held-out test set, n = {len(Gr_te)}, used once.",
+         "Every method appears in every table (Phase 6.4), including where "
+         "it performs worst.", ""]
+
+    # ===== 6.1 forward master table ======================================
+    Pdnn, _ = _dnn_predict(torch, os.path.join(resdir,
+                                               "phase3_forward_model.pt"),
+                           Gn_te)
+    Pdnn = _res_physical(Pdnn, sc)
+    fwd = {"DNN (Phase 3)": Pdnn}
+    for kind in ("rf", "xgb"):
+        for cond in ("raw", "norm"):
+            tag = f"forward_{kind}_{cond}"
+            if tag in p5:
+                fwd[f"{kind.upper()} ({cond})"] = np.array(p5[tag]["pred"])
+
+    L += ["=" * 92, "6.1  MASTER TABLE -- FORWARD DIRECTION "
+          "(geometry -> response)", "=" * 92,
+          "  all three metrics reported for every target, never only one", ""]
+    for metric, idx in (("R2", 0), ("MAPE %", 1), ("RMSE", 2)):
+        L.append(f"  --- {metric} ---")
+        L.append(_row("method", [t.replace("_nm", "").replace("_dB", "")
+                                 for t in TARGETS], 13))
+        for name, P in fwd.items():
+            vals = []
+            for j in range(4):
+                m = _metrics(Rr_te[:, j], P[:, j])[idx]
+                vals.append(f"{m:.4f}" if idx == 0 else
+                            (f"{m:.3f}" if idx == 1 else f"{m:.5g}"))
+            L.append(_row(name, vals, 13))
+        L.append("")
+    L.append("  aggregate (mean MAPE across the four targets):")
+    agg_fwd = {}
+    for name, P in fwd.items():
+        a = float(np.mean([_metrics(Rr_te[:, j], P[:, j])[1] for j in range(4)]))
+        agg_fwd[name] = a
+        L.append(f"    {name:24s} {a:8.3f} %")
+    bf = min(agg_fwd, key=agg_fwd.get)
+    L += [f"  best forward method: {bf} ({agg_fwd[bf]:.3f} %)", ""]
+
+    # ===== 6.2 inverse master table ======================================
+    Pnai, _ = _dnn_predict(torch, os.path.join(resdir,
+                                               "phase4_naive_inverse.pt"),
+                           Rn_te)
+    Ptan, _ = _dnn_predict(torch, os.path.join(resdir,
+                                               "phase4_tandem_inverse.pt"),
+                           Rn_te)
+    inv = {"naive DNN": _geo_physical(Pnai, sc),
+           "Tandem": _geo_physical(Ptan, sc)}
+    for kind in ("rf", "xgb"):
+        for cond in ("raw", "norm"):
+            tag = f"inverse_{kind}_{cond}"
+            if tag in p5:
+                inv[f"{kind.upper()} ({cond})"] = np.array(p5[tag]["pred"])
+
+    L += ["=" * 92, "6.2  MASTER TABLE -- INVERSE DIRECTION "
+          "(response -> geometry)", "=" * 92]
+    for metric, idx in (("R2", 0), ("MAPE %", 1), ("RMSE", 2)):
+        L.append(f"  --- {metric} ---")
+        L.append(_row("method", [k.replace("_um", "").replace("_nm", "")
+                                 for k in INPUTS], 13))
+        for name, P in inv.items():
+            vals = []
+            for j in range(4):
+                m = _metrics(Gr_te[:, j], P[:, j])[idx]
+                vals.append(f"{m:.4f}" if idx == 0 else
+                            (f"{m:.3f}" if idx == 1 else f"{m:.5g}"))
+            L.append(_row(name, vals, 13))
+        L.append("")
+
+    L += ["  RMS-RGE (Eq. 15), with the per-parameter breakdown Phase 6.2 "
+          "requires:",
+          _row("method", ["aggregate", "R", "w", "g", "Lc", "R,w,g only"], 12)]
+    rge = {}
+    for name, P in inv.items():
+        agg, per, p12 = _rms_rge(P, Gr_te)
+        rge[name] = agg
+        L.append(_row(name, [f"{agg:.3f}"] + [f"{v:.3f}" for v in per]
+                      + [f"{p12:.3f}"], 12))
+    bi = min(rge, key=rge.get)
+    L += ["", f"  best inverse method: {bi} ({rge[bi]:.3f} %)",
+          f"  O3 requires RMS-RGE <= 15% for at least one method: "
+          + ("MET" if rge[bi] <= 15.0 else "NOT MET"),
+          "  (Paper 12 reports 3.46% FDTD / 5.14% analytical under the "
+          "R,w,g convention)", ""]
+
+    # ===== 6.4 per-parameter difficulty ranking ==========================
+    L += ["=" * 92, "6.4  PER-PARAMETER DIFFICULTY RANKING (mandatory)",
+          "=" * 92,
+          "  The document hypothesises that the coupling gap g is the hardest",
+          "  parameter, by analogy with Paper 6 finding radius hardest. "
+          "Confirm or refute:", ""]
+    diff = {}
+    for j, k in enumerate(INPUTS):
+        r2s = [_metrics(Gr_te[:, j], P[:, j])[0] for P in inv.values()]
+        rge_terms = [_rms_rge(P, Gr_te)[1][j] for P in inv.values()]
+        diff[k] = (float(np.mean(r2s)), float(np.mean(rge_terms)))
+    L.append(_row("parameter", ["mean R2", "mean RGE %"], 14))
+    for k, (r2, rg) in diff.items():
+        L.append(_row(k, [f"{r2:.4f}", f"{rg:.3f}"], 14))
+    order = sorted(diff, key=lambda k: diff[k][0])
+    L += ["", f"  hardest by mean R2:      {order[0]} "
+          f"(R2 = {diff[order[0]][0]:.4f})",
+          f"  easiest by mean R2:      {order[-1]} "
+          f"(R2 = {diff[order[-1]][0]:.4f})",
+          f"  full ranking, hardest first: " + " > ".join(order), "",
+          ("  VERDICT: the g hypothesis is CONFIRMED." if order[0] == "g_nm"
+           else f"  VERDICT: the g hypothesis is REFUTED -- {order[0]} is "
+                f"harder than g_nm."),
+          f"  (g_nm mean R2 = {diff['g_nm'][0]:.4f}, "
+          f"mean RGE term = {diff['g_nm'][1]:.3f} %)", ""]
+
+    # ===== 6.3 sample-efficiency curve ===================================
+    L += ["=" * 92, "6.3  SAMPLE-EFFICIENCY CURVE", "=" * 92]
+    sizes = [n if n else len(Gn_tr) for n in SAMPLE_SIZES]
+    ck_path = os.path.join(resdir, "phase6_sample_efficiency.json")
+    curves = json.load(open(ck_path)) if os.path.isfile(ck_path) else {}
+
+    for n in sizes:
+        key = str(n)
+        if key in curves:
+            print(f"[phase6] n={n}: cached")
+            continue
+        print(f"[phase6] sample-efficiency at n={n} ...")
+        rec = {}
+        # --- DNN forward, then the tandem that depends on it -------------
+        torch.manual_seed(NN_SEED)
+        fck = torch.load(os.path.join(resdir, "phase3_forward_model.pt"),
+                         weights_only=False)
+        fnet, _ = _build_mlp(torch, fck["depth"], fck["width"])
+        _train_mlp(torch, fnet, Gn_tr[:n], Rn_tr[:n], Gn_va, Rn_va,
+                   fck["lr"], fck["wd"])
+        fnet.eval()
+        with torch.no_grad():
+            P = _res_physical(fnet(torch.from_numpy(Gn_te)).numpy(), sc)
+        rec["DNN forward"] = float(np.mean(
+            [_metrics(Rr_te[:, j], P[:, j])[1] for j in range(4)]))
+        for prm in fnet.parameters():
+            prm.requires_grad_(False)
+        # --- naive inverse ----------------------------------------------
+        gn = _build_inverse(torch, INV_SEED_NAIVE)
+        _train_inverse(torch, gn, Gn_tr[:n], Rn_tr[:n], Gn_va, Rn_va,
+                       forward=None, tag=f"n{n}-naive")
+        gn.eval()
+        with torch.no_grad():
+            Pg = _geo_physical(gn(torch.from_numpy(Rn_te)).numpy(), sc)
+        rec["naive DNN inverse"] = _rms_rge(Pg, Gr_te)[0]
+        # --- tandem, using the same-size forward model -------------------
+        gt = _build_inverse(torch, INV_SEED_TANDEM)
+        _train_inverse(torch, gt, Gn_tr[:n], Rn_tr[:n], Gn_va, Rn_va,
+                       forward=fnet, tag=f"n{n}-tandem")
+        gt.eval()
+        with torch.no_grad():
+            Pg = _geo_physical(gt(torch.from_numpy(Rn_te)).numpy(), sc)
+        rec["Tandem inverse"] = _rms_rge(Pg, Gr_te)[0]
+        # --- trees -------------------------------------------------------
+        for kind in ("rf", "xgb"):
+            bp = {k.replace("estimator__", ""): v
+                  for k, v in p5[f"forward_{kind}_norm"]["best"].items()}
+            bp = {(f"estimator__{k}" if kind == "xgb" else k): v
+                  for k, v in bp.items()}
+            e = _fit_sized(kind, "forward", n, Gn_tr, Rn_tr, bp)
+            P = _res_physical(e.predict(Gn_te), sc)
+            rec[f"{kind.upper()} forward"] = float(np.mean(
+                [_metrics(Rr_te[:, j], P[:, j])[1] for j in range(4)]))
+            bp = {k.replace("estimator__", ""): v
+                  for k, v in p5[f"inverse_{kind}_norm"]["best"].items()}
+            bp = {(f"estimator__{k}" if kind == "xgb" else k): v
+                  for k, v in bp.items()}
+            e = _fit_sized(kind, "inverse", n, Rn_tr, Gn_tr, bp)
+            Pg = _geo_physical(e.predict(Rn_te), sc)
+            rec[f"{kind.upper()} inverse"] = _rms_rge(Pg, Gr_te)[0]
+        curves[key] = rec
+        json.dump(curves, open(ck_path, "w"), indent=1)
+
+    fwd_keys = ["DNN forward", "RF forward", "XGB forward"]
+    inv_keys = ["naive DNN inverse", "Tandem inverse", "RF inverse",
+                "XGB inverse"]
+    L += ["", "  FORWARD -- aggregate test MAPE (%) vs training-set size",
+          _row("method", [str(n) for n in sizes], 11)]
+    for k in fwd_keys:
+        L.append(_row(k, [f"{curves[str(n)][k]:.3f}" for n in sizes], 11))
+    L += ["", "  INVERSE -- RMS-RGE (%) vs training-set size",
+          _row("method", [str(n) for n in sizes], 11)]
+    for k in inv_keys:
+        L.append(_row(k, [f"{curves[str(n)][k]:.3f}" for n in sizes], 11))
+
+    # --- the mandatory written verdict (Fix 1) ---------------------------
+    small = [n for n in sizes if n <= 300]
+    def _best(keys, ns):
+        sc_ = {k: np.mean([curves[str(n)][k] for n in ns]) for k in keys}
+        return min(sc_, key=sc_.get), sc_
+    bs_f, sf = _best(fwd_keys, small)
+    bl_f, lf = _best(fwd_keys, [sizes[-1]])
+    bs_i, si = _best(inv_keys, small)
+    bl_i, li = _best(inv_keys, [sizes[-1]])
+    L += ["", "  MANDATORY VERDICT (Objective O5, Phase 6.3 Fix 1)",
+          "  " + "-" * 88,
+          f"  (a) In the <= 300-sample regime, the lowest aggregate test MAPE",
+          f"      in the FORWARD direction is achieved by {bs_f} "
+          f"({sf[bs_f]:.3f} % mean over n = {small}).",
+          f"      In the INVERSE direction the lowest RMS-RGE is achieved by",
+          f"      {bs_i} ({si[bs_i]:.3f} % mean over the same sizes).",
+          f"  (b) At the full dataset size (n = {sizes[-1]}), the lowest "
+          f"aggregate test MAPE",
+          f"      in the FORWARD direction is achieved by {bl_f} "
+          f"({lf[bl_f]:.3f} %),",
+          f"      and the lowest RMS-RGE by {bl_i} ({li[bl_i]:.3f} %).", "",
+          "  Anchors for the discussion: Paper 6 drew its headline result from",
+          "  462 FEM samples and Paper 12 from 2,500 geometries, so this "
+          "curve's",
+          "  100-805 range sits inside the operating range of the closest "
+          "published work."]
+
+    # --- figure -----------------------------------------------------------
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(1, 2, figsize=(14, 5))
+        for k in fwd_keys:
+            ax[0].plot(sizes, [curves[str(n)][k] for n in sizes], "o-",
+                       label=k, lw=1.6)
+        ax[0].set_xlabel("training-set size"); ax[0].set_yscale("log")
+        ax[0].set_ylabel("aggregate test MAPE (%)")
+        ax[0].set_title("Phase 6.3 forward direction", fontsize=10)
+        ax[0].axvspan(0, 300, color="grey", alpha=0.12)
+        ax[0].legend(fontsize=8); ax[0].grid(alpha=0.3)
+        for k in inv_keys:
+            ax[1].plot(sizes, [curves[str(n)][k] for n in sizes], "o-",
+                       label=k, lw=1.6)
+        ax[1].axhline(15.0, ls="--", c="crimson", lw=1.2, label="O3 threshold")
+        ax[1].axvspan(0, 300, color="grey", alpha=0.12)
+        ax[1].set_xlabel("training-set size"); ax[1].set_ylabel("RMS-RGE (%)")
+        ax[1].set_title("Phase 6.3 inverse direction "
+                        "(shaded = the <=300-sample regime)", fontsize=10)
+        ax[1].legend(fontsize=8); ax[1].grid(alpha=0.3)
+        fig.tight_layout()
+        fp = os.path.join(resdir, "phase6_sample_efficiency.png")
+        fig.savefig(fp, dpi=150); plt.close(fig)
+        L.append(f"\n  figure: {fp}")
+    except ImportError:
+        pass
+
+    L += ["", "=" * 92, "STILL OUTSTANDING", "=" * 92,
+          "  Closed-loop response error (Phase 6.2 / Phase 4.4 step 4) is "
+          "MANDATORY and",
+          "  is not covered by this run -- it needs Lumerical. Run:",
+          "      py -3 mrr_template.py --closedloop",
+          f"  That re-simulates the predicted geometries for "
+          f"{CLOSEDLOOP_N} representative test",
+          "  targets through the same dual-fidelity pipeline that built the "
+          "dataset",
+          "  (3-D coupler FDTD -> kappa^2 -> analytic ring), so it is an",
+          "  independent check and not a replay of the analytic model."]
+
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "phase6_report.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+    print(f"\n[phase6] wrote phase6_report.txt to {resdir}/")
+
+
+# ---------------------------------------------------------------------------
+# CLOSED-LOOP RE-VERIFICATION  (Phase 4.4 step 4 / Phase 6.2)
+# ---------------------------------------------------------------------------
+
+def _ring_given_kappa2(R, w, g, Lc, k2):
+    """
+    The same ring model as _make_responder, but with kappa^2 supplied from a
+    fresh 3-D FDTD coupler run instead of from the fitted kappa^2 model.
+    n_eff / n_g still come from the mode sweep, which is an independent
+    measurement, and the loss terms from the bend sweep.
+    """
+    from scipy.optimize import brentq
+    kq, nc, bp = _fit_models()
+    b = lambda x, y: np.array([1, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3])
+    db = lambda x, y: np.array([0, 1, 0, 2*x, y, 0, 2*x*y, y*y, 0])
+    neff = lambda l, ww: float(b((l-1550)/50, (ww-450)/50) @ nc)
+    ng = lambda l, ww: neff(l, ww) - l * float(
+        db((l-1550)/50, (ww-450)/50) @ nc) / 50
+
+    L = (2*np.pi*R + 2*Lc) * 1e3
+    f = lambda l, m: neff(l, w) * L / l - m
+    lo = int(np.ceil(neff(1600, w)*L/1600))
+    hi = int(np.floor(neff(1500, w)*L/1500))
+    res = np.sort([brentq(f, 1495, 1605, args=(m,)) for m in range(lo, hi+1)])
+    i = int(np.argmin(abs(res - 1550))); lr = res[i]
+    fsr = (float(np.min(np.abs(np.delete(res, i) - lr)))
+           if res.size > 1 else np.nan)
+    t2 = 1.0 - k2
+    bend = 4*np.exp(bp[1] + bp[0]*R)
+    rough = ROUGHNESS_DB_CM*(2*np.pi*R + 2*Lc)*1e-4
+    a = 10**(-(bend + rough)/20); x = t2*a
+    Tpk = (1 - t2)**2 * a / (1 - x)**2
+    ch = (1 + x*x - 2*(1 - x)**2) / (2*x)
+    fwhm = (2*np.arccos(ch)*lr**2 / (2*np.pi*ng(lr, w)*L)
+            if -1 < ch < 1 else np.nan)
+    return {"lambda_res_nm": lr, "FSR_nm": fsr,
+            "Q_L": lr/fwhm if fwhm == fwhm else np.nan,
+            "IL_dB": -10*np.log10(Tpk)}
+
+
+def _coupler_kappa2_fdtd(R, w, g, Lc):
+    """One 3-D FDTD coupler run at the production mesh -> measured kappa^2."""
+    lumapi = load_lumapi()
+    mesh = MeshConfig.uniform(BEND_MESH_NM * 1e-9)
+    dom = DomainConfig(movie=False, dimension="3D",
+                       sim_time=COUPLER_SIM_TIME,
+                       freq_points=COUPLER_FREQ_POINTS)
+    p = MRRParams(R * 1e-6, w * 1e-9, g * 1e-9, Lc * 1e-6)
+    with lumapi.FDTD(hide=True) as fdtd:
+        build_coupler(fdtd, p, mesh, dom)
+        fdtd.save(os.path.abspath("closedloop_scratch.fsp"))
+        fdtd.run()
+        lam_c, Tc = get_spectrum(fdtd, "monitor_cross")
+        lam_t, Tt = get_spectrum(fdtd, "monitor_through")
+    return _at_target(lam_c, Tc), _at_target(lam_t, Tt)
+
+
+def run_closedloop(method="naive", n=CLOSEDLOOP_N):
+    """
+    Take a model's predicted geometries for n representative test targets,
+    re-simulate each through the SAME dual-fidelity pipeline that built the
+    dataset (3-D coupler FDTD -> kappa^2 -> analytic ring), and compare the
+    re-simulated response against the response that was originally asked for.
+
+    The 3-D FDTD coupler run is what makes this independent: feeding the
+    predictions back through the analytic kappa^2 model alone would simply
+    replay the model that produced the labels.
+    """
+    import json
+    torch = _torch()
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+    Gn_te, Rn_te, rows = _load_split("test")
+    Gr_te, Rr_te = _load_split_raw("test")
+
+    if method in ("naive", "tandem"):
+        f = os.path.join(resdir, f"phase4_{method}_inverse.pt")
+        P, _ = _dnn_predict(torch, f, Rn_te)
+        P = _geo_physical(P, sc)
+    else:
+        p5 = json.load(open(os.path.join(resdir, "phase5_results.json")))
+        P = np.array(p5[f"inverse_{method}"]["pred"])
+
+    # evenly spaced through the test set = representative, not cherry-picked
+    idx = np.linspace(0, len(P) - 1, n).astype(int)
+
+    ck = os.path.join(resdir, f"closedloop_{method}.json")
+    done = json.load(open(ck)) if os.path.isfile(ck) else {}
+    print(f"[closedloop] method={method}, {n} targets, "
+          f"{len(done)} already done")
+
+    skipped = []
+    for c, i in enumerate(idx, 1):
+        key = str(int(i))
+        if key in done:
+            continue
+        R, w, g, Lc = P[i]
+        bad = []
+        for nm, v, (lo, hi) in (("R", R, (5.0, 15.0)), ("w", w, (400., 500.)),
+                                ("g", g, (150., 350.)), ("Lc", Lc, (0., 3.))):
+            if not (lo <= v <= hi):
+                bad.append(f"{nm}={v:.3f} outside [{lo:g},{hi:g}]")
+        if bad:
+            # a geometry outside the design space cannot be built or meshed;
+            # it counts as a failure of the method, not as a missing data point
+            done[key] = dict(status="unrealisable", why="; ".join(bad),
+                             geom=[float(x) for x in P[i]])
+            skipped.append((int(i), "; ".join(bad)))
+            json.dump(done, open(ck, "w"), indent=1)
+            print(f"[closedloop] {c}/{n}: UNREALISABLE -- {'; '.join(bad)}")
+            continue
+        print(f"[closedloop] {c}/{n}: R={R:.3f}um w={w:.1f}nm "
+              f"g={g:.1f}nm Lc={Lc:.3f}um ...")
+        t0 = time.time()
+        try:
+            k2, t2 = _coupler_kappa2_fdtd(R, w, g, Lc)
+        except Exception as exc:                        # noqa: BLE001
+            print(f"[closedloop]   FAILED: {exc}  -- re-run to retry")
+            time.sleep(20)
+            continue
+        resp = _ring_given_kappa2(R, w, g, Lc, k2)
+        done[key] = dict(status="ok", kappa2=float(k2), t2=float(t2),
+                         geom=[float(x) for x in P[i]],
+                         resim={k: float(resp[k]) for k in TARGETS},
+                         minutes=(time.time() - t0) / 60.0)
+        json.dump(done, open(ck, "w"), indent=1)
+        print(f"[closedloop]   kappa^2 {k2:.6f}  t^2 {t2:.6f}  "
+              f"sum {k2+t2:.4f}  ({(time.time()-t0)/60:.1f} min)")
+
+    # ---- report ---------------------------------------------------------
+    L = [f"CLOSED-LOOP RE-VERIFICATION -- {method}", "=" * 78,
+         f"{n} representative test targets, evenly spaced through the test "
+         "set.",
+         "Each predicted geometry was re-simulated with a 3-D FDTD coupler "
+         "run,",
+         "then the ring response was computed analytically -- the same "
+         "pipeline",
+         "that produced the dataset, so the FDTD step is an independent "
+         "check.", ""]
+    ok = [k for k, v in done.items() if v["status"] == "ok"]
+    un = [k for k, v in done.items() if v["status"] == "unrealisable"]
+    L += [f"  simulated successfully : {len(ok)}",
+          f"  physically unrealisable: {len(un)}"]
+    for k in un:
+        L.append(f"      sample {k}: {done[k]['why']}")
+    if un:
+        L += ["  NOTE: an unrealisable geometry is a failure of the method, "
+              "not a",
+              "  missing measurement. It is counted in the denominator below."]
+    L.append("")
+    if ok:
+        L += ["  per-target closed-loop error (re-simulated vs requested)",
+              f"  {'target':16s} {'MAPE %':>10s} {'RMS %':>10s} {'max %':>10s}"]
+        rms_all = []
+        for j, t in enumerate(TARGETS):
+            e = []
+            for k in ok:
+                want = Rr_te[int(k), j]
+                got = done[k]["resim"][t]
+                e.append(100.0 * (got - want) / want)
+            e = np.array(e)
+            rms_all.append(np.sqrt(np.mean(e ** 2)))
+            L.append(f"  {t:16s} {np.mean(np.abs(e)):10.3f} "
+                     f"{rms_all[-1]:10.3f} {np.max(np.abs(e)):10.3f}")
+        overall = float(np.sqrt(np.mean(np.array(rms_all) ** 2)))
+        # penalise unrealisable predictions rather than quietly dropping them
+        frac = len(ok) / max(1, len(ok) + len(un))
+        L += ["", f"  RMS closed-loop response error = {overall:.3f} %  "
+              f"(over the {len(ok)} realisable predictions)",
+              f"  realisable fraction = {100*frac:.1f} %",
+              f"  O3 requires RMS closed-loop error <= 20%: "
+              + ("MET" if overall <= 20.0 and not un else
+                 ("MET on the realisable subset, but "
+                  f"{len(un)} predictions could not be built" if
+                  overall <= 20.0 else "NOT MET"))]
+    txt = "\n".join(L)
+    open(os.path.join(resdir, f"closedloop_{method}.txt"), "w").write(
+        txt + "\n")
+    print("\n" + txt)
 
 
 # ---------------------------------------------------------------------------
@@ -1575,6 +3314,39 @@ def run_substudy2(dimension="3D"):
 # ---------------------------------------------------------------------------
 
 def main():
+    if "--closedloop" in sys.argv:
+        mth = "naive"
+        for a in ("naive", "tandem", "rf_norm", "rf_raw", "xgb_norm",
+                  "xgb_raw"):
+            if f"--{a}" in sys.argv:
+                mth = a
+        nn = CLOSEDLOOP_N
+        for a in sys.argv:
+            if a.startswith("--n="):
+                nn = int(a[4:])
+        run_closedloop(mth, nn)
+        return
+
+    if "--phase6" in sys.argv:
+        run_phase6()
+        return
+
+    if "--phase5" in sys.argv:
+        run_phase5()
+        return
+
+    if "--phase4" in sys.argv:
+        run_phase4()
+        return
+
+    if "--phase3" in sys.argv:
+        run_phase3()
+        return
+
+    if "--phase2" in sys.argv:
+        run_phase2()
+        return
+
     if "--generate" in sys.argv:
         run_generate()
         return

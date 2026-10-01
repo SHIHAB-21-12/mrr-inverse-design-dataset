@@ -1,0 +1,21 @@
+PHASE 3 -- FORWARD MODEL
+====================================================================
+grid searched: 144 configurations (3x4x4x3)
+selected: depth 4, widths [256, 256, 256, 256], lr 0.005, weight decay 0.0001
+selection criterion: minimum validation MSE (0.009908)
+retrained 129 epochs, early stopping patience 40
+
+test-set accuracy (physical units, Q_L back-transformed to linear)
+--------------------------------------------------------------------
+  target                  R2    MAPE %          RMSE
+  lambda_res_nm       0.0058     0.159        2.9431   <-- misses the Phase 3 criterion
+  FSR_nm              0.9994     0.537      0.090123
+  Q_L                 0.9983     3.469        1005.8
+  IL_dB               0.9972     9.612      0.068512
+
+targets meeting R2 >= 0.90 AND MAPE <= 10%: 3 of 4
+Phase 3 success criterion is >= 3 of 4: MET
+
+frozen weights: results\phase3_forward_model.pt
+This exact model is reused unmodified as f_theta in Phase 4.
+loss curves: results\phase3_loss_curves.png
