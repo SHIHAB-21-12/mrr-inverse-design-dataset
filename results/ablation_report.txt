@@ -1,0 +1,30 @@
+ABLATION STUDY -- INVERSE DIRECTION
+======================================================================================
+Three training-side changes, none of which touch a fixed default in v1.3.
+Each variant is run over 3 seeds [42, 43, 44] and reported as mean +/- sd,
+so an improvement can be told apart from seed noise.
+
+  Phase 5 established that Lc_term ~ 9.46 x R_term, so O3 needs the
+  R term to fall from 2.852 % to 2.731 % -- a 4.2 % relative gain.
+
+  variant                           RMS-RGE %         R term %        Lc term %  out-of-range
+  baseline (Phase 4)         15.448 +/- 0.038    3.011 +/- 0.155   26.931 +/- 0.093           4.7
+  + bounded outputs          15.505 +/- 0.098    3.201 +/- 0.068   26.908 +/- 0.174           0.0
+  + metric-aligned loss      15.318 +/- 0.084    2.886 +/- 0.028   26.899 +/- 0.171           1.0
+  + L feature                15.471 +/- 0.011    3.127 +/- 0.221   26.960 +/- 0.045           8.3
+  all three                  15.319 +/- 0.056    3.165 +/- 0.100   26.879 +/- 0.132           0.0
+
+  variant                     dRMS-RGE     dR term   O3 <= 15%
+  baseline (Phase 4)           +0.000     +0.000     not met
+  + bounded outputs            +0.057     +0.190     not met
+  + metric-aligned loss        -0.130     -0.125     not met
+  + L feature                  +0.024     +0.116     not met
+  all three                    -0.129     +0.153     not met
+
+  best variant: + metric-aligned loss at RMS-RGE 15.318 %
+  O3 threshold (RMS-RGE <= 15%): still short by 0.318 pp
+
+  Note on scope: these are training-side choices, not changes to any
+  fixed default. The architecture, ranges, split, seed and metric are
+  all unchanged. Report the baseline as the headline Phase 4 result and
+  this table as an ablation.

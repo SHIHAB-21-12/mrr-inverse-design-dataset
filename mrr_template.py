@@ -29,6 +29,7 @@ Usage:
     py -3 mrr_template.py --phase6          # Phase 6 master tables + curves
     py -3 mrr_template.py --phase7          # Phase 7 CPO scenario validation
     py -3 mrr_template.py --phase7sim       # re-simulate the candidates (Lumerical)
+    py -3 mrr_template.py --ablate          # ablation of the free optimizations
     py -3 mrr_template.py --closedloop      # closed-loop re-verification (Lumerical)
          optional:  --tandem  --rf_norm  --xgb_norm   --n=20
 
@@ -215,6 +216,14 @@ SCENARIOS = {
               target=(1550.0, 6.4, 7750.0, 0.50)),
 }
 IL_THROUGH_DB = 0.1      # Fix 6's assumed off-resonance through-port loss
+
+# --- Ablation study (optimization items 2, 4, 5) ---------------------------
+# None of these change a fixed default in v1.3; they are training-side
+# choices the document does not specify. Each is measured separately so the
+# effect of each can be attributed, and each runs over several seeds so a
+# difference can be told apart from seed noise.
+ABLATE_SEEDS = [42, 43, 44]
+NG_NOMINAL = 4.2         # for the derived round-trip-length feature
 SUBSTUDY2_CSV = "substudy2_mesh_convergence_{dim}.csv"
 
 # --- movie monitor settings ------------------------------------------------
@@ -3422,6 +3431,218 @@ def run_phase7sim():
 
 
 # ---------------------------------------------------------------------------
+# ABLATION STUDY
+# ---------------------------------------------------------------------------
+
+def _build_inverse_v(torch, seed, n_in=4, bounded=False):
+    """Phase 4.3 topology, optionally with a bounded (sigmoid) output and a
+    wider input layer for the derived feature."""
+    import torch.nn as nn
+    torch.manual_seed(seed)
+    layers, prev = [], n_in
+    for h in INV_HIDDEN:
+        layers += [nn.Linear(prev, h), nn.LeakyReLU(NN_LEAKY)]
+        prev = h
+    layers += [nn.Linear(prev, 4)]
+    if bounded:
+        # the scaled design space is exactly [0,1]^4, so a sigmoid makes
+        # every prediction physically realisable by construction
+        layers += [nn.Sigmoid()]
+    net = nn.Sequential(*layers)
+    for m in net:
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+            nn.init.zeros_(m.bias)
+    return net
+
+
+def _add_L_feature(Rres, sc):
+    """
+    Derived input for the inverse models: FSR fixes the round-trip length
+    through L = lambda^2 / (n_g * FSR), and L = 2*pi*R + 2*Lc is exactly the
+    combination the inverse problem needs. Handing it over saves the network
+    from having to learn a reciprocal. Unlike kappa2 this is not circular --
+    it is computed from the REQUESTED response, not from the label pipeline.
+    """
+    lam = _unscale(Rres[:, 0].astype(np.float64), sc["lambda_res_nm"])
+    fsr = _unscale(Rres[:, 1].astype(np.float64), sc["FSR_nm"])
+    Lum = lam ** 2 / (NG_NOMINAL * fsr) / 1e3            # um
+    lo, hi = 2*np.pi*5.0, 2*np.pi*15.0 + 6.0             # the physical span
+    col = np.clip((Lum - lo) / (hi - lo), -0.5, 1.5)
+    return np.hstack([Rres, col.reshape(-1, 1).astype(np.float32)])
+
+
+def _rge_loss(torch, pred_scaled, true_phys, sc):
+    """
+    Loss aligned with the metric the thesis actually reports (Eq. 15):
+    relative error on R, w, g and range-normalised error on Lc. The plain
+    MSE on scaled coordinates weights these four quite differently.
+    """
+    terms = []
+    for j, k in enumerate(INPUTS):
+        p = sc[k]
+        phys = pred_scaled[:, j] * (p["max"] - p["min"]) + p["min"]
+        tj = true_phys[:, j]
+        den = (torch.full_like(tj, LC_RANGE_UM) if k == "Lc_um"
+               else torch.clamp(tj, min=1e-6))
+        terms.append(((phys - tj) / den) ** 2)
+    return torch.stack(terms, dim=1).mean()
+
+
+def _train_variant(torch, net, Xtr, Ytr_s, Ytr_p, Xva, Yva_s, Yva_p, sc,
+                   metric_loss):
+    import torch.nn as nn
+    from torch.utils.data import TensorDataset, DataLoader
+    dl = DataLoader(TensorDataset(torch.from_numpy(Xtr),
+                                  torch.from_numpy(Ytr_s),
+                                  torch.from_numpy(Ytr_p)),
+                    batch_size=NN_BATCH, shuffle=True)
+    opt = torch.optim.Adam(net.parameters(), lr=INV_LR, weight_decay=INV_WD)
+    sch = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=NN_LR_DECAY)
+    mse = nn.MSELoss()
+    xva = torch.from_numpy(Xva); yva_s = torch.from_numpy(Yva_s)
+    yva_p = torch.from_numpy(Yva_p)
+    best, state, bad = float("inf"), None, 0
+    for ep in range(NN_MAX_EPOCHS):
+        net.train()
+        for xb, ys, yp in dl:
+            opt.zero_grad()
+            out = net(xb)
+            l = (_rge_loss(torch, out, yp, sc) if metric_loss
+                 else mse(out, ys))
+            l.backward(); opt.step()
+        sch.step()
+        net.eval()
+        with torch.no_grad():
+            o = net(xva)
+            v = (_rge_loss(torch, o, yva_p, sc) if metric_loss
+                 else mse(o, yva_s)).item()
+        if v < best - 1e-9:
+            best, bad = v, 0
+            state = {k: t.clone() for k, t in net.state_dict().items()}
+        else:
+            bad += 1
+            if bad >= NN_PATIENCE:
+                break
+    if state is not None:
+        net.load_state_dict(state)
+    return best, ep + 1
+
+
+def run_ablate():
+    import json
+    torch = _torch()
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+    Gn_tr, Rn_tr, _ = _load_split("train")
+    Gn_va, Rn_va, _ = _load_split("val")
+    Gn_te, Rn_te, _ = _load_split("test")
+    Gr_tr, _ = _load_split_raw("train")
+    Gr_va, _ = _load_split_raw("val")
+    Gr_te, _ = _load_split_raw("test")
+
+    variants = [
+        ("baseline (Phase 4)",        False, False, False),
+        ("+ bounded outputs",         True,  False, False),
+        ("+ metric-aligned loss",     False, True,  False),
+        ("+ L feature",               False, False, True),
+        ("all three",                 True,  True,  True),
+    ]
+    ck = os.path.join(resdir, "ablation.json")
+    done = json.load(open(ck)) if os.path.isfile(ck) else {}
+
+    for name, bnd, met, lft in variants:
+        for seed in ABLATE_SEEDS:
+            key = f"{name}|{seed}"
+            if key in done:
+                continue
+            Xtr = _add_L_feature(Rn_tr, sc) if lft else Rn_tr
+            Xva = _add_L_feature(Rn_va, sc) if lft else Rn_va
+            Xte = _add_L_feature(Rn_te, sc) if lft else Rn_te
+            print(f"[ablate] {name}, seed {seed} ...")
+            net = _build_inverse_v(torch, seed, n_in=Xtr.shape[1],
+                                   bounded=bnd)
+            _train_variant(torch, net, Xtr, Gn_tr, Gr_tr.astype(np.float32),
+                           Xva, Gn_va, Gr_va.astype(np.float32), sc, met)
+            net.eval()
+            with torch.no_grad():
+                P = _geo_physical(net(torch.from_numpy(Xte)).numpy(), sc)
+            agg, per, p12 = _rms_rge(P, Gr_te)
+            oob = 0
+            for j, k in enumerate(INPUTS):
+                lo, hi = RANGES[{"R_um": "R", "w_nm": "w", "g_nm": "g",
+                                 "Lc_um": "Lc"}[k]]
+                scl = {"R_um": 1e6, "w_nm": 1e9, "g_nm": 1e9,
+                       "Lc_um": 1e6}[k]
+                oob += int(((P[:, j] < lo*scl) | (P[:, j] > hi*scl)).sum())
+            done[key] = dict(agg=agg, per=per, p12=p12, oob=oob)
+            json.dump(done, open(ck, "w"), indent=1)
+            print(f"[ablate]   RMS-RGE {agg:.3f} %  R term {per[0]:.3f} %  "
+                  f"Lc term {per[3]:.3f} %  out-of-range {oob}")
+
+    L = ["ABLATION STUDY -- INVERSE DIRECTION", "=" * 86,
+         "Three training-side changes, none of which touch a fixed default "
+         "in v1.3.",
+         f"Each variant is run over {len(ABLATE_SEEDS)} seeds "
+         f"{ABLATE_SEEDS} and reported as mean +/- sd,",
+         "so an improvement can be told apart from seed noise.", "",
+         "  Phase 5 established that Lc_term ~ 9.46 x R_term, so O3 needs the",
+         "  R term to fall from 2.852 % to 2.731 % -- a 4.2 % relative gain.",
+         "",
+         f"  {'variant':24s} {'RMS-RGE %':>18s} {'R term %':>16s} "
+         f"{'Lc term %':>16s} {'out-of-range':>13s}"]
+    base = None
+    for name, *_ in variants:
+        vals = [done[f"{name}|{s}"] for s in ABLATE_SEEDS
+                if f"{name}|{s}" in done]
+        if not vals:
+            continue
+        a = np.array([v["agg"] for v in vals])
+        r = np.array([v["per"][0] for v in vals])
+        lc = np.array([v["per"][3] for v in vals])
+        ob = np.mean([v["oob"] for v in vals])
+        if base is None:
+            base = (a.mean(), r.mean())
+        L.append(f"  {name:24s} {a.mean():8.3f} +/- {a.std():5.3f} "
+                 f"{r.mean():8.3f} +/- {r.std():5.3f} "
+                 f"{lc.mean():8.3f} +/- {lc.std():5.3f} {ob:13.1f}")
+    L.append("")
+    L.append(f"  {'variant':24s} {'dRMS-RGE':>11s} {'dR term':>11s} "
+             f"{'O3 <= 15%':>11s}")
+    for name, *_ in variants:
+        vals = [done[f"{name}|{s}"] for s in ABLATE_SEEDS
+                if f"{name}|{s}" in done]
+        if not vals:
+            continue
+        a = float(np.mean([v["agg"] for v in vals]))
+        r = float(np.mean([v["per"][0] for v in vals]))
+        L.append(f"  {name:24s} {a-base[0]:+10.3f} {r-base[1]:+10.3f} "
+                 f"{('MET' if a <= 15.0 else 'not met'):>11s}")
+    best = min((n for n, *_ in variants
+                if any(f"{n}|{s}" in done for s in ABLATE_SEEDS)),
+               key=lambda n: np.mean([done[f"{n}|{s}"]["agg"]
+                                      for s in ABLATE_SEEDS
+                                      if f"{n}|{s}" in done]))
+    bm = float(np.mean([done[f"{best}|{s}"]["agg"] for s in ABLATE_SEEDS
+                        if f"{best}|{s}" in done]))
+    L += ["", f"  best variant: {best} at RMS-RGE {bm:.3f} %",
+          f"  O3 threshold (RMS-RGE <= 15%): "
+          + ("MET" if bm <= 15.0 else f"still short by {bm-15.0:.3f} pp"),
+          "",
+          "  Note on scope: these are training-side choices, not changes to "
+          "any",
+          "  fixed default. The architecture, ranges, split, seed and metric "
+          "are",
+          "  all unchanged. Report the baseline as the headline Phase 4 "
+          "result and",
+          "  this table as an ablation."]
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "ablation_report.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+
+
+# ---------------------------------------------------------------------------
 # SPECTRUM EXTRACTION  (also used by Phase 1.5 step 6)
 # ---------------------------------------------------------------------------
 
@@ -3689,6 +3910,10 @@ def run_substudy2(dimension="3D"):
 # ---------------------------------------------------------------------------
 
 def main():
+    if "--ablate" in sys.argv:
+        run_ablate()
+        return
+
     if "--phase7sim" in sys.argv:
         run_phase7sim()
         return
