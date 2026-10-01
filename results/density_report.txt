@@ -1,0 +1,37 @@
+TRAINING-DENSITY STUDY -- DIAGNOSTIC ONLY
+================================================================================
+
+  READ THIS BEFORE QUOTING ANY NUMBER BELOW.
+  The extra rows are drawn from the SAME fitted kappa^2 model that
+  produced the original labels. They add sampling density, not
+  physics. The dataset still carries the information of 83 FDTD
+  simulations however many rows it has. A lower RMS-RGE here means
+  the network has learned the analytic surrogate better -- the
+  closed-loop error against FDTD (3.368 %) is unaffected.
+  **This is not a route to claiming O3.** It is a measurement of how
+  fast this inverse problem converges toward its information floor.
+
+  Validation and test splits are untouched. The Phase 2 scaler is
+  unchanged. Only the training pool grows.
+
+        n          RMS-RGE %              R %             Lc %  curve predicts
+      805   15.294 +/-0.042    3.113 +/-0.004   26.786 +/-0.104          15.644
+     2000   15.299 +/-0.079    3.127 +/-0.140   26.802 +/-0.142          15.332
+     4000   15.125 +/-0.079    2.858 +/-0.051   26.559 +/-0.163          15.122
+     6000   14.981 +/-0.019    2.789 +/-0.004   26.240 +/-0.041          15.010
+
+  'curve predicts' is the constrained fit from the Phase 6
+  sample-efficiency data: err(n) = 13.3 + 6.706*n^(-0.1571),
+  with the asymptote pinned at the measured information floor.
+  If the measured column tracks it, the floor study and the
+  extrapolation are both validated and the flat exponent is real.
+
+  WHAT TO REPORT IN THE THESIS:
+  - headline O3 result stays the 805-sample number (RMS-RGE 15.45 %,
+    not met; closed-loop 3.368 %, met)
+  - this table as a convergence-rate measurement, labelled as
+    surrogate-density and not as added physics
+  - the honest conclusion: the geometry-space threshold is
+    reachable in principle (floor 13.30 %) but needs roughly 7.7x
+    the training pool, and adding analytic rows would not add the
+    physics a reviewer would expect behind that claim

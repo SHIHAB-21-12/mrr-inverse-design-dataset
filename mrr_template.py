@@ -31,6 +31,7 @@ Usage:
     py -3 mrr_template.py --phase7sim       # re-simulate the candidates (Lumerical)
     py -3 mrr_template.py --ablate          # ablation of the free optimizations
     py -3 mrr_template.py --physinv         # physics-decoded inverse model
+    py -3 mrr_template.py --density         # training-density diagnostic
     py -3 mrr_template.py --closedloop      # closed-loop re-verification (Lumerical)
          optional:  --tandem  --rf_norm  --xgb_norm   --n=20
 
@@ -225,6 +226,15 @@ IL_THROUGH_DB = 0.1      # Fix 6's assumed off-resonance through-port loss
 # difference can be told apart from seed noise.
 ABLATE_SEEDS = [42, 43, 44]
 NG_NOMINAL = 4.2         # for the derived round-trip-length feature
+
+# --- Training-density study ------------------------------------------------
+# DIAGNOSTIC ONLY. Extra rows are drawn from the SAME fitted kappa^2 model, so
+# they add sampling density, not physics. The dataset still carries the
+# information of 83 simulations. These results measure how fast the inverse
+# problem converges toward its information floor; they are NOT a route to
+# claiming O3, and the report says so.
+DENSITY_SIZES = [805, 2000, 4000, 6000]
+DENSITY_SEED = 909
 SUBSTUDY2_CSV = "substudy2_mesh_convergence_{dim}.csv"
 
 # --- movie monitor settings ------------------------------------------------
@@ -3840,6 +3850,129 @@ def run_physinv():
     print("\n" + txt)
 
 
+def run_density():
+    """
+    Diagnostic: does the measured learning curve predict what happens when the
+    training pool is sampled more densely from the same forward model?
+    Validation and test splits are untouched; the scaler is the Phase 2 one.
+    """
+    import json
+    from scipy.stats import qmc
+    torch = _torch()
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+    respond = _make_responder()
+
+    Gn_tr, Rn_tr, _ = _load_split("train")
+    Gn_va, Rn_va, _ = _load_split("val")
+    Gn_te, Rn_te, _ = _load_split("test")
+    Gr_tr, _ = _load_split_raw("train")
+    Gr_va, _ = _load_split_raw("val")
+    Gr_te, _ = _load_split_raw("test")
+
+    need = max(DENSITY_SIZES) - len(Gn_tr)
+    print(f"[density] generating {need} extra analytic rows "
+          f"(same kappa^2 model, no new physics) ...")
+    lo = np.array([5.0, 400.0, 150.0, 0.0])
+    hi = np.array([15.0, 500.0, 350.0, 3.0])
+    u = qmc.LatinHypercube(d=4, seed=DENSITY_SEED).random(int(need * 1.1))
+    extraG, extraR = [], []
+    for R, w, g, Lc in lo + u * (hi - lo):
+        r = respond(R, w, g, Lc)
+        if not all(np.isfinite(r[k]) for k in TARGETS):
+            continue
+        extraG.append([R, w, g, Lc])
+        extraR.append([r[k] for k in TARGETS])
+        if len(extraG) >= need:
+            break
+    extraG = np.array(extraG); extraR = np.array(extraR)
+
+    def scale(arr, cols):
+        out = np.empty_like(arr, dtype=np.float32)
+        for j, k in enumerate(cols):
+            p = sc[k]
+            v = np.log10(arr[:, j]) if p["transform"].startswith("log10") \
+                else arr[:, j]
+            out[:, j] = (v - p["min"]) / (p["max"] - p["min"])
+        return out
+
+    Gx = scale(extraG, INPUTS); Rx = scale(extraR, TARGETS)
+    allGn = np.vstack([Gn_tr, Gx]); allRn = np.vstack([Rn_tr, Rx])
+    allGr = np.vstack([Gr_tr, extraG])
+    print(f"[density] pool ready: {len(allGn)} rows "
+          f"({len(Gn_tr)} original + {len(Gx)} generated)")
+
+    ck = os.path.join(resdir, "density.json")
+    done = json.load(open(ck)) if os.path.isfile(ck) else {}
+    for n in DENSITY_SIZES:
+        for seed in ABLATE_SEEDS[:2]:
+            key = f"{n}|{seed}"
+            if key in done:
+                continue
+            print(f"[density] n={n}, seed {seed} ...")
+            net = _build_inverse_v(torch, seed, n_in=4, bounded=True)
+            _train_variant(torch, net, allRn[:n], allGn[:n],
+                           allGr[:n].astype(np.float32),
+                           Rn_va, Gn_va, Gr_va.astype(np.float32), sc, True)
+            net.eval()
+            with torch.no_grad():
+                P = _geo_physical(net(torch.from_numpy(Rn_te)).numpy(), sc)
+            agg, per, _ = _rms_rge(P, Gr_te)
+            done[key] = dict(agg=agg, per=per)
+            json.dump(done, open(ck, "w"), indent=1)
+            print(f"[density]   RMS-RGE {agg:.3f} %  R {per[0]:.3f}  "
+                  f"Lc {per[3]:.3f}")
+
+    FLOOR, B, C = 13.30, 6.706, 0.1571
+    L = ["TRAINING-DENSITY STUDY -- DIAGNOSTIC ONLY", "=" * 80,
+         "",
+         "  READ THIS BEFORE QUOTING ANY NUMBER BELOW.",
+         "  The extra rows are drawn from the SAME fitted kappa^2 model that",
+         "  produced the original labels. They add sampling density, not",
+         "  physics. The dataset still carries the information of 83 FDTD",
+         "  simulations however many rows it has. A lower RMS-RGE here means",
+         "  the network has learned the analytic surrogate better -- the",
+         "  closed-loop error against FDTD (3.368 %) is unaffected.",
+         "  **This is not a route to claiming O3.** It is a measurement of how",
+         "  fast this inverse problem converges toward its information floor.",
+         "",
+         "  Validation and test splits are untouched. The Phase 2 scaler is",
+         "  unchanged. Only the training pool grows.", "",
+         f"  {'n':>7s} {'RMS-RGE %':>18s} {'R %':>16s} {'Lc %':>16s} "
+         f"{'curve predicts':>15s}"]
+    for n in DENSITY_SIZES:
+        v = [done[f"{n}|{s}"] for s in ABLATE_SEEDS[:2]
+             if f"{n}|{s}" in done]
+        if not v:
+            continue
+        a = np.array([x["agg"] for x in v])
+        r = np.array([x["per"][0] for x in v])
+        lc = np.array([x["per"][3] for x in v])
+        pred = FLOOR + B * n ** (-C)
+        L.append(f"  {n:7d} {a.mean():8.3f} +/-{a.std():5.3f} "
+                 f"{r.mean():8.3f} +/-{r.std():5.3f} "
+                 f"{lc.mean():8.3f} +/-{lc.std():5.3f} {pred:15.3f}")
+    L += ["", "  'curve predicts' is the constrained fit from the Phase 6",
+          f"  sample-efficiency data: err(n) = {FLOOR} + {B:.3f}*n^(-{C:.4f}),",
+          "  with the asymptote pinned at the measured information floor.",
+          "  If the measured column tracks it, the floor study and the",
+          "  extrapolation are both validated and the flat exponent is real.",
+          "",
+          "  WHAT TO REPORT IN THE THESIS:",
+          "  - headline O3 result stays the 805-sample number (RMS-RGE 15.45 %,",
+          "    not met; closed-loop 3.368 %, met)",
+          "  - this table as a convergence-rate measurement, labelled as",
+          "    surrogate-density and not as added physics",
+          "  - the honest conclusion: the geometry-space threshold is",
+          "    reachable in principle (floor 13.30 %) but needs roughly 7.7x",
+          "    the training pool, and adding analytic rows would not add the",
+          "    physics a reviewer would expect behind that claim"]
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "density_report.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+
+
 # ---------------------------------------------------------------------------
 # SPECTRUM EXTRACTION  (also used by Phase 1.5 step 6)
 # ---------------------------------------------------------------------------
@@ -4108,6 +4241,10 @@ def run_substudy2(dimension="3D"):
 # ---------------------------------------------------------------------------
 
 def main():
+    if "--density" in sys.argv:
+        run_density()
+        return
+
     if "--physinv" in sys.argv:
         run_physinv()
         return

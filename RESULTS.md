@@ -6,7 +6,7 @@ section; nothing is deleted, including results that were later corrected.
 
 Repo: github.com/SHIHAB-21-12/mrr-inverse-design-dataset
 Script: `mrr_template.py` (one file, all phases)
-Last updated: 2026-10-01, after the information-floor study.
+Last updated: 2026-10-01, after the physics-decoder and learning-curve work.
 
 ---
 
@@ -368,6 +368,91 @@ of the tandem's loss is this target), but it would not move RMS-RGE or O3.
 
 ---
 
+## Physics-decoded inverse model (2026-10-01) — REFUTED
+
+**Tried.** Network emits R, w, g only; L_c derived from the FSR constraint
+L = λ²/(n_g(λ, w_pred)·FSR), L_c = (L − 2πR)/2, so the predicted L_c cannot
+disagree with the requested FSR. Loss is Eq. 15 itself. Three seeds.
+
+**A bias caught before running.** Oracle-testing the decoder with the *true*
+R and w revealed a systematic **+0.141 µm** offset in derived L_c — 4.7% of
+the L_c range, baked in before any learning. Cause: FSR = λ²/(n_g·L) is a
+first-order relation while the dataset's FSR comes from actual
+adjacent-resonance spacing. One scalar fitted on the training split
+(c = 0.995903) drops the oracle error from 4.694% to **1.469%**.
+
+**Result: worse than baseline.**
+
+| | RMS-RGE | R | w | g | L_c |
+|---|---|---|---|---|---|
+| baseline | 15.448 ± 0.038 | 3.011 | 5.300 | 14.000 | 26.931 |
+| physics-decoded | **16.080 ± 0.035** | 3.051 | **6.734** | 13.638 | 28.170 |
+| floor | 13.30 | 2.38 | 5.30 | 12.45 | 22.78 |
+
+R did not improve, so L_c inherited π-amplified error (28.17% measured
+against 29.56% from pure propagation). **w got notably worse** — it was at
+100% of its information floor, and giving it a second role (feeding n_g,
+hence L, hence L_c) broke that.
+
+**Useful negative result.** The free network's partial error cancellation
+between R and L_c is worth more than imposing the physical constraint. The
+cancellation is real — the free network achieves L_c 26.9% from R 3.011%
+where π-propagation alone would give 29.6% — and the decoder destroyed it.
+
+---
+
+## Learning-curve analysis — why nothing moves
+
+Fitting err(n) = floor + b·n^(−c) to the Phase 6 sample-efficiency data, with
+the asymptote pinned at the measured floor of 13.30% (an unconstrained fit
+returned 7.21%, which is **below** the floor and therefore impossible):
+
+**b = 6.706, c = 0.1571**, fit RMS 0.088%.
+
+| target | training samples needed |
+|---|---|
+| **15.0% (O3)** | **6,229** |
+| 14.5% | 57,200 |
+| 14.0% | 1,768,492 |
+
+An exponent of 0.157 means error falls as n^−0.157 — brutally slow. You have
+805. **O3 by data alone needs 7.7× the pool, and the next half-point after
+that needs 57,000.**
+
+**This explains why three architectural interventions all produced nothing.**
+The gap between 15.45% and the 13.30% floor is finite-sample estimation error
+on an exceptionally flat learning curve, not an architecture deficiency.
+
+RF and XGBoost extrapolate to asymptotes of 15.11% and 15.45% — both already
+above the threshold, i.e. saturated regardless of data.
+
+---
+
+## Decision taken: do NOT inflate the dataset to meet O3
+
+Generating 6,229 analytic rows costs about three seconds, so O3 is
+mechanically within reach. **It is not being used that way, deliberately.**
+
+The extra rows would come from the same fitted κ² model. They add sampling
+density, not physics. RMS-RGE would fall because the network learns the
+analytic surrogate better; the closed-loop error against FDTD (3.368%) would
+not move at all. The dataset carries the information of **83 simulations**
+however many rows it holds, and that ratio is already stated in the README.
+
+Reporting "O3 met" on that basis would be clearing a threshold by sampling a
+surrogate more finely, and it would put the six legitimately-met objectives
+under suspicion. The density study below is therefore run and reported as a
+**convergence-rate diagnostic only**.
+
+### What goes in the thesis
+- **Headline O3 result stays the 805-sample number**: RMS-RGE 15.45% (not
+  met), closed-loop 3.368% (met).
+- The information floor (13.30%) and the learning curve as the explanation
+  for why, with the cost of closing it quantified.
+- The density table labelled as surrogate-density, not as added physics.
+
+---
+
 ## Open questions for the supervisor
 
 1. **λ_res reparameterization.** Every Scenario B failure, across all six
@@ -380,7 +465,10 @@ of the tandem's loss is this target), but it would not move RMS-RGE or O3.
    L_c, so inverse-model hyperparameter selection is driven almost entirely
    by L_c. Fix 4b already solved this for RMS-RGE; 5.2 was not given the
    matching treatment.
-3. **Which O3 criterion should lead?** Geometry-space RMS-RGE fails at
+3. **Is the decision above the right one?** O3's geometry threshold can be
+   met today by generating ~6,200 analytic rows from the existing κ² model.
+   I judged that illegitimate and did not do it. Worth confirming.
+4. **Which O3 criterion should lead?** Geometry-space RMS-RGE fails at
    15.45%; response-space closed-loop passes at 3.37%. The closed-loop result
    shows the geometry "error" is largely degeneracy, not inaccuracy.
 
