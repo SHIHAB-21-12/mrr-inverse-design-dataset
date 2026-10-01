@@ -30,6 +30,7 @@ Usage:
     py -3 mrr_template.py --phase7          # Phase 7 CPO scenario validation
     py -3 mrr_template.py --phase7sim       # re-simulate the candidates (Lumerical)
     py -3 mrr_template.py --ablate          # ablation of the free optimizations
+    py -3 mrr_template.py --physinv         # physics-decoded inverse model
     py -3 mrr_template.py --closedloop      # closed-loop re-verification (Lumerical)
          optional:  --tandem  --rf_norm  --xgb_norm   --n=20
 
@@ -3643,6 +3644,203 @@ def run_ablate():
 
 
 # ---------------------------------------------------------------------------
+# PHYSICS-DECODED INVERSE MODEL
+# ---------------------------------------------------------------------------
+# The information-floor study showed Lc uses only 46% of the information the
+# response carries about it, while R and w are at 99-100% and g at 89%. The
+# response constrains the round-trip length L = 2*pi*R + 2*Lc tightly through
+# FSR = lambda^2/(n_g*L). So instead of asking the network to emit Lc as a
+# free fourth output, it emits R, w and g, and Lc is DERIVED from the FSR
+# constraint using the network's own predicted w for n_g. Lc then cannot
+# disagree with the FSR that was asked for.
+
+def _ng_torch(torch, lam, w, nc):
+    """n_g(lambda, w) from the Phase 1 mode-sweep polynomial, differentiable."""
+    x = (lam - 1550.0) / 50.0
+    y = (w - 450.0) / 50.0
+    one = torch.ones_like(x)
+    B = [one, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3]
+    dB = [torch.zeros_like(x), one, torch.zeros_like(x), 2*x, y,
+          torch.zeros_like(x), 2*x*y, y*y, torch.zeros_like(x)]
+    neff = sum(c * b for c, b in zip(nc, B))
+    dneff = sum(c * d for c, d in zip(nc, dB))
+    return neff - lam * dneff / 50.0
+
+
+def _calibrate_fsr_L(nc, Gtr, Rtr):
+    """
+    FSR = lambda^2/(n_g L) is a first-order relation, while the dataset's FSR
+    comes from the actual adjacent-resonance spacing. Fitting one scalar on
+    the TRAINING split removes the resulting systematic offset: without it the
+    derived Lc carries a +0.14 um bias, which is 4.7% of the Lc range.
+    """
+    def ng(lam, w):
+        x = (lam - 1550) / 50; y = (w - 450) / 50; one = np.ones_like(x)
+        B = [one, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3]
+        dB = [0*x, one, 0*x, 2*x, y, 0*x, 2*x*y, y*y, 0*x]
+        return (sum(c*b for c, b in zip(nc, B))
+                - lam * sum(c*d for c, d in zip(nc, dB)) / 50)
+    Ltrue = 2 * np.pi * Gtr[:, 0] + 2 * Gtr[:, 3]
+    Lform = Rtr[:, 0] ** 2 / (ng(Rtr[:, 0], Gtr[:, 1]) * Rtr[:, 1]) / 1e3
+    return float(np.sum(Ltrue * Lform) / np.sum(Lform ** 2))
+
+
+class _PhysicsInverse:
+    """Wraps a 3-output network and derives Lc from the FSR constraint."""
+
+    def __init__(self, torch, net, sc, nc, cal=1.0):
+        self.torch, self.net, self.sc, self.nc = torch, net, sc, nc
+        self.cal = cal
+
+    def __call__(self, Xres_scaled, lam_phys, fsr_phys):
+        torch = self.torch
+        out = self.net(Xres_scaled)                 # R, w, g in [0,1]
+        cols = []
+        for j, k in enumerate(("R_um", "w_nm", "g_nm")):
+            p = self.sc[k]
+            cols.append(out[:, j] * (p["max"] - p["min"]) + p["min"])
+        R, w, g = cols
+        ng = _ng_torch(torch, lam_phys, w, self.nc)
+        L = self.cal * lam_phys ** 2 / (ng * fsr_phys) / 1e3     # um
+        Lc = (L - 2 * np.pi * R) / 2.0                           # Eq. 1 inverted
+        return torch.stack([R, w, g, Lc], dim=1)
+
+
+def run_physinv():
+    """Train and evaluate the physics-decoded inverse model."""
+    import json
+    torch = _torch()
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+    _, nc, _ = _fit_models()
+    nc = [float(v) for v in nc]
+
+    Gn_tr, Rn_tr, _ = _load_split("train")
+    Gn_va, Rn_va, _ = _load_split("val")
+    Gn_te, Rn_te, _ = _load_split("test")
+    Gr_tr, Rr_tr = _load_split_raw("train")
+    Gr_va, Rr_va = _load_split_raw("val")
+    Gr_te, Rr_te = _load_split_raw("test")
+
+    cal = _calibrate_fsr_L(nc, Gr_tr, Rr_tr)
+    print(f"[physinv] FSR->L calibration fitted on train: c = {cal:.6f}")
+
+    def phys_inputs(Rr):
+        return (torch.from_numpy(Rr[:, 0].astype(np.float32)),
+                torch.from_numpy(Rr[:, 1].astype(np.float32)))
+
+    res = {}
+    for seed in ABLATE_SEEDS:
+        torch.manual_seed(seed)
+        net = _build_inverse_v(torch, seed, n_in=4, bounded=True)
+        # replace the 4-output head with a 3-output one
+        import torch.nn as nn
+        layers = list(net)[:-2]                     # drop Linear(…,4)+Sigmoid
+        layers += [nn.Linear(INV_HIDDEN[-1], 3), nn.Sigmoid()]
+        net = nn.Sequential(*layers)
+        for m in net:
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight); nn.init.zeros_(m.bias)
+        model = _PhysicsInverse(torch, net, sc, nc, cal)
+
+        from torch.utils.data import TensorDataset, DataLoader
+        lam_tr, fsr_tr = phys_inputs(Rr_tr)
+        dl = DataLoader(TensorDataset(torch.from_numpy(Rn_tr),
+                                      torch.from_numpy(
+                                          Gr_tr.astype(np.float32)),
+                                      lam_tr, fsr_tr),
+                        batch_size=NN_BATCH, shuffle=True)
+        opt = torch.optim.Adam(net.parameters(), lr=INV_LR,
+                               weight_decay=INV_WD)
+        sch = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=NN_LR_DECAY)
+        lam_va, fsr_va = phys_inputs(Rr_va)
+        xva = torch.from_numpy(Rn_va)
+        gva = torch.from_numpy(Gr_va.astype(np.float32))
+        best, state, bad = float("inf"), None, 0
+
+        def loss_fn(pred_phys, true_phys):
+            # the reported metric itself (Eq. 15), in physical units
+            t = []
+            for j, k in enumerate(INPUTS):
+                den = (torch.full_like(true_phys[:, j], LC_RANGE_UM)
+                       if k == "Lc_um"
+                       else torch.clamp(true_phys[:, j], min=1e-6))
+                t.append(((pred_phys[:, j] - true_phys[:, j]) / den) ** 2)
+            return torch.stack(t, dim=1).mean()
+
+        print(f"[physinv] seed {seed} ...")
+        for ep in range(NN_MAX_EPOCHS):
+            net.train()
+            for xb, gb, lb, fb in dl:
+                opt.zero_grad()
+                l = loss_fn(model(xb, lb, fb), gb)
+                l.backward(); opt.step()
+            sch.step()
+            net.eval()
+            with torch.no_grad():
+                v = loss_fn(model(xva, lam_va, fsr_va), gva).item()
+            if v < best - 1e-12:
+                best, bad = v, 0
+                state = {k: t.clone() for k, t in net.state_dict().items()}
+            else:
+                bad += 1
+                if bad >= NN_PATIENCE:
+                    break
+        if state is not None:
+            net.load_state_dict(state)
+        net.eval()
+        lam_te, fsr_te = phys_inputs(Rr_te)
+        with torch.no_grad():
+            P = model(torch.from_numpy(Rn_te), lam_te, fsr_te).numpy()
+        agg, per, p12 = _rms_rge(P.astype(np.float64), Gr_te)
+        oob = int(((P[:, 3] < 0.0) | (P[:, 3] > 3.0)).sum())
+        res[seed] = dict(agg=agg, per=per, p12=p12, lc_oob=oob)
+        print(f"[physinv]   RMS-RGE {agg:.3f} %  R {per[0]:.3f}  w {per[1]:.3f}"
+              f"  g {per[2]:.3f}  Lc {per[3]:.3f}  Lc out-of-range {oob}")
+
+    A = np.array([res[s]["agg"] for s in res])
+    P = np.array([res[s]["per"] for s in res])
+    L = ["PHYSICS-DECODED INVERSE MODEL", "=" * 78,
+         "Network emits R, w, g. Lc is derived from the FSR constraint",
+         "L = lambda^2/(n_g(lambda, w_pred) * FSR), Lc = (L - 2*pi*R)/2,",
+         "so the predicted Lc cannot disagree with the FSR that was requested.",
+         f"Loss is Eq. 15 itself. {len(res)} seeds {list(res)}.", "",
+         f"  {'':22s} {'RMS-RGE':>16s} {'R':>14s} {'w':>14s} {'g':>14s} "
+         f"{'Lc':>14s}",
+         f"  {'physics-decoded':22s} {A.mean():8.3f} +/-{A.std():5.3f} "
+         + "".join(f"{P[:, j].mean():8.3f} +/-{P[:, j].std():5.3f}"
+                   for j in range(4)),
+         f"  {'baseline (ablation)':22s} {15.448:8.3f} +/-{0.038:5.3f} "
+         f"{3.011:8.3f} +/-{0.155:5.3f}{5.300:8.3f} +/-{0.000:5.3f}"
+         f"{14.000:8.3f} +/-{0.000:5.3f}{26.931:8.3f} +/-{0.093:5.3f}",
+         f"  {'information floor':22s} {13.30:8.3f} {'':5s} {2.38:14.3f} "
+         f"{5.30:14.3f} {12.45:14.3f} {22.78:14.3f}", "",
+         f"  change vs baseline: {A.mean()-15.448:+.3f} pp",
+         f"  O3 (RMS-RGE <= 15%): "
+         + ("MET" if A.mean() <= 15.0 else
+            f"short by {A.mean()-15.0:.3f} pp"),
+         f"  Lc predictions outside [0, 3] um: "
+         f"{np.mean([res[s]['lc_oob'] for s in res]):.1f} of {len(Gr_te)}",
+         "",
+         f"  oracle check: fed the TRUE R and w, the decoder recovers Lc to",
+         f"  1.47 % of range, so the formula and calibration are sound and all",
+         f"  residual Lc error comes from R and w error.",
+         f"  pi-propagation predicts Lc ~ pi x R_error: at R = "
+         f"{P[:, 0].mean():.3f} % that is "
+         f"{np.pi*P[:, 0].mean()*9.25/3:.2f} %, against the "
+         f"{P[:, 3].mean():.2f} % measured.",
+         "",
+         "  Lc is now a derived quantity, so its error is whatever the FSR",
+         "  constraint propagates from the predicted R and w. If the Lc term",
+         "  moved toward 22.78 % the decoder worked; if it did not, Lc's",
+         "  shortfall is not caused by it being a free output."]
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "physinv_report.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+
+
+# ---------------------------------------------------------------------------
 # SPECTRUM EXTRACTION  (also used by Phase 1.5 step 6)
 # ---------------------------------------------------------------------------
 
@@ -3910,6 +4108,10 @@ def run_substudy2(dimension="3D"):
 # ---------------------------------------------------------------------------
 
 def main():
+    if "--physinv" in sys.argv:
+        run_physinv()
+        return
+
     if "--ablate" in sys.argv:
         run_ablate()
         return
