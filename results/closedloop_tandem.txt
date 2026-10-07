@@ -1,0 +1,43 @@
+CLOSED-LOOP RE-VERIFICATION -- tandem
+==============================================================================
+20 representative test targets, evenly spaced through the test set.
+Each predicted geometry was re-simulated with a 3-D FDTD coupler run,
+then the ring response was computed analytically -- the same pipeline
+that produced the dataset, so the FDTD step is an independent check.
+
+  simulated successfully : 8
+  physically unrealisable: 12
+      sample 18: Lc=-0.096 outside [0,3]
+      sample 27: Lc=-0.201 outside [0,3]
+      sample 54: w=397.789 outside [400,500]
+      sample 72: Lc=-0.620 outside [0,3]
+      sample 81: Lc=-0.344 outside [0,3]
+      sample 99: Lc=-0.370 outside [0,3]
+      sample 108: Lc=-0.256 outside [0,3]
+      sample 117: Lc=-0.881 outside [0,3]
+      sample 126: Lc=-0.230 outside [0,3]
+      sample 135: Lc=-0.490 outside [0,3]
+      sample 144: Lc=-0.265 outside [0,3]
+      sample 153: Lc=-0.408 outside [0,3]
+  NOTE: an unrealisable geometry is a failure of the method, not a
+  missing measurement. It is counted in the denominator below.
+
+  HELD-OUT VALIDATION OF THE PHASE 1 kappa^2 MODEL
+  --------------------------------------------------------------------------
+  These geometries were not in the 200-point coupler set the model was
+  fitted on, so this is an out-of-sample test obtained free from this run.
+    MAPE 1.23 %   RMS 1.73 %   bias -0.36 %   max 3.66 %
+    within 10%: 100 %   within 5%: 100 %
+    (Phase 1 reported 3.36 % MAPE by cross-validation on the training points)
+  energy conservation on every run: kappa^2 + t^2 = 1.0000 (mean)
+
+  per-target closed-loop error (re-simulated vs requested)
+  target               MAPE %      RMS %      max %
+  lambda_res_nm         0.190      0.234      0.440
+  FSR_nm                0.745      0.910      1.565
+  Q_L                   4.980      7.751     17.336
+  IL_dB                 7.110      8.944     18.993
+
+  RMS closed-loop response error = 5.936 %  (over the 8 realisable predictions)
+  realisable fraction = 40.0 %
+  O3 requires RMS closed-loop error <= 20%: MET on the realisable subset, but 12 predictions could not be built

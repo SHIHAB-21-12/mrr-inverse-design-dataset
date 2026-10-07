@@ -6,20 +6,20 @@ These verdicts replace the analytic ones in phase7_report.txt.
 SCENARIO A -- Moderate-density CPO link (4 channels, 4 nm grid)
 --------------------------------------------------------------------------------------
   method                 lam     FSR       Q_L      IL    df_3dB   N_ch  verdict
-  naive DNN         1555.289  16.327      4081   0.355      47.2    4.1  FAIL: lam +5.29 nm
-  tandem DNN        1545.773  16.533      3976   0.352      48.8    4.1  FAIL: lam -4.23 nm
-  RF (raw)          1543.170  15.616      5517   0.461      35.2    3.9  FAIL: lam -6.83 nm; FSR -0.38 nm
-  RF (norm)         1550.752  15.997      6215   0.534      31.1    4.0  FAIL: FSR -0.00 nm
-  XGB (raw)         1548.193  16.015      3926   0.337      49.3    4.0  PASS
-  XGB (norm)        1543.332  16.060      4064   0.351      47.8    4.0  FAIL: lam -6.67 nm
+  naive DNN         1546.892  16.351      3995   0.352      48.5    4.1  FAIL: lam -3.11 nm
+  tandem DNN        1543.385  16.640      3826   0.345      50.8    4.2  FAIL: lam -6.61 nm
+  RF (raw)          1548.058  15.869      5425   0.462      35.7    4.0  FAIL: FSR -0.13 nm
+  RF (norm)         1543.823  15.901      5917   0.508      32.8    4.0  FAIL: lam -6.18 nm; FSR -0.10 nm
+  XGB (raw)         1557.673  16.298      3708   0.322      51.9    4.1  FAIL: lam +7.67 nm
+  XGB (norm)        1547.746  16.111      3890   0.336      49.8    4.0  FAIL: lam -2.25 nm
 
 SCENARIO B -- Dense CPO link (8 channels, 100 GHz / 0.8 nm ITU grid)
 --------------------------------------------------------------------------------------
   method                 lam     FSR       Q_L      IL    df_3dB   N_ch  verdict
-  naive DNN         1548.423   6.461      8598   0.208      22.5    8.1  FAIL: lam -1.58 nm
-  tandem DNN        1547.502   6.320      8608   0.198      22.5    7.9  FAIL: lam -2.50 nm; FSR -0.08 nm
-  RF (raw)          1548.864   8.560     10087   0.352      19.2   10.7  FAIL: lam -1.14 nm
-  RF (norm)         1550.789   6.531     11467   0.283      16.9    8.2  FAIL: lam +0.79 nm
-  XGB (raw)         1546.879   6.289      9198   0.221      21.1    7.9  FAIL: lam -3.12 nm; FSR -0.11 nm
-  XGB (norm)        1547.008   6.292      9181   0.220      21.1    7.9  FAIL: lam -2.99 nm; FSR -0.11 nm
+  naive DNN         1548.663   6.458      8575   0.207      22.6    8.1  FAIL: lam -1.34 nm
+  tandem DNN        1548.770   6.344      8196   0.190      23.6    7.9  FAIL: lam -1.23 nm; FSR -0.06 nm
+  RF (raw)          1549.537   8.446     10571   0.361      18.3   10.6  FAIL: lam -0.46 nm
+  RF (norm)         1548.733   6.474     12291   0.301      15.7    8.1  FAIL: lam -1.27 nm
+  XGB (raw)         1550.934   6.405      6070   0.147      31.8    8.0  FAIL: lam +0.93 nm; Q_L -1680
+  XGB (norm)        1552.793   6.424      5816   0.141      33.2    8.0  FAIL: lam +2.79 nm; Q_L -1934
 

@@ -3,3 +3,25 @@
 *.ckpt
 *_p0.log
 __pycache__/
+
+# --- added ---------------------------------------------------------------
+*.fsp.zip
+*.ldev
+*.lms
+results/floor_bank.npz
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+*.aux
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+paper.log
+paper_draft_v1/
+paper_draft_v1.zip
+Thumbs.db
+desktop.ini
+.DS_Store

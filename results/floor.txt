@@ -1,0 +1,34 @@
+INFORMATION FLOOR -- LOWER BOUND ON ACHIEVABLE RMS-RGE
+============================================================================
+bank: 1000000 geometries, uniform over the Phase 1.2 design box, seed 7.
+Each test target is matched to the bank geometry with the nearest
+response (per-target standard-deviation scaling). The geometric
+distance to the TRUE geometry bounds what any inverse model can do
+from the response alone.
+
+  aggregate RMS-RGE floor        14.669 %
+  R floor                         2.439 %
+  w floor                         6.054 %
+  g floor                        14.682 %
+  Lc floor (range-normalised)    24.547 %
+  R,w,g only (Paper 12 conv.)     9.276 %
+
+  estimator: conditional mean over the k = 5 nearest responses.
+
+        k   RMS-RGE %   (k=1 is one arbitrary member of the degenerate set;
+                        a model learns the centre, not a member)
+        1      18.233
+        5      14.669   <-- floor
+       10      14.932
+       25      15.267
+       50      15.268
+      100      15.212
+      200      15.265
+      400      15.307
+
+  The floor is a property of the design space and the four chosen
+  targets, NOT of any model. It falls slowly as the bank grows, so
+  the bank size above is part of the result.
+
+  learning curve refit with asymptote pinned here:
+    err(n) = 14.669 + 9.760 * n^(-0.3450)

@@ -6,56 +6,56 @@ naive init seed 42, tandem init seed 43 (Phase 4.4 requires these to differ)
 
 STEP 1 -- NAIVE INVERSE BASELINE (Eq. 8, parameter-space loss)
 ----------------------------------------------------------------------
-  trained 89 epochs, best val loss 0.039996
+  trained 89 epochs, best val loss 0.040083
 
   geometry accuracy vs ground truth (its own training objective)
   parameter           R2    MAPE %         RMSE
-  R_um            0.9930     2.458      0.26656
-  w_nm            0.2894     4.424       23.869
-  g_nm            0.6978    10.702       31.043
-  Lc_um           0.2131   327.310      0.80976
+  R_um            0.9930     2.452      0.26595
+  w_nm            0.2920     4.409       23.825
+  g_nm            0.6914    10.802       31.368
+  Lc_um           0.2166   327.175      0.80791
 
-  RMS-RGE (Eq. 15, v1.3 convention) = 15.501 %
-    per-parameter terms: R_um 2.852%, w_nm 5.336%, g_nm 14.000%, Lc_um 26.992%
-    Paper-12 convention over R,w,g only = 8.805 %  (Paper 12 reports 3.46 / 5.14 %)
+  RMS-RGE (Eq. 15, v1.3 convention) = 15.506 %
+    per-parameter terms: R_um 2.841%, w_nm 5.321%, g_nm 14.144%, Lc_um 26.930%
+    Paper-12 convention over R,w,g only = 8.878 %  (Paper 12 reports 3.46 / 5.14 %)
     O3 threshold is RMS-RGE <= 15%: NOT MET
 
   forward consistency -- response of the naive network's geometry
   target                  R2    MAPE %
-  lambda_res_nm       0.0071     0.159
-  FSR_nm              0.9983     0.908
-  Q_L                 0.9966     3.257
-  IL_dB               0.9967     9.886
+  lambda_res_nm       0.0083     0.158
+  FSR_nm              0.9987     0.880
+  Q_L                 0.9957     3.330
+  IL_dB               0.9959    10.865
 
 STEP 2 -- TANDEM NETWORK (Eq. 9, response-space loss)
 ----------------------------------------------------------------------
-  trained 262 epochs, best val loss 0.009809
+  trained 260 epochs, best val loss 0.009823
   frozen-weight check: forward weights unchanged after training = True
 
   PRIMARY METRIC -- reconstructed response f(g(R)) vs requested R
   target                  R2    MAPE %         RMSE
-  lambda_res_nm       0.0172     0.158       2.9263
-  FSR_nm              0.9996     0.641     0.070843
-  Q_L                 0.9977     4.044         1172
-  IL_dB               0.9961    12.321     0.080736
+  lambda_res_nm       0.0168     0.158       2.9268
+  FSR_nm              0.9996     0.637     0.070595
+  Q_L                 0.9974     4.021       1242.3
+  IL_dB               0.9961    12.621      0.08106
 
   DIAGNOSTIC -- predicted geometry vs ground-truth geometry
   (Phase 4.4 step 2 expects this to be WORSE than the naive baseline's,
    by construction -- the tandem network is never asked to match it)
   parameter           R2    MAPE %
-  R_um            0.9697     5.503
-  w_nm           -0.8661     6.906
-  g_nm            0.5951    12.014
-  Lc_um          -2.9019   364.564
+  R_um            0.9754     4.915
+  w_nm           -0.7289     6.601
+  g_nm            0.6051    12.006
+  Lc_um          -2.3907   315.163
 
   DESIGN-RANGE CHECK (both networks output unconstrained values)
 ----------------------------------------------------------------------
-    naive   outside the design space: R_um 6/173 (range 4.846..14.978, allowed 5..15)
-    tandem  outside the design space: R_um 11/173 (range 4.980..15.393, allowed 5..15); w_nm 15/173 (range 384.294..451.217, allowed 400..500); g_nm 5/173 (range 125.032..327.233, allowed 150..350); Lc_um 120/173 (range -0.989..0.889, allowed 0..3)
+    naive   outside the design space: R_um 8/173 (range 4.818..15.000, allowed 5..15)
+    tandem  outside the design space: R_um 13/173 (range 4.913..15.361, allowed 5..15); w_nm 11/173 (range 389.505..451.485, allowed 400..500); g_nm 5/173 (range 126.142..332.123, allowed 150..350); Lc_um 94/173 (range -0.903..1.069, allowed 0..3)
 
-  RMS-RGE (diagnostic) = 31.438 %   [naive baseline: 15.501 %]
-    per-parameter terms: R_um 6.678%, w_nm 8.177%, g_nm 15.154%, Lc_um 60.103%
-    Paper-12 convention over R,w,g only = 10.663 %
+  RMS-RGE (diagnostic) = 29.461 %   [naive baseline: 15.506 %]
+    per-parameter terms: R_um 6.079%, w_nm 7.852%, g_nm 15.296%, Lc_um 56.029%
+    Paper-12 convention over R,w,g only = 10.529 %
 
 O6 DEGENERACY TEST -- did the network find a valid alternative?
 ----------------------------------------------------------------------
@@ -64,8 +64,8 @@ O6 DEGENERACY TEST -- did the network find a valid alternative?
   recovered while g and Lc individually are not, the geometry error
   is degeneracy, not inaccuracy.
   network   theta MAPE  theta median  within 5%    g MAPE    Lc RGE
-  naive          1.787         1.413      96.5%    10.702    22.797
-  tandem         6.900         4.879      51.4%    12.014    52.575
+  naive          1.824         1.495      96.5%    10.802    22.773
+  tandem         6.047         4.285      53.8%    12.006    48.096
   (theta MAPE much smaller than g/Lc errors => the network is
    landing on the right level set with the wrong coordinates,
    i.e. proposing a legitimately different geometry)
@@ -73,10 +73,10 @@ O6 DEGENERACY TEST -- did the network find a valid alternative?
 TANDEM LOSS BREAKDOWN BY TARGET (scaled units)
 ----------------------------------------------------------------------
   which target is actually driving the response-space gradient:
-    lambda_res_nm    0.029463    99.2% of the loss
+    lambda_res_nm    0.029474    99.3% of the loss
     FSR_nm           0.000034     0.1% of the loss
-    Q_L              0.000121     0.4% of the loss
-    IL_dB            0.000067     0.2% of the loss
+    Q_L              0.000112     0.4% of the loss
+    IL_dB            0.000066     0.2% of the loss
 
 ======================================================================
 OBJECTIVE O6 -- one-to-many ambiguity test
@@ -84,15 +84,15 @@ OBJECTIVE O6 -- one-to-many ambiguity test
   O6 asks whether the naive direct-inverse DNN converges acceptably, or
   shows the non-convergence/high-error pattern of Paper 3.
 
-  naive  RMS-RGE  15.501 %   (exceeds the O3 15% threshold)
-  tandem RMS-RGE  31.438 %   (diagnostic only)
+  naive  RMS-RGE  15.506 %   (exceeds the O3 15% threshold)
+  tandem RMS-RGE  29.461 %   (diagnostic only)
 
   response-space comparison (the criterion that matters for O6):
   target             naive MAPE   tandem MAPE
-  lambda_res_nm           0.159         0.158
-  FSR_nm                  0.908         0.641
-  Q_L                     3.257         4.044
-  IL_dB                   9.886        12.321
+  lambda_res_nm           0.158         0.158
+  FSR_nm                  0.880         0.637
+  Q_L                     3.330         4.021
+  IL_dB                  10.865        12.621
 
   tandem is better or equal on 2 of 4 targets
   Section 5 criterion: tandem's reconstructed-response MAPE should be

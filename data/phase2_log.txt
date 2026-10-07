@@ -28,8 +28,8 @@ rows in: 1000
     Lc_um                 0.0027        1.2957        2.9975
     lambda_res_nm      1541.1891     1550.0715     1558.2371
     FSR_nm                5.4818        9.0448       17.5640
-    Q_L                 763.9248    14201.5949   187650.3514
-    IL_dB                 0.0314        0.6128        9.8586
+    Q_L                 774.1110    13977.3790   190358.3484
+    IL_dB                 0.0317        0.5984        9.9733
 
 2.4 SPLIT (whole geometry samples, seed 42)
 --------------------------------------------------------------------
@@ -48,8 +48,8 @@ rows in: 1000
     Lc_um           minmax         min      0.00520  max      2.99752
     lambda_res_nm   minmax         min   1541.18908  max   1558.23711
     FSR_nm          minmax         min      5.48182  max     17.56396
-    Q_L             log10+minmax   min      2.88305  max      5.27335
-    IL_dB           minmax         min      0.03143  max      9.85862
+    Q_L             log10+minmax   min      2.88880  max      5.27957
+    IL_dB           minmax         min      0.03173  max      9.97329
 
 2.5 ENGINEERED FEATURE (ablation, optional)
 --------------------------------------------------------------------

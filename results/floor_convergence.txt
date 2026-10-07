@@ -1,0 +1,47 @@
+INFORMATION FLOOR -- BANK-SIZE CONVERGENCE
+==========================================================================
+A finite bank can only OVERESTIMATE the floor: more geometries find
+closer response matches. So the question is whether the estimate has
+stopped falling. If it has not, no claim about a threshold being
+unreachable in principle is supportable.
+
+     bank N    floor %   best k
+  -----------------------------
+      12500     16.063       25
+      25000     15.643       10
+      50000     15.612       25
+     100000     15.596       25
+     200000     15.479       50
+     400000     15.479      100
+     800000     15.005        5
+    1000000     14.626        7
+
+  measured descent, N=200000 -> N=1000000: 0.853 pp over 0.70 decades
+  that is 0.5302 pp per e-fold of bank size.
+
+  floor estimate at the largest bank tested: 14.626 % (an UPPER bound)
+
+  ASYMPTOTE IDENTIFIABILITY
+    NOT IDENTIFIABLE. A 3-parameter fit floor_inf + a*N^(-b)
+    drives floor_inf to 6.626 %, which is the edge of the search
+    range -- the fit wants to go lower still. These points do not
+    constrain the asymptote, so NO extrapolated floor is reported.
+    Enlarge the bank (--floor --nbank=N) to constrain it.
+
+  ESTIMATOR CONVERGENCE WARNING
+    the best k drifts from 25 to 7 across the sweep. A shifting
+    optimum means the finite-sample bias of the estimator is still
+    unwinding, so the descent rate above is a property of the ESTIMATOR,
+    not of the floor. Treat it as not yet converged and do not quote a
+    rate or extrapolate from it.
+
+  AGAINST O3's 15 % RMS-RGE BAR -- WHAT THE DATA SUPPORTS
+    The estimate is 14.626 % at N=1000000. It is the error of a
+    specific predictor, hence an UPPER BOUND on the true floor.
+    It is BELOW 15 %, and an upper bound below a threshold PROVES the
+    true floor is below that threshold. So O3's geometric bar is above
+    the information floor: O3 is REACHABLE IN PRINCIPLE, and the
+    shortfall is a model-and-data result, not a fundamental limit.
+
+    best achieved RMS-RGE: 15.506 % -> at least 0.879 pp of headroom
+    remains between the best model and the bound.

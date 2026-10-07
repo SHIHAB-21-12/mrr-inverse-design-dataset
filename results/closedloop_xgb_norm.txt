@@ -1,0 +1,29 @@
+CLOSED-LOOP RE-VERIFICATION -- xgb_norm
+==============================================================================
+20 representative test targets, evenly spaced through the test set.
+Each predicted geometry was re-simulated with a 3-D FDTD coupler run,
+then the ring response was computed analytically -- the same pipeline
+that produced the dataset, so the FDTD step is an independent check.
+
+  simulated successfully : 20
+  physically unrealisable: 0
+
+  HELD-OUT VALIDATION OF THE PHASE 1 kappa^2 MODEL
+  --------------------------------------------------------------------------
+  These geometries were not in the 48-point coupler set the model was
+  fitted on, so this is an out-of-sample test obtained free from this run.
+    MAPE 5.16 %   RMS 5.77 %   bias +3.33 %   max 8.69 %
+    within 10%: 100 %   within 5%: 45 %
+    (Phase 1 reported 3.37 % MAPE by 8-fold CV on the training points)
+  energy conservation on every run: kappa^2 + t^2 = 1.0000 (mean)
+
+  per-target closed-loop error (re-simulated vs requested)
+  target               MAPE %      RMS %      max %
+  lambda_res_nm         0.165      0.216      0.534
+  FSR_nm                0.970      1.207      2.251
+  Q_L                  14.684     18.478     40.201
+  IL_dB                15.382     19.176     42.165
+
+  RMS closed-loop response error = 13.329 %  (over the 20 realisable predictions)
+  realisable fraction = 100.0 %
+  O3 requires RMS closed-loop error <= 20%: MET

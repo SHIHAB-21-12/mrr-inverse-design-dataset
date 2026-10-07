@@ -1,0 +1,20 @@
+FORWARD MODEL -- SEED STABILITY OF THE PHASE 3 CRITERION
+==========================================================================
+config: depth 4, width 256, lr 0.005, weight decay 0.0001
+seeds: [42, 43, 44, 45, 46]   (architecture and data identical throughout)
+
+  target                           R2             MAPE %   passes
+  ----------------------------------------------------------------
+  lambda_res_nm       0.0078 +/-0.0011     0.158 +/- 0.000    0/5
+  FSR_nm              0.9993 +/-0.0001     0.556 +/- 0.020    5/5
+  Q_L                 0.9982 +/-0.0001     3.059 +/- 0.109    5/5
+  IL_dB               0.9966 +/-0.0003    11.331 +/- 1.101    1/5
+
+  'passes' counts seeds meeting BOTH R2 >= 0.90 and MAPE <= 10%.
+
+  *** IL_dB STRADDLES the 10 % threshold: 9.754 to 12.675 across seeds.
+      The Phase 3 verdict for this target is decided by initialisation,
+      not by the model. Report the mean and spread, not a single run.
+
+  targets passing on a majority of seeds: 2 of 4
+  Phase 3 criterion (>= 3 of 4): NOT MET

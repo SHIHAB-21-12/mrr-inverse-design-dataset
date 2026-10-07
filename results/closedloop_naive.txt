@@ -8,13 +8,22 @@ that produced the dataset, so the FDTD step is an independent check.
   simulated successfully : 20
   physically unrealisable: 0
 
+  HELD-OUT VALIDATION OF THE PHASE 1 kappa^2 MODEL
+  --------------------------------------------------------------------------
+  These geometries were not in the ?-point coupler set the model was
+  fitted on, so this is an out-of-sample test obtained free from this run.
+    MAPE 3.19 %   RMS 4.09 %   bias +1.47 %   max 8.72 %
+    within 10%: 100 %   within 5%: 65 %
+    (Phase 1 reported 3.36 % MAPE by cross-validation on the training points)
+  energy conservation on every run: kappa^2 + t^2 = 1.0000 (mean)
+
   per-target closed-loop error (re-simulated vs requested)
   target               MAPE %      RMS %      max %
-  lambda_res_nm         0.272      0.330      0.680
-  FSR_nm                1.001      1.404      4.298
-  Q_L                   3.647      4.336     10.417
-  IL_dB                 3.625      4.948     16.917
+  lambda_res_nm         0.203      0.279      0.704
+  FSR_nm                0.980      1.240      2.712
+  Q_L                   4.037      4.939     11.425
+  IL_dB                 3.594      5.276     17.982
 
-  RMS closed-loop response error = 3.368 %  (over the 20 realisable predictions)
+  RMS closed-loop response error = 3.669 %  (over the 20 realisable predictions)
   realisable fraction = 100.0 %
   O3 requires RMS closed-loop error <= 20%: MET

@@ -23,22 +23,22 @@ SCENARIO A -- Moderate-density CPO link (4 channels, 4 nm grid)
 
   CANDIDATE GEOMETRIES AND THEIR PREDICTED RESPONSE
   method               R um     w nm     g nm    Lc um |       lam     FSR       Q_L      IL  verdict
-  naive DNN           5.191    431.7    173.8    0.567 |  1555.289  16.327      4173   0.363  FAIL: lam off by +5.29 nm
-  tandem DNN          5.150    400.3    191.6    0.084 |  1545.773  16.533      4305   0.382  FAIL: lam off by -4.23 nm
-  RF (raw)            5.332    439.4    186.0    0.738 |  1543.170  15.616      5288   0.441  FAIL: lam off by -6.83 nm; FSR short by 0.38 nm
-  RF (norm)           5.265    443.9    189.6    0.701 |  1550.752  15.997      6190   0.532  FAIL: FSR short by 0.00 nm
-  XGB (raw)           5.191    431.1    180.8    0.767 |  1548.193  16.015      4056   0.349  PASS
-  XGB (norm)          5.186    432.4    176.5    0.658 |  1543.332  16.060      4169   0.360  FAIL: lam off by -6.67 nm
+  naive DNN           5.131    431.7    173.2    0.584 |  1546.892  16.351      4113   0.363  FAIL: lam off by -3.11 nm
+  tandem DNN          5.057    403.7    192.7    0.252 |  1543.385  16.640      4128   0.373  FAIL: lam off by -6.61 nm
+  RF (raw)            5.258    437.9    190.7    0.767 |  1548.058  15.869      5419   0.461  FAIL: FSR short by 0.13 nm
+  RF (norm)           5.248    438.8    192.3    0.694 |  1543.823  15.901      5918   0.508  FAIL: lam off by -6.18 nm; FSR short by 0.10 nm
+  XGB (raw)           5.173    430.8    173.9    0.686 |  1557.673  16.298      3822   0.332  FAIL: lam off by +7.67 nm
+  XGB (norm)          5.184    435.0    172.2    0.709 |  1547.746  16.111      3985   0.344  FAIL: lam off by -2.25 nm
 
   CPO TRANSLATION (Eqs. 16-18) for each realisable candidate
   ----------------------------------------------------------------------------------
   method             FWHM nm  df_3dB GHz   N_ch  IL worst-case  IL per-channel
-  naive DNN           0.3727        46.2    4.1        1.45 dB         0.66 dB
-  tandem DNN          0.3590        45.0    4.1        1.53 dB         0.68 dB
-  RF (raw)            0.2919        36.7    3.9        1.76 dB         0.74 dB
-  RF (norm)           0.2505        31.2    4.0        2.13 dB         0.83 dB
-  XGB (raw)           0.3817        47.7    4.0        1.39 dB         0.65 dB
-  XGB (norm)          0.3702        46.6    4.0        1.44 dB         0.66 dB
+  naive DNN           0.3761        47.1    4.1        1.45 dB         0.66 dB
+  tandem DNN          0.3739        47.1    4.2        1.49 dB         0.67 dB
+  RF (raw)            0.2857        35.7    4.0        1.85 dB         0.76 dB
+  RF (norm)           0.2609        32.8    4.0        2.03 dB         0.81 dB
+  XGB (raw)           0.4076        50.4    4.1        1.33 dB         0.63 dB
+  XGB (norm)          0.3884        48.6    4.0        1.38 dB         0.64 dB
 
   Eq. 18 bound assumes every one of the 4 rings contributes its full
   drop-port loss. Fix 6 states this deliberately overstates the real
@@ -57,22 +57,22 @@ SCENARIO B -- Dense CPO link (8 channels, 100 GHz / 0.8 nm ITU grid)
 
   CANDIDATE GEOMETRIES AND THEIR PREDICTED RESPONSE
   method               R um     w nm     g nm    Lc um |       lam     FSR       Q_L      IL  verdict
-  naive DNN          13.085    441.6    220.7    1.640 |  1548.423   6.461      8036   0.194  FAIL: lam off by -1.58 nm
-  tandem DNN         13.709    416.6    210.0    0.094 |  1547.502   6.320      8310   0.191  FAIL: lam off by -2.50 nm; FSR short by 0.08 nm
-  RF (raw)            9.736    447.0    233.0    1.740 |  1548.864   8.560      9517   0.332  FAIL: lam off by -1.14 nm
-  RF (norm)          12.910    449.6    240.8    1.990 |  1550.789   6.531     11432   0.282  FAIL: lam off by +0.79 nm
-  XGB (raw)          13.040    438.5    254.2    2.828 |  1546.879   6.289      8695   0.208  FAIL: lam off by -3.12 nm; FSR short by 0.11 nm
-  XGB (norm)         13.030    438.8    256.5    2.848 |  1547.008   6.292      9024   0.217  FAIL: lam off by -2.99 nm; FSR short by 0.11 nm
+  naive DNN          13.095    441.3    220.7    1.633 |  1548.663   6.458      7969   0.192  FAIL: lam off by -1.34 nm
+  tandem DNN         13.642    419.1    212.0    0.249 |  1548.770   6.344      8320   0.193  FAIL: lam off by -1.23 nm; FSR short by 0.06 nm
+  RF (raw)            9.898    444.7    235.9    1.657 |  1549.537   8.446      9818   0.335  FAIL: lam off by -0.46 nm
+  RF (norm)          12.980    448.5    242.9    2.037 |  1548.733   6.474     11287   0.276  FAIL: lam off by -1.27 nm
+  XGB (raw)          12.887    425.5    242.8    2.431 |  1550.934   6.405      6152   0.149  FAIL: lam off by +0.93 nm; Q_L low by 1598
+  XGB (norm)         12.868    422.6    243.5    2.385 |  1552.793   6.424      5941   0.144  FAIL: lam off by +2.79 nm; Q_L low by 1809
 
   CPO TRANSLATION (Eqs. 16-18) for each realisable candidate
   ----------------------------------------------------------------------------------
   method             FWHM nm  df_3dB GHz   N_ch  IL worst-case  IL per-channel
-  naive DNN           0.1927        24.1    8.1        1.55 dB         0.89 dB
-  tandem DNN          0.1862        23.3    7.9        1.53 dB         0.89 dB
-  RF (raw)            0.1627        20.3   10.7        2.65 dB         1.03 dB
-  RF (norm)           0.1356        16.9    8.2        2.25 dB         0.98 dB
-  XGB (raw)           0.1779        22.3    7.9        1.67 dB         0.91 dB
-  XGB (norm)          0.1714        21.5    7.9        1.73 dB         0.92 dB
+  naive DNN           0.1943        24.3    8.1        1.54 dB         0.89 dB
+  tandem DNN          0.1861        23.3    7.9        1.54 dB         0.89 dB
+  RF (raw)            0.1578        19.7   10.6        2.68 dB         1.04 dB
+  RF (norm)           0.1372        17.2    8.1        2.21 dB         0.98 dB
+  XGB (raw)           0.2521        31.4    8.0        1.19 dB         0.85 dB
+  XGB (norm)          0.2614        32.5    8.0        1.15 dB         0.84 dB
 
   Eq. 18 bound assumes every one of the 8 rings contributes its full
   drop-port loss. Fix 6 states this deliberately overstates the real
@@ -86,10 +86,10 @@ SCENARIO B -- Dense CPO link (8 channels, 100 GHz / 0.8 nm ITU grid)
 ======================================================================================
 SCENARIO VERDICT SUMMARY (Phase 7.4 step 4)
 ======================================================================================
-  Scenario A: MET by 1 method(s) -- XGB (raw)
+  Scenario A: NOT met by any method on every spec simultaneously
   Scenario B: NOT met by any method on every spec simultaneously
 
-  O7 requires >= 1 method to meet all four specs in >= 1 scenario: MET
+  O7 requires >= 1 method to meet all four specs in >= 1 scenario: NOT MET
   Section 5 revision trigger for Phase 7: if no method meets IL or Q
   tolerance, revisit the Phase 1.6 coupling-boundary check.
 

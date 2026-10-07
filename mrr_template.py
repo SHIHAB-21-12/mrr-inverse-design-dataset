@@ -123,6 +123,15 @@ BENDLOSS_CSV = "bendloss_{dim}.csv"
 COUPLERSET_N = 48
 COUPLERSET_SEED = 42
 COUPLERSET_CSV = "couplerset_{dim}.csv"
+# Augmentation of the coupler set (publication strengthening). The original
+# 48-point LHS is KEPT: a Latin hypercube of n points is not a subset of one
+# with more points, so re-drawing at n=200 would orphan the 16.7 h already
+# spent. A second, independent LHS is appended instead -- a sequential
+# augmented design. Report it as: "48-point LHS (seed 42) augmented with a
+# 152-point LHS (seed 2026); 200 coupler simulations in total."
+COUPLEREXT_N = 152
+COUPLEREXT_SEED = 2026
+COUPLEREXT_IDX0 = 1000
 
 # --- mode sweep: n_eff(lambda, w) and n_g(lambda, w) -----------------------
 # FDTD's source eigensolver reports n_eff but NOT group index (the GUI shows
@@ -230,7 +239,7 @@ NG_NOMINAL = 4.2         # for the derived round-trip-length feature
 # --- Training-density study ------------------------------------------------
 # DIAGNOSTIC ONLY. Extra rows are drawn from the SAME fitted kappa^2 model, so
 # they add sampling density, not physics. The dataset still carries the
-# information of 83 simulations. These results measure how fast the inverse
+# information of the fitted coupler set. These results measure how fast the
 # problem converges toward its information floor; they are NOT a route to
 # claiming O3, and the report says so.
 DENSITY_SIZES = [805, 2000, 4000, 6000]
@@ -1189,6 +1198,93 @@ def run_couplerset(dimension="3D", n=COUPLERSET_N):
               f"sum {k2+t2:.4f}  {dt/60:.1f} min")
 
     print(f"\n[couplerset] results: {csv_path}")
+
+
+def run_couplerext(n=COUPLEREXT_N, dimension="3D"):
+    """
+    Append an independent second Latin hypercube to the coupler set, keeping
+    every existing row. Indices start at COUPLEREXT_IDX0 so they can never
+    collide with the original run's 0..47, and so --couplerset still resumes
+    correctly if it is ever re-run.
+    Fully resumable: each point is written as it finishes.
+    """
+    from scipy.stats import qmc
+    mesh = MeshConfig.uniform(BEND_MESH_NM * 1e-9)
+    dom = DomainConfig(movie=False, dimension=dimension,
+                       sim_time=COUPLER_SIM_TIME,
+                       freq_points=COUPLER_FREQ_POINTS)
+    name = COUPLERSET_CSV.format(dim=dimension.lower())
+    try:
+        csv_path = os.path.abspath(_find(name))      # . then results/
+    except FileNotFoundError:
+        raise SystemExit(f"[couplerext] {name} not found in . or results/ "
+                         "-- run --couplerset first")
+    print(f"[couplerext] appending to {csv_path}")
+    fields = ["idx", "R_um", "w_nm", "g_nm", "Lc_um",
+              "kappa2", "t2", "sum_k2_t2", "runtime_s"]
+    with open(csv_path, newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    done = {int(r["idx"]) for r in rows}
+    n_orig = sum(1 for i in done if i < COUPLEREXT_IDX0)
+    n_ext = sum(1 for i in done if i >= COUPLEREXT_IDX0)
+    print(f"[couplerext] existing: {n_orig} original + {n_ext} extension "
+          f"= {len(done)} coupler runs")
+
+    keys = ["R", "w", "g", "Lc"]
+    lo = np.array([RANGES[k][0] for k in keys])
+    hi = np.array([RANGES[k][1] for k in keys])
+    u = qmc.LatinHypercube(d=4, seed=COUPLEREXT_SEED).random(n)
+    pts = lo + u * (hi - lo)
+    todo = [(COUPLEREXT_IDX0 + i, MRRParams(*map(float, r)))
+            for i, r in enumerate(pts)
+            if COUPLEREXT_IDX0 + i not in done]
+    print(f"[couplerext] {len(todo)} to run  -> target "
+          f"{n_orig + n} coupler simulations total")
+    print(f"[couplerext] estimate {len(todo)*20.9/60:.0f} h at the "
+          f"20.9 min/point average of your first 48 runs")
+    print("[couplerext] resumable: stop any time, re-run to continue\n")
+
+    lumapi = load_lumapi()
+    t_start = time.time()
+    for c, (idx, p) in enumerate(todo, 1):
+        print(f"[couplerext] {c}/{len(todo)} (idx {idx})  "
+              f"R={p.R*1e6:.3f}um w={p.w*1e9:.1f}nm "
+              f"g={p.g*1e9:.1f}nm Lc={p.Lc*1e6:.3f}um ...")
+        t0 = time.time()
+        try:
+            with lumapi.FDTD(hide=True) as fdtd:
+                build_coupler(fdtd, p, mesh, dom)
+                fdtd.save(os.path.abspath("couplerext_scratch.fsp"))
+                fdtd.run()
+                lam_t, Tt = get_spectrum(fdtd, "monitor_through")
+                lam_c, Tc = get_spectrum(fdtd, "monitor_cross")
+        except Exception as exc:                        # noqa: BLE001
+            print(f"[couplerext] point {idx} FAILED: {exc}")
+            print("[couplerext] re-run the same command to retry it")
+            time.sleep(20)
+            continue
+        dt = time.time() - t0
+        t2 = _at_target(lam_t, Tt)
+        k2 = _at_target(lam_c, Tc)
+        with open(csv_path, "a", newline="") as fh:
+            csv.DictWriter(fh, fieldnames=fields).writerow(
+                dict(idx=idx, R_um=p.R*1e6, w_nm=p.w*1e9, g_nm=p.g*1e9,
+                     Lc_um=p.Lc*1e6, kappa2=k2, t2=t2, sum_k2_t2=k2+t2,
+                     runtime_s=round(dt, 1)))
+        el = (time.time() - t_start) / 60
+        print(f"[couplerext]   kappa^2 {k2:.6f}  t^2 {t2:.6f}  "
+              f"sum {k2+t2:.4f}  {dt/60:.1f} min   "
+              f"[{el/60:.1f} h elapsed, ~{(len(todo)-c)*el/c/60:.1f} h left]")
+
+    with open(csv_path, newline="") as fh:
+        tot = len(list(csv.DictReader(fh)))
+    print(f"\n[couplerext] coupler set now holds {tot} simulations")
+    print("[couplerext] NEXT, in order:")
+    print("    py -3 mrr_template.py --generate   (rebuild the dataset)")
+    print("    py -3 mrr_template.py --phase2     (re-split)")
+    print("    py -3 mrr_template.py --phase3     "
+          "(delete results/phase3_gridsearch.csv first to re-search)")
+    print("    ... then phases 4-7 as before")
 
 
 # ---------------------------------------------------------------------------
@@ -2962,6 +3058,50 @@ def _coupler_kappa2_fdtd(R, w, g, Lc):
     return _at_target(lam_c, Tc), _at_target(lam_t, Tt)
 
 
+def _n_couplerset():
+    """Number of points in the coupler set the kappa^2 model was fitted on."""
+    try:
+        import csv as _csv
+        n = 0
+        for dim in ("3d", "2d"):
+            try:
+                f = _find(COUPLERSET_CSV.format(dim=dim))
+            except FileNotFoundError:
+                continue
+            with open(f, newline="") as fh:
+                n = max(n, sum(1 for _ in _csv.DictReader(fh)))
+        return n if n else "?"
+    except Exception:
+        return "?"
+
+
+def _cl_ref(method="naive"):
+    """Measured closed-loop RMS error for a method, read from its own report."""
+    try:
+        f = _find(f"closedloop_{method}.txt")
+        for ln in open(f):
+            if "RMS closed-loop response error" in ln:
+                return ln.split("=")[1].split("%")[0].strip() + " %"
+    except Exception:
+        pass
+    return "see closedloop_naive.txt"
+
+
+def _cv_mape_ref():
+    """CV MAPE of the fitted kappa^2 model, read from its own output."""
+    try:
+        import json as _j
+        f = _find("kappa2_model.json")
+        if f and os.path.isfile(f):
+            d = _j.load(open(f))
+            for k in ("cv_mape", "mape_cv", "cv_mape_pct", "mape"):
+                if k in d:
+                    return f"{float(d[k]):.2f} %"
+    except Exception:
+        pass
+    return "the value in kappa2_cv.txt"
+
+
 def run_closedloop(method="naive", n=CLOSEDLOOP_N):
     """
     Take a model's predicted geometries for n representative test targets,
@@ -3058,7 +3198,7 @@ def run_closedloop(method="naive", n=CLOSEDLOOP_N):
     L.append("")
 
     # ---- free held-out validation of the Phase 1 kappa^2 model ----------
-    # These geometries were never in the 48-point coupler set, so their
+    # These geometries were never in the fitted coupler set, so their
     # freshly measured kappa^2 is an out-of-sample test of the fitted model.
     if ok:
         respond = _make_responder()
@@ -3071,7 +3211,8 @@ def run_closedloop(method="naive", n=CLOSEDLOOP_N):
         er = np.array(er)
         L += ["  HELD-OUT VALIDATION OF THE PHASE 1 kappa^2 MODEL",
               "  " + "-" * 74,
-              "  These geometries were not in the 48-point coupler set the "
+              f"  These geometries were not in the {_n_couplerset()}-point "
+              "coupler set the "
               "model was",
               "  fitted on, so this is an out-of-sample test obtained free "
               "from this run.",
@@ -3080,7 +3221,8 @@ def run_closedloop(method="naive", n=CLOSEDLOOP_N):
               f"bias {np.mean(er):+.2f} %   max {np.max(np.abs(er)):.2f} %",
               f"    within 10%: {100*np.mean(np.abs(er)<=10):.0f} %   "
               f"within 5%: {100*np.mean(np.abs(er)<=5):.0f} %",
-              "    (Phase 1 reported 3.37 % MAPE by 8-fold CV on the "
+              f"    (Phase 1 reported {_cv_mape_ref()} MAPE by cross-"
+              "validation on the "
               "training points)",
               "  energy conservation on every run: kappa^2 + t^2 = "
               + f"{np.mean([done[k]['kappa2']+done[k].get('t2',np.nan) for k in ok]):.4f}"
@@ -3101,14 +3243,32 @@ def run_closedloop(method="naive", n=CLOSEDLOOP_N):
         overall = float(np.sqrt(np.mean(np.array(rms_all) ** 2)))
         # penalise unrealisable predictions rather than quietly dropping them
         frac = len(ok) / max(1, len(ok) + len(un))
+        # O3 HAS TWO HALVES and both must hold for the SAME method:
+        #   aggregate RMS-RGE <= 15%   AND   closed-loop error <= 20%
+        # Reporting only the closed-loop half overstates the result.
+        rge_agg = _rms_rge(P, Gr_te)[0]
+        cl_ok = overall <= 20.0
+        rge_ok = rge_agg <= 15.0
         L += ["", f"  RMS closed-loop response error = {overall:.3f} %  "
               f"(over the {len(ok)} realisable predictions)",
               f"  realisable fraction = {100*frac:.1f} %",
-              f"  O3 requires RMS closed-loop error <= 20%: "
-              + ("MET" if overall <= 20.0 and not un else
-                 ("MET on the realisable subset, but "
-                  f"{len(un)} predictions could not be built" if
-                  overall <= 20.0 else "NOT MET"))]
+              "",
+              "  OBJECTIVE O3 -- BOTH HALVES REQUIRED FOR THE SAME METHOD",
+              "  --------------------------------------------------------",
+              f"    aggregate RMS-RGE      {rge_agg:7.3f} %  (<= 15 %)   "
+              + ("PASS" if rge_ok else "FAIL"),
+              f"    closed-loop RMS error  {overall:7.3f} %  (<= 20 %)   "
+              + ("PASS" if cl_ok else "FAIL"),
+              f"    this method meets O3: "
+              + ("YES" if (cl_ok and rge_ok and not un) else "NO")]
+        if cl_ok and rge_ok and un:
+            L.append(f"      (both bars cleared, but {len(un)} of "
+                     f"{len(ok)+len(un)} predictions were unbuildable)")
+        if un:
+            L += ["", f"  NOTE: {len(un)} unrealisable predictions. An "
+                  "unbuildable geometry is not a",
+                  "  design; the realisable fraction above is a primary "
+                  "result, not a caveat."]
     txt = "\n".join(L)
     open(os.path.join(resdir, f"closedloop_{method}.txt"), "w").write(
         txt + "\n")
@@ -3930,10 +4090,12 @@ def run_density():
          "  READ THIS BEFORE QUOTING ANY NUMBER BELOW.",
          "  The extra rows are drawn from the SAME fitted kappa^2 model that",
          "  produced the original labels. They add sampling density, not",
-         "  physics. The dataset still carries the information of 83 FDTD",
-         "  simulations however many rows it has. A lower RMS-RGE here means",
-         "  the network has learned the analytic surrogate better -- the",
-         "  closed-loop error against FDTD (3.368 %) is unaffected.",
+         f"  physics. The dataset still carries the information of the "
+         f"{_n_couplerset()}-point",
+         "  coupler set (plus the Phase 1 sub-studies) however many rows it",
+         "  has. A lower RMS-RGE here means the network has learned the",
+         f"  analytic surrogate better -- the closed-loop error against FDTD "
+         f"({_cl_ref('naive')}) is unaffected.",
          "  **This is not a route to claiming O3.** It is a measurement of how",
          "  fast this inverse problem converges toward its information floor.",
          "",
@@ -3971,6 +4133,783 @@ def run_density():
     txt = "\n".join(L)
     open(os.path.join(resdir, "density_report.txt"), "w").write(txt + "\n")
     print("\n" + txt)
+
+
+FLOOR_N = 200000          # response-bank size; the floor depends on it, so it
+FLOOR_SEED = 7            # is reported alongside every floor number
+FLOOR_CHUNK = 20000       # bank is built in chunks so a long run is resumable
+
+
+def run_validate():
+    """
+    Objective O1, second half -- external validation against a published,
+    experimentally characterised device (Phase 1.6 sub-study 3).
+
+    The computation already runs inside --modesweep, but only prints to the
+    console, so no auditable record of it survives. This recomputes it from
+    the cached mode sweep (no Lumerical) and writes it to disk, which is what
+    a published repo needs.
+    """
+    f = _find(MODESWEEP_CSV)
+    rows = list(csv.DictReader(open(f, newline="")))
+    sel = [r for r in rows if float(r["w_nm"]) == P11_W_NM
+           and float(r["lam_nm"]) == 1550.0]
+    if not sel:
+        raise ValueError(f"{f} has no w={P11_W_NM:g} nm, 1550 nm row; "
+                         "rerun --modesweep")
+    ng = float(sel[0]["n_g"]); ne = float(sel[0]["n_eff"])
+    Lm = 2 * np.pi * P11_R_UM * 1e-6
+    fsr = (1550e-9) ** 2 / (ng * Lm) * 1e9
+    err = abs(fsr - P11_FSR_NM) / P11_FSR_NM * 100.0
+    ng_implied = (1550e-9) ** 2 / (P11_FSR_NM * 1e-9 * Lm)
+
+    L = ["OBJECTIVE O1 (second half) -- EXTERNAL LITERATURE VALIDATION",
+         "=" * 76,
+         "Phase 1.6 sub-study 3. Recomputed from the cached mode sweep, so it",
+         f"is reproducible without re-running Lumerical. Source: {f}", "",
+         f"  reference device   : Tang et al. [11], {P11_W_NM:g} x 220 nm SOI "
+         "TE ring,",
+         f"                       R = {P11_R_UM:g} um, circular (Lc = 0)",
+         f"  measured FSR       : {P11_FSR_NM:.3f} nm   (an experimental "
+         "figure)",
+         f"  implied n_g        : {ng_implied:.4f}   (from the measured FSR)",
+         "",
+         f"  this work's n_g    : {ng:.5f}   (mode sweep at w = "
+         f"{P11_W_NM:g} nm, 1550 nm)",
+         f"  this work's n_eff  : {ne:.5f}",
+         f"  predicted FSR      : {fsr:.4f} nm   (Eq. 4, L = 2*pi*R)",
+         "",
+         f"  relative error     : {err:.2f} %",
+         f"  O1 requires <= 10 %: " + ("PASS" if err <= 10.0 else "FAIL"),
+         "",
+         "  SCOPE AND CAVEATS -- state these when citing this validation:",
+         "  1. Only FSR is validated. FSR depends on n_g and round-trip length",
+         "     alone, so this tests the mode solver and the length convention,",
+         "     NOT the coupling model, the bend-loss model, or Q_L and IL.",
+         f"  2. R = {P11_R_UM:g} um is outside this work's 5-15 um design range. "
+         "n_eff is",
+         "     fitted from a straight-waveguide sweep and is a function of",
+         "     (lambda, w) only, so R enters solely through L -- but the device",
+         "     is correspondingly less bent than the training range.",
+         "  3. Tang et al.'s Q ~ 3e5 is a stated ASSUMPTION in their "
+         "scalability",
+         "     projection, not a measurement, and must not be used as a "
+         "validation",
+         "     target. Their measured figures are FSR, propagation loss and",
+         "     extinction ratio.",
+         "  4. NOT independent of the roughness input: ROUGHNESS_DB_CM = "
+         f"{ROUGHNESS_DB_CM:g}",
+         "     dB/cm is itself taken from this same paper. That value does not",
+         "     enter the FSR prediction, so this particular comparison is",
+         "     unaffected -- but the device is not an independent source for",
+         "     the loss model.",
+         "  5. The nominal n_g = 4.2 used for Phase 1.2 design-space reasoning",
+         "     was also justified by citing this device. That nominal value is",
+         "     not used in any dataset label; the labels use the fitted sweep",
+         "     above. The overlap should still be disclosed."]
+    resdir = "results" if os.path.isdir("results") else "."
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "o1_validation.txt"), "w").write(txt + "\n")
+    import json
+    json.dump(dict(device="Tang et al. [11]", w_nm=P11_W_NM, R_um=P11_R_UM,
+                   measured_fsr_nm=P11_FSR_NM, implied_ng=ng_implied,
+                   sim_ng=ng, sim_neff=ne, predicted_fsr_nm=fsr,
+                   rel_err_pct=err, passes=bool(err <= 10.0)),
+              open(os.path.join(resdir, "o1_validation.json"), "w"), indent=1)
+    print("\n" + txt)
+
+
+def run_floor(n_bank=FLOOR_N):
+    """
+    INFORMATION FLOOR -- the best RMS-RGE any inverse model could achieve.
+
+    Build a large bank of geometries, compute each one's response with the
+    SAME analytic responder that labelled the dataset, then for every test
+    target find the bank geometry whose RESPONSE is closest to it. If that
+    geometry differs from the true one, no model -- however good -- can tell
+    them apart from the response alone. The geometric distance between them
+    is therefore a lower bound on achievable error.
+
+    This replaces hard-coded floor constants with a computation a reader can
+    rerun. The floor depends on the bank size, which is reported with it.
+    """
+    import json
+    resdir = "results" if os.path.isdir("results") else "."
+    Gr_te, Rr_te = _load_split_raw("test")
+    respond = _make_responder()
+    rng = np.random.default_rng(FLOOR_SEED)
+    lo = np.array([5.0, 400.0, 150.0, 0.0])
+    hi = np.array([15.0, 500.0, 350.0, 3.0])
+
+    ckpt = os.path.join(resdir, "floor_bank.npz")
+    if os.path.isfile(ckpt):
+        z = np.load(ckpt)
+        G, Rsp = z["G"], z["R"]
+        print(f"[floor] resuming: {len(G)} of {n_bank} already built")
+    else:
+        G = np.zeros((0, 4)); Rsp = np.zeros((0, 4))
+
+    if len(G) > n_bank:
+        G = G[:n_bank]; Rsp = Rsp[:n_bank]
+        print(f"[floor] using the first {n_bank} of the cached bank")
+
+    while len(G) < n_bank:
+        k = min(FLOOR_CHUNK, n_bank - len(G))
+        cand = lo + (hi - lo) * rng.random((k, 4))
+        gs, rs = [], []
+        for row in cand:
+            try:
+                v = respond(*row)
+            except Exception:
+                continue
+            # apply the SAME quality gate the dataset used: a flagged row
+            # (no half-max, T_drop > 1) was dropped in Phase 2, so the bank
+            # must not contain geometries the dataset would have excluded
+            if isinstance(v, dict) and v.get("flag"):
+                continue
+            v = np.asarray([v[t] for t in TARGETS], dtype=float) \
+                if isinstance(v, dict) else np.asarray(v, dtype=float)
+            if v.shape != (4,) or not np.all(np.isfinite(v)):
+                continue
+            gs.append(row); rs.append(v)
+        if gs:
+            G = np.vstack([G, np.array(gs)])
+            Rsp = np.vstack([Rsp, np.array(rs)])
+        np.savez(ckpt, G=G, R=Rsp)
+        print(f"[floor] bank {len(G)}/{n_bank}")
+
+    # response distance, scaled per target so no one target dominates
+    sd = Rsp.std(axis=0); sd[sd == 0] = 1.0
+    Bn = Rsp / sd
+
+    # THE ESTIMATOR MATTERS. Taking the single nearest bank geometry (k = 1)
+    # returns one arbitrary member of the degenerate set, which sits sqrt(2)
+    # further from the truth than the set's centre. A regression model does
+    # not do that -- it learns E[geometry | response]. So the floor is the
+    # error of the CONDITIONAL MEAN, estimated by averaging the k nearest
+    # matches. Reported against k so the plateau is visible rather than
+    # assumed: too small is the single-draw estimator, too large blends in
+    # geometries that are not actually degenerate with the target.
+    KS = [1, 5, 10, 25, 50, 100, 200, 400]
+    order = np.empty((len(Gr_te), max(KS)), dtype=np.int64)
+    for i in range(len(Gr_te)):
+        d = np.sum((Bn - Rr_te[i] / sd) ** 2, axis=1)
+        order[i] = np.argpartition(d, max(KS))[:max(KS)][
+            np.argsort(d[np.argpartition(d, max(KS))[:max(KS)]])]
+    curve = []
+    for k in KS:
+        est = G[order[:, :k]].mean(axis=1)
+        curve.append((k,) + _rms_rge(est, Gr_te))
+    kbest, agg, per, p12 = min(curve, key=lambda t: t[1])
+
+    # refit the learning curve with the asymptote pinned at this floor
+    bc = None
+    try:
+        rep = _find("phase6_report.txt")
+        ns = ys = None
+        for ln in open(rep):
+            t = ln.split()
+            if t[:1] == ["method"] and len(t) >= 6 and t[1].isdigit():
+                ns = np.array([float(x) for x in t[1:]])
+            if ln.strip().startswith("naive DNN inverse") and ns is not None:
+                ys = np.array([float(x) for x in ln.split()[3:]])
+                break
+        if ns is not None and ys is not None and len(ns) == len(ys):
+            m = ys > agg
+            if m.sum() >= 2:
+                cc = np.polyfit(np.log(ns[m]), np.log(ys[m] - agg), 1)
+                bc = (float(np.exp(cc[1])), float(-cc[0]))
+    except Exception:
+        bc = None
+
+    L = ["INFORMATION FLOOR -- LOWER BOUND ON ACHIEVABLE RMS-RGE", "=" * 76,
+         f"bank: {len(G)} geometries, uniform over the Phase 1.2 design box, "
+         f"seed {FLOOR_SEED}.",
+         "Each test target is matched to the bank geometry with the nearest",
+         "response (per-target standard-deviation scaling). The geometric",
+         "distance to the TRUE geometry bounds what any inverse model can do",
+         "from the response alone.", "",
+         f"  {'aggregate RMS-RGE bound':28s} {agg:8.3f} %   <-- the bounded "
+         "quantity",
+         "",
+         "  per-parameter errors OF THIS ESTIMATOR (not per-parameter bounds:",
+         "  the estimator minimises the AGGREGATE, so a model that trades one",
+         "  parameter against another may legitimately beat any single row):",
+         f"  {'  R':28s} {per[0]:8.3f} %",
+         f"  {'  w':28s} {per[1]:8.3f} %",
+         f"  {'  g':28s} {per[2]:8.3f} %",
+         f"  {'  Lc (range-normalised)':28s} {per[3]:8.3f} %",
+         f"  {'  R,w,g only (Paper 12 conv.)':28s} {p12:8.3f} %", "",
+         f"  estimator: conditional mean over the k = {kbest} nearest "
+         f"responses.", "",
+         f"    {'k':>5s} {'RMS-RGE %':>11s}   (k=1 is one arbitrary member of "
+         "the degenerate set;",
+         "                        a model learns the centre, not a member)"]
+    for k, a_, _p, _q in curve:
+        L.append(f"    {k:5d} {a_:11.3f}" + ("   <-- bound" if k == kbest else ""))
+    if kbest == curve[-1][0] or kbest == curve[0][0]:
+        L += ["", "    WARNING: the minimum sits at the EDGE of the k grid, so "
+              "the true",
+              "    minimum may lie outside it. Widen the grid before quoting "
+              "this."]
+    L += ["",
+         "  This is the error of a SPECIFIC estimator (conditional-mean "
+         "lookup over",
+         "  a finite bank), so it is an UPPER BOUND on the true information "
+         "floor.",
+         "  The asymmetry matters: measuring it BELOW a threshold proves the "
+         "floor",
+         "  is below that threshold, but measuring it ABOVE proves nothing. It",
+         "  falls as the bank grows, so the bank size is part of the result and",
+         "  no value from a single bank size should be quoted as 'the floor'."]
+    if bc:
+        L += ["", f"  learning curve refit with asymptote pinned here:",
+              f"    err(n) = {agg:.3f} + {bc[0]:.3f} * n^(-{bc[1]:.4f})"]
+    else:
+        L += ["", "  learning-curve refit skipped: could not read the naive-"
+              "DNN inverse row",
+              "  of the sample-efficiency table from phase6_report.txt. Run",
+              "  --phase6 first."]
+    json.dump(dict(bank=int(len(G)), seed=FLOOR_SEED, agg=agg, per=per,
+                   p12=p12, fit=bc, k=kbest,
+                   curve=[[c[0], c[1]] for c in curve]),
+              open(os.path.join(resdir, "floor.json"), "w"), indent=1)
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "floor.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+
+
+def _floor_at(G, Rsp, Gr_te, Rr_te,
+              ks=(1, 2, 3, 4, 5, 7, 10, 25, 50, 100, 200, 400)):
+    """Conditional-mean floor for a given bank; returns (best_k, agg, per, p12,
+    curve). Shared by --floor and --floorconv so both use identical logic."""
+    sd = Rsp.std(axis=0); sd[sd == 0] = 1.0
+    Bn = Rsp / sd
+    kmax = min(max(ks), len(G) - 1)
+    ks = [k for k in ks if k <= kmax] or [1]
+    order = np.empty((len(Gr_te), kmax), dtype=np.int64)
+    for i in range(len(Gr_te)):
+        d = np.sum((Bn - Rr_te[i] / sd) ** 2, axis=1)
+        pick = np.argpartition(d, kmax)[:kmax]
+        order[i] = pick[np.argsort(d[pick])]
+    curve = [(k,) + _rms_rge(G[order[:, :k]].mean(axis=1), Gr_te) for k in ks]
+    kb, agg, per, p12 = min(curve, key=lambda t: t[1])
+    return kb, agg, per, p12, curve
+
+
+def run_floorconv():
+    """
+    Is the information floor CONVERGED, or still falling with bank size?
+
+    The floor is estimated from a finite bank, so it is an UPPER estimate of
+    the true floor: more geometries can only find closer response matches.
+    Claiming a threshold is unreachable in principle therefore requires
+    showing the estimate has stopped moving. This subsamples the cached bank
+    at several sizes and reports the trend against O3's 15 % bar. It does NOT
+    report an extrapolated asymptote unless that asymptote is identifiable;
+    with a handful of nearly-flat points it is not, and a grid search for it
+    simply runs to the edge of whatever range it is given.
+    """
+    import json
+    resdir = "results" if os.path.isdir("results") else "."
+    ck = os.path.join(resdir, "floor_bank.npz")
+    if not os.path.isfile(ck):
+        raise FileNotFoundError("run --floor first to build the response bank")
+    z = np.load(ck); G0, R0 = z["G"], z["R"]
+    Gr_te, Rr_te = _load_split_raw("test")
+    sizes, n = [], 12500
+    while n <= len(G0):
+        sizes.append(n); n *= 2
+    if sizes and sizes[-1] != len(G0):
+        sizes.append(len(G0))
+    print(f"[floorconv] cached bank {len(G0)}; sizes {sizes}")
+
+    rows = []
+    for n in sizes:
+        kb, agg, per, p12, _ = _floor_at(G0[:n], R0[:n], Gr_te, Rr_te)
+        rows.append((n, agg, kb))
+        print(f"[floorconv] N={n:7d}  floor {agg:7.3f} %  (k={kb})")
+
+    L = ["INFORMATION FLOOR -- BANK-SIZE CONVERGENCE", "=" * 74,
+         "A finite bank can only OVERESTIMATE the floor: more geometries find",
+         "closer response matches. So the question is whether the estimate has",
+         "stopped falling. If it has not, no claim about a threshold being",
+         "unreachable in principle is supportable.", "",
+         f"  {'bank N':>9s} {'floor %':>10s} {'best k':>8s}", "  " + "-" * 29]
+    for n, a_, kb in rows:
+        L.append(f"  {n:9d} {a_:10.3f} {kb:8d}")
+
+    # Report the MEASURED trend. Do not fit a 3-parameter asymptote to a
+    # handful of nearly-flat points: the asymptote is not identifiable from
+    # such data, and a grid search for it will simply run to the edge of
+    # whatever range it is given and report that edge as a result.
+    fi = None
+    N = np.array([r[0] for r in rows], float)
+    F = np.array([r[1] for r in rows], float)
+    slope = None
+    if len(rows) >= 3:
+        # per-e-fold descent over the upper half, where the coarse-bank
+        # transient has died away
+        h = len(rows) // 2
+        slope = float((F[h] - F[-1]) / np.log(N[-1] / N[h]))
+        L += ["", f"  measured descent, N={int(N[h])} -> N={int(N[-1])}: "
+              f"{F[h]-F[-1]:.3f} pp over {np.log(N[-1]/N[h])/np.log(10):.2f} "
+              "decades",
+              f"  that is {slope:.4f} pp per e-fold of bank size.", "",
+              f"  floor estimate at the largest bank tested: {F[-1]:.3f} % "
+              "(an UPPER bound)"]
+
+        # identifiability check, stated rather than hidden
+        lo_edge = max(0.0, F.min() - 8.0)
+        bestj = None
+        for cand in np.linspace(lo_edge, F.min() - 1e-4, 4000):
+            d = F - cand
+            if np.any(d <= 0):
+                continue
+            cc = np.polyfit(np.log(N), np.log(d), 1)
+            r = np.log(d) - np.polyval(cc, np.log(N))
+            ss = float(np.sum(r ** 2))
+            if bestj is None or ss < bestj[0]:
+                bestj = (ss, cand)
+        edge = bestj is not None and abs(bestj[1] - lo_edge) < 0.05
+        L += ["", "  ASYMPTOTE IDENTIFIABILITY"]
+        if edge:
+            L += ["    NOT IDENTIFIABLE. A 3-parameter fit floor_inf + a*N^(-b)",
+                  f"    drives floor_inf to {bestj[1]:.3f} %, which is the edge of "
+                  "the search",
+                  "    range -- the fit wants to go lower still. These points do "
+                  "not",
+                  "    constrain the asymptote, so NO extrapolated floor is "
+                  "reported.",
+                  "    Enlarge the bank (--floor --nbank=N) to constrain it."]
+        else:
+            fi = float(bestj[1])
+            L += [f"    identifiable: floor_inf = {fi:.3f} % (fit interior to "
+                  "the search range)"]
+
+        # optimal k drifting with N means the estimator's own bias is still
+        # unwinding, so no rate from this table describes the true floor
+        kk = [r[2] for r in rows]
+        if kk[-1] != kk[0]:
+            L += ["", "  ESTIMATOR CONVERGENCE WARNING",
+                  f"    the best k drifts from {kk[0]} to {kk[-1]} across the "
+                  "sweep. A shifting",
+                  "    optimum means the finite-sample bias of the estimator is "
+                  "still",
+                  "    unwinding, so the descent rate above is a property of the "
+                  "ESTIMATOR,",
+                  "    not of the floor. Treat it as not yet converged and do "
+                  "not quote a",
+                  "    rate or extrapolate from it."]
+
+        if slope > 0 and F[-1] > 15.0:
+            need = float(np.exp((F[-1] - 15.0) / slope)) * N[-1]
+            L += ["", "  WHAT IT WOULD TAKE TO REACH O3's 15 % BAR",
+                  f"    continuing the measured descent log-linearly, the "
+                  f"estimate would",
+                  f"    cross 15 % at a bank of about {need:.2e} geometries "
+                  f"({need/N[-1]:.3g}x the",
+                  "    largest tested). That is an UNJUSTIFIED extrapolation and "
+                  "is quoted",
+                  "    only to show the scale, not as a prediction."]
+
+        # the achieved best, read from disk rather than hard-coded
+        ach = None
+        try:
+            tv = json.load(open(_find("theta_vs_closedloop.json")))
+            ach = min(float(v["rge"]) for v in tv.values())
+        except Exception:
+            ach = None
+
+        L += ["", "  AGAINST O3's 15 % RMS-RGE BAR -- WHAT THE DATA SUPPORTS",
+              f"    The estimate is {F[-1]:.3f} % at N={int(N[-1])}. It is the "
+              "error of a",
+              "    specific predictor, hence an UPPER BOUND on the true floor."]
+        if F[-1] <= 15.0:
+            L += [f"    It is BELOW 15 %, and an upper bound below a threshold "
+                  "PROVES the",
+                  "    true floor is below that threshold. So O3's geometric bar "
+                  "is above",
+                  "    the information floor: O3 is REACHABLE IN PRINCIPLE, and "
+                  "the",
+                  "    shortfall is a model-and-data result, not a fundamental "
+                  "limit."]
+            if ach is not None:
+                L += ["", f"    best achieved RMS-RGE: {ach:.3f} % -> at least "
+                      f"{ach-F[-1]:.3f} pp of headroom",
+                      "    remains between the best model and the bound."]
+        else:
+            L += [f"    It is ABOVE 15 %, which proves NOTHING either way: an "
+                  "upper bound",
+                  "    above a threshold cannot show the floor is above it. On "
+                  "this",
+                  "    evidence the question is OPEN."]
+            if ach is not None:
+                L += ["", f"    best achieved RMS-RGE: {ach:.3f} % vs bound "
+                      f"{F[-1]:.3f} % -- the model is",
+                      f"    within {abs(ach-F[-1]):.3f} pp of the bound AT THIS "
+                      "BANK SIZE, which is a",
+                      "    bank-dependent statement and must be quoted with N."]
+    else:
+        L += ["", "  too few bank sizes to say anything about convergence."]
+    json.dump(dict(rows=[[r[0], r[1], r[2]] for r in rows], floor_inf=fi,
+                   slope_per_efold=slope, upper_bound=float(F[-1])),
+              open(os.path.join(resdir, "floor_convergence.json"), "w"), indent=1)
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "floor_convergence.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+
+
+def run_thetaall():
+    """
+    Geometry-space error and theta-space error for every inverse model, side
+    by side, against whatever closed-loop results exist on disk.
+
+    The naive DNN and xgb_norm sit within 0.33 pp of each other in RMS-RGE
+    yet differ by ~3.6x in closed-loop response error. If the degeneracy
+    explanation is right, the models that recover theta best should be the
+    ones whose predictions reproduce the requested response -- and RMS-RGE
+    should NOT order them. This measures that rather than assuming it.
+    """
+    import json
+    torch = _torch()
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+    _, Rn_te, _ = _load_split("test")
+    Gr_te, _ = _load_split_raw("test")
+    p5p = os.path.join(resdir, "phase5_results.json")
+    p5 = json.load(open(p5p)) if os.path.isfile(p5p) else {}
+
+    preds = {}
+    for m in ("naive", "tandem"):
+        f = os.path.join(resdir, f"phase4_{m}_inverse.pt")
+        if os.path.isfile(f):
+            P, _ = _dnn_predict(torch, f, Rn_te)
+            preds[m] = _geo_physical(P, sc)
+    for m in ("rf_raw", "rf_norm", "xgb_raw", "xgb_norm"):
+        if f"inverse_{m}" in p5:
+            preds[m] = np.array(p5[f"inverse_{m}"]["pred"])
+
+    # closed-loop numbers already measured, if any
+    cl = {}
+    for m in preds:
+        f = os.path.join(resdir, f"closedloop_{m}.txt")
+        if not os.path.isfile(f):
+            continue
+        for ln in open(f):
+            if "RMS closed-loop response error" in ln:
+                try:
+                    cl[m] = float(ln.split("=")[1].split("%")[0])
+                except Exception:
+                    pass
+
+    L = ["GEOMETRY ERROR vs THETA ERROR vs CLOSED-LOOP ERROR", "=" * 78,
+         "theta = kappa0(w) exp(-gamma(w) g) (Lc + B sqrt(2 pi R / gamma)) "
+         "-- the single",
+         "coupling phase through which g and Lc act. Two geometries with the "
+         "same theta",
+         "have the same response, so an error that moves ALONG a theta level "
+         "set is a",
+         "different valid design; one that moves ACROSS it is a wrong "
+         "answer.", "",
+         f"  {'model':10s} {'RMS-RGE %':>10s} {'theta MAPE %':>13s} "
+         f"{'theta<=5%':>10s} {'closed-loop %':>14s}",
+         "  " + "-" * 62]
+    L[-2] = (f"  {'model':10s} {'RMS-RGE %':>10s} {'theta MAPE %':>13s} "
+             f"{'buildable':>10s} {'theta|built %':>14s} "
+             f"{'closed-loop %':>14s}")
+    L[-1] = "  " + "-" * 78
+    rows = {}
+    for m, P in preds.items():
+        d = _degeneracy_check(P, Gr_te, m)
+        rge = _rms_rge(P, Gr_te)[0]   # aggregate, not the per-parameter list
+        # A prediction outside the design box cannot be built, and theta is
+        # arithmetically defined there but physically meaningless (Lc < 0).
+        # Closed-loop error is measured ONLY on buildable predictions, so the
+        # fair comparison restricts theta the same way.
+        ins = np.ones(len(P), dtype=bool)
+        for j, (lo, hi) in enumerate(((5.0, 15.0), (400., 500.),
+                                      (150., 350.), (0., 3.))):
+            ins &= (P[:, j] >= lo) & (P[:, j] <= hi)
+        frac = 100.0 * float(np.mean(ins))
+        tb = (_degeneracy_check(P[ins], Gr_te[ins], m)["theta_mape"]
+              if ins.any() else float("nan"))
+        rows[m] = dict(rge=rge, theta=d["theta_mape"], w5=d["within5"],
+                       built=frac, theta_built=tb, cl=cl.get(m))
+        c = f"{cl[m]:14.3f}" if m in cl else f"{'not measured':>14s}"
+        L.append(f"  {m:10s} {rge:10.3f} {d['theta_mape']:13.3f} "
+                 f"{frac:9.1f}% {tb:14.3f} {c}")
+
+    have = {m: r for m, r in rows.items() if r["cl"] is not None}
+    L += ["", f"  closed-loop measured for {len(have)} of {len(rows)} models."]
+
+    # ---- ordering is NOT a discriminating test ---------------------------
+    # With few models any metric that happens to rank them correctly scores a
+    # match, including one that cannot predict the magnitude at all. What a
+    # usable metric must do is PREDICT closed-loop error, so the test is
+    # whether closed-loop/metric is constant.
+    if len(have) >= 3:
+        L += ["", "  PREDICTIVE POWER (the discriminating test)",
+              "  A metric is usable if closed-loop error is proportional to "
+              "it, i.e.",
+              "  if closed-loop/metric is constant. Ordering alone proves "
+              "nothing:",
+              "  a metric can rank models correctly and still be unable to "
+              "say how",
+              "  much worse one is.", "",
+              f"    {'metric':10s} {'ratio closed-loop/metric':>34s} "
+              f"{'spread':>9s}"]
+        best = {}
+        for key, nm in (("theta_built", "theta|built"), ("rge", "RMS-RGE")):
+            rt = [have[m]["cl"] / have[m][key] for m in have]
+            spread = max(rt) / min(rt)
+            best[key] = spread
+            if key == "theta_built":
+                best["theta"] = spread
+            L.append(f"    {nm:10s} "
+                     + "  ".join(f"{v:.3f}" for v in rt).rjust(34)
+                     + f" {spread:8.2f}x")
+        win = "theta|built" if best["theta"] < best["rge"] else "RMS-RGE"
+        L += ["", f"    closed-loop error is proportional to {win} "
+              f"({min(best.values()):.2f}x spread);",
+              f"    the other metric's constant varies by "
+              f"{max(best.values()):.2f}x and so cannot",
+              "    predict response-space error from geometry-space error."]
+
+    # ---- which unmeasured model would discriminate hardest ---------------
+    # A pair the two metrics RANK DIFFERENTLY is a direct test: the metrics
+    # make opposite predictions, so one run decides between them.
+    if len(have) >= 2:
+        todo = [m for m in rows if rows[m]["cl"] is None]
+        clean = {m: r for m, r in have.items() if r["built"] >= 99.9}
+        if not clean:
+            clean = have
+        inv = []
+        for m in todo:
+            for b in clean:
+                # scale from the MEASURED model b under each metric -- a
+                # pairwise prediction, not a global constant, since RMS-RGE
+                # has no constant to speak of
+                pt = (clean[b]["cl"] * rows[m]["theta_built"]
+                      / rows[b]["theta_built"])
+                pg = clean[b]["cl"] * rows[m]["rge"] / rows[b]["rge"]
+                if ((rows[m]["theta_built"] - rows[b]["theta_built"]) *
+                        (rows[m]["rge"] - rows[b]["rge"]) < 0):
+                    inv.append((m, b, abs(pt - pg), pt, pg))
+        if inv:
+            inv.sort(key=lambda t: -t[2])
+            L += ["", "  NEXT RUN THAT WOULD DECIDE IT",
+                  "  These unmeasured models are ranked DIFFERENTLY by the two "
+                  "metrics,",
+                  "  so the metrics predict different closed-loop errors and "
+                  "one run",
+                  "  separates them. Competing predictions:", ""]
+            seen = set()
+            for m, b, gap, pt, pg in inv:
+                if m in seen:
+                    continue
+                seen.add(m)
+                flag = ""
+                if (pt <= 20.0) != (pg <= 20.0):
+                    flag = "  <-- the two metrics disagree on O3 itself"
+                L.append(f"    {m:10s} theta predicts {pt:6.2f} %   "
+                         f"RMS-RGE predicts {pg:6.2f} %   "
+                         f"(scaled from {b}, gap {gap:5.2f} pp){flag}")
+            L += ["", f"    run the largest-gap model first: "
+                  f"py -3 mrr_template.py --closedloop --{inv[0][0]} --n=20"]
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "theta_vs_closedloop.txt"), "w").write(txt + "\n")
+    json.dump(rows, open(os.path.join(resdir, "theta_vs_closedloop.json"), "w"),
+              indent=1)
+    print("\n" + txt)
+
+
+def run_seedcheck(seeds=(42, 43, 44, 45, 46)):
+    """
+    Retrain the SELECTED forward configuration over several seeds and report
+    per-target accuracy as mean +/- sd. A single run cannot tell a genuine
+    threshold crossing from initialisation noise, and the Phase 3 criterion
+    (R2 >= 0.90 AND MAPE <= 10%) is a hard threshold -- so a target sitting
+    near 10% has to be measured, not read off one run.
+    """
+    import json
+    torch = _torch()
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+    ck = torch.load(os.path.join(resdir, "phase3_forward_model.pt"),
+                    weights_only=False)
+    Xtr, Ytr, _ = _load_split("train")
+    Xva, Yva, _ = _load_split("val")
+    Xte, Yte, _ = _load_split("test")
+    print(f"[seedcheck] config: depth {ck['depth']} width {ck['width']} "
+          f"lr {ck['lr']:g} wd {ck['wd']:g}")
+    print(f"[seedcheck] {len(seeds)} seeds {list(seeds)}\n")
+
+    rows = {k: {"r2": [], "mape": []} for k in TARGETS}
+    for sd in seeds:
+        torch.manual_seed(sd); np.random.seed(sd)
+        net, _ = _build_mlp(torch, ck["depth"], ck["width"])
+        _train_mlp(torch, net, Xtr, Ytr, Xva, Yva, ck["lr"], ck["wd"])
+        net.eval()
+        with torch.no_grad():
+            P = net(torch.from_numpy(Xte)).numpy()
+        line = []
+        for j, k in enumerate(TARGETS):
+            yt = _unscale(Yte[:, j].astype(np.float64), sc[k])
+            yp = _unscale(P[:, j].astype(np.float64), sc[k])
+            r2, mp, _ = _metrics(yt, yp)
+            rows[k]["r2"].append(r2); rows[k]["mape"].append(mp)
+            line.append(f"{k.split('_')[0]} {mp:.3f}")
+        print(f"[seedcheck] seed {sd}: " + "  ".join(line))
+
+    L = ["FORWARD MODEL -- SEED STABILITY OF THE PHASE 3 CRITERION", "=" * 74,
+         f"config: depth {ck['depth']}, width {ck['width']}, "
+         f"lr {ck['lr']:g}, weight decay {ck['wd']:g}",
+         f"seeds: {list(seeds)}   (architecture and data identical "
+         "throughout)", "",
+         f"  {'target':16s} {'R2':>18s} {'MAPE %':>18s} {'passes':>8s}",
+         "  " + "-" * 64]
+    npass = 0
+    for k in TARGETS:
+        r2 = np.array(rows[k]["r2"]); mp = np.array(rows[k]["mape"])
+        ok = int(np.sum((r2 >= 0.90) & (mp <= 10.0)))
+        npass += 1 if ok > len(seeds) / 2 else 0
+        L.append(f"  {k:16s} {r2.mean():9.4f} +/-{r2.std():6.4f} "
+                 f"{mp.mean():9.3f} +/-{mp.std():6.3f} {ok:4d}/{len(seeds)}")
+    L += ["", "  'passes' counts seeds meeting BOTH R2 >= 0.90 and "
+          "MAPE <= 10%.", ""]
+    # the decisive question: is any target straddling the 10% line?
+    for k in TARGETS:
+        mp = np.array(rows[k]["mape"])
+        if mp.min() <= 10.0 <= mp.max():
+            L += [f"  *** {k} STRADDLES the 10 % threshold: "
+                  f"{mp.min():.3f} to {mp.max():.3f} across seeds.",
+                  "      The Phase 3 verdict for this target is decided by "
+                  "initialisation,",
+                  "      not by the model. Report the mean and spread, not a "
+                  "single run."]
+    L += ["", f"  targets passing on a majority of seeds: {npass} of 4",
+          f"  Phase 3 criterion (>= 3 of 4): "
+          + ("MET" if npass >= 3 else "NOT MET")]
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "phase3_seedcheck.txt"), "w").write(txt + "\n")
+    json.dump({k: rows[k] for k in TARGETS},
+              open(os.path.join(resdir, "phase3_seedcheck.json"), "w"), indent=1)
+    print("\n" + txt)
+
+
+def run_kappafit(folds=8):
+    """
+    Cross-validated assessment of the kappa^2 coupling model (Eq. 1.6).
+    Refits the 5-parameter model on each training fold and predicts the
+    held-out fold, so the reported error is out-of-sample. Writes
+    kappa2_model.json (coefficients + CV statistics) and a parity plot.
+    """
+    import json
+    from scipy.optimize import least_squares
+    resdir = "results" if os.path.isdir("results") else "."
+    path = _find("couplerset_3d.csv")
+    C = np.array([[float(r[k]) for k in
+                   ("R_um", "w_nm", "g_nm", "Lc_um", "kappa2")]
+                  for r in csv.DictReader(open(path))])
+    R, w, g, Lc, k2 = C.T
+    n = len(k2)
+    th = np.arcsin(np.sqrt(np.clip(k2, 0, 1)))
+
+    def km(q, R, w, g, Lc):
+        lk0, a1, g0, g1, B = q
+        dw = w - 450.0
+        gam = g0 + g1 * dw
+        return np.exp(lk0 + a1 * dw) * np.exp(-gam * g) * (
+            Lc + B * np.sqrt(2 * np.pi * R * 1e3 / gam) * 1e-3)
+
+    def fit(idx):
+        return least_squares(
+            lambda q: np.log(km(q, R[idx], w[idx], g[idx], Lc[idx]))
+            - np.log(th[idx]),
+            [0, 0, .008, 3e-5, 1], max_nfev=40000).x
+
+    full = fit(np.arange(n))
+    print(f"[kappafit] {n} coupler simulations, "
+          f"kappa^2 {k2.min():.6f} to {k2.max():.6f}")
+
+    rng = np.random.default_rng(COUPLERSET_SEED)
+    order = rng.permutation(n)
+    pred = np.empty(n)
+    for f in range(folds):
+        test = order[f::folds]
+        train = np.setdiff1d(order, test)
+        q = fit(train)
+        pred[test] = np.sin(np.minimum(km(q, R[test], w[test], g[test],
+                                          Lc[test]), np.pi / 2)) ** 2
+    err = 100.0 * (pred - k2) / k2
+    mape = float(np.mean(np.abs(err)))
+    r2 = float(1 - np.sum((k2 - pred) ** 2) / np.sum((k2 - k2.mean()) ** 2))
+    w10 = float(100 * np.mean(np.abs(err) <= 10))
+    w5 = float(100 * np.mean(np.abs(err) <= 5))
+
+    L = [f"KAPPA^2 MODEL -- {folds}-FOLD CROSS-VALIDATION", "=" * 66,
+         f"  coupler simulations : {n}",
+         f"  kappa^2 range       : {k2.min():.6f} to {k2.max():.6f}",
+         "", f"  out-of-sample MAPE  : {mape:.2f} %",
+         f"  out-of-sample R^2   : {r2:.4f}",
+         f"  within 10 %         : {w10:.1f} %  ({int(round(w10*n/100))}/{n})",
+         f"  within  5 %         : {w5:.1f} %",
+         f"  bias                : {np.mean(err):+.2f} %",
+         f"  worst               : {np.max(np.abs(err)):.2f} %", "",
+         "  fitted on all points (these are the shipped coefficients):",
+         f"    ln kappa0   {full[0]:+.8f}",
+         f"    a1          {full[1]:+.8e}  per nm",
+         f"    gamma0      {full[2]:+.8e}  per nm",
+         f"    gamma1      {full[3]:+.8e}  per nm^2",
+         f"    B           {full[4]:+.6f}   (first-principles value 1)"]
+    txt = "\n".join(L)
+    json.dump(dict(n_points=int(n), folds=int(folds),
+                   kappa2_min=float(k2.min()), kappa2_max=float(k2.max()),
+                   cv_mape=mape, cv_r2=r2, within_10pct=w10,
+                   within_5pct=w5, bias=float(np.mean(err)),
+                   coefficients=[float(v) for v in full]),
+              open(os.path.join(resdir, "kappa2_model.json"), "w"), indent=1)
+    open(os.path.join(resdir, "kappa2_cv.txt"), "w").write(txt + "\n")
+
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        plt.rcParams.update({"font.family": "serif", "font.size": 8,
+                             "axes.spines.top": False,
+                             "axes.spines.right": False})
+        fig, ax = plt.subplots(1, 2, figsize=(7.0, 3.0))
+        lo, hi = k2.min() * 0.7, k2.max() * 1.4
+        ax[0].plot([lo, hi], [lo, hi], color="#888888", lw=1.0, zorder=1)
+        ax[0].scatter(k2, pred, s=14, color="#0072B2", alpha=0.75,
+                      edgecolor="white", linewidth=0.4, zorder=2)
+        ax[0].set_xscale("log"); ax[0].set_yscale("log")
+        ax[0].set_xlim(lo, hi); ax[0].set_ylim(lo, hi)
+        ax[0].set_xlabel("FDTD $\\kappa^2$")
+        ax[0].set_ylabel("model $\\kappa^2$ (held out)")
+        ax[0].set_title(f"(a) parity, {folds}-fold CV", loc="left", fontsize=8.5)
+        ax[0].grid(alpha=0.25, lw=0.5)
+        ax[1].scatter(k2, err, s=14, color="#0072B2", alpha=0.75,
+                      edgecolor="white", linewidth=0.4)
+        ax[1].axhline(0, color="#888888", lw=1.0)
+        for v in (10, -10):
+            ax[1].axhline(v, color="#D55E00", lw=0.9, ls=(0, (4, 2)))
+        ax[1].set_xscale("log"); ax[1].set_xlabel("FDTD $\\kappa^2$")
+        ax[1].set_ylabel("relative error (%)")
+        ax[1].set_title(f"(b) residuals, MAPE {mape:.2f}%", loc="left",
+                        fontsize=8.5)
+        ax[1].grid(alpha=0.25, lw=0.5)
+        fig.tight_layout()
+        f = os.path.join(resdir, "kappa2_parity.png")
+        fig.savefig(f, dpi=300); fig.savefig(f.replace(".png", ".pdf"))
+        plt.close(fig)
+        L.append(f"\n  parity plot: {f}")
+    except ImportError:
+        pass
+    print("\n" + "\n".join(L))
 
 
 # ---------------------------------------------------------------------------
@@ -4300,6 +5239,42 @@ def main():
 
     if "--modesweep" in sys.argv:
         run_modesweep()
+        return
+
+    if "--floorconv" in sys.argv:
+        run_floorconv()
+        return
+
+    if "--validate" in sys.argv:
+        run_validate()
+        return
+
+    if "--floor" in sys.argv:
+        nb = FLOOR_N
+        for a_ in sys.argv:
+            if a_.startswith("--nbank="):
+                nb = int(a_[8:])
+        run_floor(nb)
+        return
+
+    if "--thetaall" in sys.argv:
+        run_thetaall()
+        return
+
+    if "--seedcheck" in sys.argv:
+        run_seedcheck()
+        return
+
+    if "--kappafit" in sys.argv:
+        run_kappafit()
+        return
+
+    if "--couplerext" in sys.argv:
+        nn = COUPLEREXT_N
+        for a in sys.argv:
+            if a.startswith("--n="):
+                nn = int(a[4:])
+        run_couplerext(nn)
         return
 
     if "--couplerset" in sys.argv:

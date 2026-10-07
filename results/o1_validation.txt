@@ -1,0 +1,38 @@
+OBJECTIVE O1 (second half) -- EXTERNAL LITERATURE VALIDATION
+============================================================================
+Phase 1.6 sub-study 3. Recomputed from the cached mode sweep, so it
+is reproducible without re-running Lumerical. Source: results\modesweep.csv
+
+  reference device   : Tang et al. [11], 440 x 220 nm SOI TE ring,
+                       R = 20 um, circular (Lc = 0)
+  measured FSR       : 4.400 nm   (an experimental figure)
+  implied n_g        : 4.3451   (from the measured FSR)
+
+  this work's n_g    : 4.34429   (mode sweep at w = 440 nm, 1550 nm)
+  this work's n_eff  : 2.33102
+  predicted FSR      : 4.4008 nm   (Eq. 4, L = 2*pi*R)
+
+  relative error     : 0.02 %
+  O1 requires <= 10 %: PASS
+
+  SCOPE AND CAVEATS -- state these when citing this validation:
+  1. Only FSR is validated. FSR depends on n_g and round-trip length
+     alone, so this tests the mode solver and the length convention,
+     NOT the coupling model, the bend-loss model, or Q_L and IL.
+  2. R = 20 um is outside this work's 5-15 um design range. n_eff is
+     fitted from a straight-waveguide sweep and is a function of
+     (lambda, w) only, so R enters solely through L -- but the device
+     is correspondingly less bent than the training range.
+  3. Tang et al.'s Q ~ 3e5 is a stated ASSUMPTION in their scalability
+     projection, not a measurement, and must not be used as a validation
+     target. Their measured figures are FSR, propagation loss and
+     extinction ratio.
+  4. NOT independent of the roughness input: ROUGHNESS_DB_CM = 1.3
+     dB/cm is itself taken from this same paper. That value does not
+     enter the FSR prediction, so this particular comparison is
+     unaffected -- but the device is not an independent source for
+     the loss model.
+  5. The nominal n_g = 4.2 used for Phase 1.2 design-space reasoning
+     was also justified by citing this device. That nominal value is
+     not used in any dataset label; the labels use the fitted sweep
+     above. The overlap should still be disclosed.

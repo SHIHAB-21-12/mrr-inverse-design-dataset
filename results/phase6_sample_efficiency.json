@@ -1,47 +1,47 @@
 {
  "100": {
-  "DNN forward": 19.94884865887232,
-  "naive DNN inverse": 16.489247674361064,
-  "Tandem inverse": 35.54282518933793,
-  "RF forward": 35.7196084706937,
-  "RF inverse": 17.143827752171582,
-  "XGB forward": 15.140466598713736,
-  "XGB inverse": 17.809557436031174
+  "DNN forward": 20.551273106880203,
+  "naive DNN inverse": 16.532253298862187,
+  "Tandem inverse": 26.64253541096846,
+  "RF forward": 35.699645713517384,
+  "RF inverse": 17.218595860742973,
+  "XGB forward": 15.175902517687733,
+  "XGB inverse": 17.509459586142555
  },
  "200": {
-  "DNN forward": 18.46819074225226,
-  "naive DNN inverse": 16.27745980671986,
-  "Tandem inverse": 40.50755105548561,
-  "RF forward": 25.759777119407687,
-  "RF inverse": 16.522212141160512,
-  "XGB forward": 10.580155772446462,
-  "XGB inverse": 17.215219839029565
+  "DNN forward": 14.378320027193201,
+  "naive DNN inverse": 16.288983641123185,
+  "Tandem inverse": 36.82774174105003,
+  "RF forward": 25.87266436180925,
+  "RF inverse": 16.527526236504457,
+  "XGB forward": 10.88341068586639,
+  "XGB inverse": 16.962910763797513
  },
  "400": {
-  "DNN forward": 4.7737175667306735,
-  "naive DNN inverse": 15.997446989634568,
-  "Tandem inverse": 103.88252553985397,
-  "RF forward": 16.275156409227954,
-  "RF inverse": 15.620180829640052,
-  "XGB forward": 7.456118069755812,
-  "XGB inverse": 16.80647237090251
+  "DNN forward": 4.737625528574695,
+  "naive DNN inverse": 16.038974131949512,
+  "Tandem inverse": 104.33213990147124,
+  "RF forward": 16.317277195511164,
+  "RF inverse": 15.7219635010029,
+  "XGB forward": 7.4258398697596455,
+  "XGB inverse": 16.769678067874246
  },
  "600": {
-  "DNN forward": 5.5352236535775745,
-  "naive DNN inverse": 15.820744120645486,
-  "Tandem inverse": 65.25565714999638,
-  "RF forward": 12.98596019526988,
-  "RF inverse": 15.559251140208453,
-  "XGB forward": 5.60365181665678,
-  "XGB inverse": 16.605446169221032
+  "DNN forward": 5.897556958544171,
+  "naive DNN inverse": 15.832120071241757,
+  "Tandem inverse": 59.20079101823862,
+  "RF forward": 13.102256203153981,
+  "RF inverse": 15.561432022227798,
+  "XGB forward": 5.457518820688669,
+  "XGB inverse": 16.881211336568764
  },
  "805": {
-  "DNN forward": 3.4441514317968873,
-  "naive DNN inverse": 15.501315827534231,
-  "Tandem inverse": 31.438476834440287,
-  "RF forward": 11.843538428695798,
-  "RF inverse": 15.70619302841118,
-  "XGB forward": 5.054142013719291,
-  "XGB inverse": 16.44907072937363
+  "DNN forward": 3.5678707349669825,
+  "naive DNN inverse": 15.505514440292709,
+  "Tandem inverse": 29.460969447328612,
+  "RF forward": 11.929129850114656,
+  "RF inverse": 15.83483671084853,
+  "XGB forward": 5.32288757143213,
+  "XGB inverse": 16.54630610142191
  }
 }

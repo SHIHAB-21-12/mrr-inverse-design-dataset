@@ -1,0 +1,41 @@
+GEOMETRY ERROR vs THETA ERROR vs CLOSED-LOOP ERROR
+==============================================================================
+theta = kappa0(w) exp(-gamma(w) g) (Lc + B sqrt(2 pi R / gamma)) -- the single
+coupling phase through which g and Lc act. Two geometries with the same theta
+have the same response, so an error that moves ALONG a theta level set is a
+different valid design; one that moves ACROSS it is a wrong answer.
+
+  model       RMS-RGE %  theta MAPE %  buildable  theta|built %  closed-loop %
+  ------------------------------------------------------------------------------
+  naive          15.506         1.824      95.4%          1.723          3.669
+  tandem         29.461         6.047      33.5%          2.654          5.936
+  rf_raw         16.039         2.095     100.0%          2.095          4.589
+  rf_norm        15.835         2.449     100.0%          2.449   not measured
+  xgb_raw        16.451         7.443     100.0%          7.443   not measured
+  xgb_norm       16.546         7.129     100.0%          7.129         13.329
+
+  closed-loop measured for 4 of 6 models.
+
+  PREDICTIVE POWER (the discriminating test)
+  A metric is usable if closed-loop error is proportional to it, i.e.
+  if closed-loop/metric is constant. Ordering alone proves nothing:
+  a metric can rank models correctly and still be unable to say how
+  much worse one is.
+
+    metric               ratio closed-loop/metric    spread
+    theta|built         2.129  2.237  2.191  1.870     1.20x
+    RMS-RGE            0.237  0.201  0.286  0.806     4.00x
+
+    closed-loop error is proportional to theta|built (1.20x spread);
+    the other metric's constant varies by 4.00x and so cannot
+    predict response-space error from geometry-space error.
+
+  NEXT RUN THAT WOULD DECIDE IT
+  These unmeasured models are ranked DIFFERENTLY by the two metrics,
+  so the metrics predict different closed-loop errors and one run
+  separates them. Competing predictions:
+
+    rf_norm    theta predicts   5.36 %   RMS-RGE predicts   4.53 %   (scaled from rf_raw, gap  0.83 pp)
+    xgb_raw    theta predicts  13.92 %   RMS-RGE predicts  13.25 %   (scaled from xgb_norm, gap  0.66 pp)
+
+    run the largest-gap model first: py -3 mrr_template.py --closedloop --rf_norm --n=20

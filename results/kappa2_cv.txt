@@ -1,0 +1,18 @@
+KAPPA^2 MODEL -- 8-FOLD CROSS-VALIDATION
+==================================================================
+  coupler simulations : 200
+  kappa^2 range       : 0.001901 to 0.459915
+
+  out-of-sample MAPE  : 3.36 %
+  out-of-sample R^2   : 0.9976
+  within 10 %         : 99.5 %  (199/200)
+  within  5 %         : 73.5 %
+  bias                : +0.09 %
+  worst               : 10.73 %
+
+  fitted on all points (these are the shipped coefficients):
+    ln kappa0   -1.07623782
+    a1          -7.56300077e-03  per nm
+    gamma0      +8.14809312e-03  per nm
+    gamma1      +1.04684685e-05  per nm^2
+    B           +1.021098   (first-principles value 1)

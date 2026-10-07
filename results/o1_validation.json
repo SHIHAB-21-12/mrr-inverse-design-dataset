@@ -1,0 +1,12 @@
+{
+ "device": "Tang et al. [11]",
+ "w_nm": 440.0,
+ "R_um": 20.0,
+ "measured_fsr_nm": 4.4,
+ "implied_ng": 4.34511080429862,
+ "sim_ng": 4.344292500657631,
+ "sim_neff": 2.3310236393027965,
+ "predicted_fsr_nm": 4.40082879686849,
+ "rel_err_pct": 0.018836292465674764,
+ "passes": true
+}
