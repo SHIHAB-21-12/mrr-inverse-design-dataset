@@ -4140,6 +4140,349 @@ FLOOR_SEED = 7            # is reported alongside every floor number
 FLOOR_CHUNK = 20000       # bank is built in chunks so a long run is resumable
 
 
+# --- Full 3-D ring validation (the Q1 gap: the ring model is unchecked) ----
+# Three geometries spanning the radius range. Gaps are deliberately on the
+# strong-coupling side: loaded Q falls as coupling rises, and a lower Q needs a
+# shorter simulation window to resolve, which is what makes this affordable.
+# All at small radius. A 10 um ring needs ~20 GB of solver memory and a 14 um
+# ring ~36 GB at this mesh, so spanning the radius range is not possible on a
+# 16 GB machine. Varying g and Lc at fixed R is the better test regardless:
+# Q_L and IL depend on geometry only through kappa^2, so this exercises the
+# coupled-mode assembly directly -- and small R is where bend loss is highest,
+# which stresses the loss model hardest. State the small-radius limitation.
+RINGVAL_GEOMS = [
+    dict(R=5.20, w=450.0, g=170.0, Lc=1.00),
+    dict(R=5.20, w=450.0, g=150.0, Lc=2.00),
+    dict(R=5.20, w=450.0, g=180.0, Lc=0.60),
+]
+# Hours per (million cells x picosecond of window), calibrated from this
+# project's own first run: 9.58e6 cells, 59 ps window, 14.5 h wall on 6 cores.
+RINGVAL_HOURS_PER_MCELL_PS = 14.5 / (9.58 * 59.0)
+RINGVAL_T_MAX = 1500e-12     # refuse a geometry needing a longer window
+RINGVAL_MARGIN = 3.0         # FWHM must exceed the transform limit by this
+RINGVAL_PTS_PER_FWHM = 5.0   # DFT samples across the linewidth, as sub-study 2
+RINGVAL_NF_MAX = 60001       # refuse a geometry needing more monitor points
+# Floor, not a target. DFT monitor memory scales LINEARLY with frequency
+# points, so asking for more than the linewidth needs buys nothing and can
+# exhaust system memory before the solver starts. 2001 points over 1500-1600 nm
+# is a 0.05 nm grid -- ample for peak finding and for the adjacent-resonance
+# FSR -- and the per-geometry requirement is computed on top of it.
+RINGVAL_NF_MIN = 2001
+# Domain margins for the ring validation, tighter than the production
+# DomainConfig defaults (2.0 / 1.5 / 1.0 um). This is a NUMERICS setting, not
+# a physics one: it moves the PML closer, and the only thing it can corrupt is
+# the result itself if the PML starts interacting with the evanescent field.
+# It does not affect comparability with the analytic model, which knows
+# nothing about the simulation domain. Override with --margins=x,y,z (um) and
+# verify by re-running one geometry at the production margins if memory allows.
+RINGVAL_MARGINS = (1.0, 0.9, 0.7)
+# Bytes of solver memory per Yee cell, calibrated from a Lumerical memory
+# report on this project's own geometry (11.328 GB for ~16.1e6 cells).
+# Used only to WARN before launching; the solver's own estimate governs.
+RINGVAL_BYTES_PER_CELL = 703.0
+# Auto-shutoff is effectively DISABLED for these runs. If the solver stops
+# early the real window is shorter than the one the transform limit was
+# computed from, the line is under-resolved, and the diagnostic would report
+# it as resolved -- the exact error that invalidated sub-study 2. Forcing the
+# full window costs runtime and buys a transform limit that is exactly known.
+RINGVAL_SHUTOFF = 1e-12
+
+
+def _ringval_window(q_pred, lam=LAMBDA_TARGET):
+    """
+    Simulation window needed to resolve a line of loaded Q = q_pred.
+
+    A rectangular window of length T is transform-limited to
+    0.886*lambda^2/(c*T). Sub-study 2 was invalidated by measuring that limit
+    instead of the resonator, so the window is sized from the PREDICTED Q
+    before the run rather than discovered afterwards.
+    """
+    fwhm = lam / q_pred
+    return 0.886 * lam ** 2 / (C_LIGHT * fwhm / RINGVAL_MARGIN)
+
+
+def _ringval_freqpoints(q_pred, lam=LAMBDA_TARGET):
+    """
+    Monitor frequency points needed to put RINGVAL_PTS_PER_FWHM samples across
+    the linewidth, over the full 1500-1600 nm span. A long enough window with
+    too coarse a DFT grid is just as unresolved as a short window.
+    """
+    fwhm_nm = (lam / q_pred) * 1e9
+    span_nm = (LAMBDA_MAX - LAMBDA_MIN) * 1e9
+    return int(np.ceil(span_nm / (fwhm_nm / RINGVAL_PTS_PER_FWHM))) + 1
+
+
+def _ringval_cells(gm, dom, mesh_nm=BEND_MESH_NM):
+    """
+    Approximate Yee-cell count and solver memory for a ring geometry, so an
+    impossible run is refused before Lumerical is launched rather than after
+    it puts up a dialog. Deliberately crude: the solver's own estimate is
+    authoritative, this only catches the obviously-too-big case.
+    """
+    half_x = gm["R"] + gm["Lc"] / 2.0 + gm["w"] * 1e-3 / 2.0
+    bus_outer = gm["R"] + gm["w"] * 1e-3 + gm["g"] * 1e-3 + gm["w"] * 1e-3 / 2.0
+    sx = 2.0 * (half_x + dom.x_margin * 1e6)
+    sy = 2.0 * (bus_outer + dom.y_margin * 1e6)
+    sz = 0.22 + 2.0 * dom.z_margin * 1e6
+    d = mesh_nm * 1e-3
+    cells = (sx / d) * (sy / d) * (sz / d)
+    return (sx, sy, sz), cells, cells * RINGVAL_BYTES_PER_CELL / 1e9
+
+
+def run_ringdry(margins=RINGVAL_MARGINS, extra=()):
+    """
+    Price every candidate geometry WITHOUT launching Lumerical: predicted Q_L,
+    the window it forces, monitor points, domain size, solver memory and an
+    estimated runtime. Costs seconds and prevents committing days to a
+    campaign that cannot fit in memory -- which is how the first plan for this
+    study was wrong.
+    """
+    respond = _make_responder()
+    cands = list(RINGVAL_GEOMS) + [dict(R=c[0], w=c[1], g=c[2], Lc=c[3])
+                                   for c in extra]
+    print(f"\nRING-VALIDATION CANDIDATES   margins "
+          f"{margins[0]:g}/{margins[1]:g}/{margins[2]:g} um, mesh "
+          f"{BEND_MESH_NM:g} nm\n")
+    print(f"  {'R':>5s} {'w':>5s} {'g':>5s} {'Lc':>5s} {'Q_L':>7s} "
+          f"{'IL dB':>6s} {'win ps':>7s} {'pts':>6s} {'Mcell':>6s} "
+          f"{'GB':>5s} {'~hours':>7s}  fits?")
+    print("  " + "-" * 78)
+    for gm in cands:
+        try:
+            pr = respond(gm["R"], gm["w"], gm["g"], gm["Lc"])
+            q = float(pr["Q_L"])
+            if not np.isfinite(q) or q <= 0:
+                raise ValueError("Q_L undefined")
+        except Exception as exc:                        # noqa: BLE001
+            print(f"  {gm['R']:5.2f} {gm['w']:5.0f} {gm['g']:5.0f} "
+                  f"{gm['Lc']:5.2f}   analytic model failed: {exc}")
+            continue
+        t = _ringval_window(q)
+        nfn = _ringval_freqpoints(q)
+        nf = int(min(RINGVAL_NF_MAX, max(RINGVAL_NF_MIN, nfn)))
+        dom = DomainConfig(x_margin=margins[0]*1e-6, y_margin=margins[1]*1e-6,
+                           z_margin=margins[2]*1e-6)
+        _, cells, gb = _ringval_cells(gm, dom)
+        hrs = RINGVAL_HOURS_PER_MCELL_PS * (cells / 1e6) * (t * 1e12)
+        ok = ("yes" if (gb <= 7.5 and t <= RINGVAL_T_MAX
+                        and nfn <= RINGVAL_NF_MAX) else "NO")
+        print(f"  {gm['R']:5.2f} {gm['w']:5.0f} {gm['g']:5.0f} {gm['Lc']:5.2f} "
+              f"{q:7.0f} {float(pr['IL_dB']):6.3f} {t*1e12:7.0f} {nf:6d} "
+              f"{cells/1e6:6.1f} {gb:5.1f} {hrs:7.1f}  {ok}")
+    print("\n  'fits?' assumes about 8 GB of free RAM. Memory and hours are")
+    print("  estimates calibrated on this project's own first run, not")
+    print("  guarantees -- the solver's own estimate governs.")
+    print("  Add candidates with --try=R,w,g,Lc (repeatable).\n")
+
+
+def run_ringvalidate(n=None, movie=True, margins=RINGVAL_MARGINS, extra=(),
+                     mesh_nm=BEND_MESH_NM, points=None):
+    """
+    Validate the analytic ring model against full 3-D FDTD.
+
+    Everything else in this work validates the COUPLER (68 out-of-sample
+    kappa^2 runs) or the MODE SOLVER (the published-FSR check). The
+    coupled-mode assembly that turns kappa^2, n_g and loss into Q_L and IL is
+    checked against nothing: closed-loop re-verification re-simulates the
+    coupler and then recomputes the ring with the same analytic model that
+    produced the labels. Since Q_L and IL carry the whole degeneracy argument,
+    that is the one gap a reviewer will find first.
+
+    This simulates the COMPLETE ring in 3-D FDTD and compares the measured
+    lambda_res, FSR, Q_L and IL against the analytic prediction for the same
+    geometry. Resumable: rerun the same command to continue.
+    """
+    import json
+    resdir = "results" if os.path.isdir("results") else "."
+    respond = _make_responder()
+    allg = list(RINGVAL_GEOMS) + [dict(R=c[0], w=c[1], g=c[2], Lc=c[3])
+                                  for c in extra]
+    geoms = allg[:n] if n else allg
+
+    ck = os.path.join(resdir, "ringvalidate.json")
+    done = json.load(open(ck)) if os.path.isfile(ck) else {}
+    print(f"[ringval] {len(geoms)} geometries, {len(done)} already done")
+    print(f"[ringval] mesh {mesh_nm:g} nm"
+          + (" (production)" if abs(mesh_nm - BEND_MESH_NM) < 1e-9
+             else f" (NOT production {BEND_MESH_NM:g} nm -- convergence test)")
+          + f", movie "
+          f"{'ON' if movie else 'OFF'}, auto-shutoff {RINGVAL_SHUTOFF:g}")
+
+    for i, gm in enumerate(geoms, 1):
+        key = f"{gm['R']:.3f}_{gm['w']:.1f}_{gm['g']:.1f}_{gm['Lc']:.3f}"
+        if abs(mesh_nm - BEND_MESH_NM) > 1e-9:
+            key += f"_m{mesh_nm:g}"
+        if points:
+            key += f"_p{int(points)}"
+        if key in done:
+            print(f"[ringval] {i}/{len(geoms)}: cached")
+            continue
+
+        pred = respond(gm["R"], gm["w"], gm["g"], gm["Lc"])
+        qp = float(pred["Q_L"])
+        if not np.isfinite(qp) or qp <= 0:
+            print(f"[ringval] {i}/{len(geoms)}: analytic Q_L is {qp}; skipped")
+            continue
+        tneed = _ringval_window(qp)
+        print(f"\n[ringval] {i}/{len(geoms)}: R={gm['R']:.2f}um "
+              f"w={gm['w']:.0f}nm g={gm['g']:.0f}nm Lc={gm['Lc']:.2f}um")
+        print(f"[ringval]   analytic: lam {pred['lambda_res_nm']:.3f} nm, "
+              f"FSR {pred['FSR_nm']:.3f} nm, Q_L {qp:.0f}, "
+              f"IL {pred['IL_dB']:.3f} dB")
+        nf_need = _ringval_freqpoints(qp)
+        nf = int(min(RINGVAL_NF_MAX, max(RINGVAL_NF_MIN, nf_need)))
+        if points:
+            nf = int(points)
+        print(f"[ringval]   window needed for Q={qp:.0f} at "
+              f"{RINGVAL_MARGIN:g}x transform limit: {tneed*1e12:.0f} ps "
+              f"({tneed/50e-12:.1f}x the 50 ps default)")
+        print(f"[ringval]   monitor points: {nf}  (physics needs {nf_need} "
+              f"for {RINGVAL_PTS_PER_FWHM:g} samples across the FWHM;")
+        print(f"[ringval]   floor {RINGVAL_NF_MIN}, cap {RINGVAL_NF_MAX}. "
+              "DFT memory scales linearly with this.)")
+        if nf_need > RINGVAL_NF_MAX:
+            print(f"[ringval]   SKIPPED: needs {nf_need} monitor points, over "
+                  f"the {RINGVAL_NF_MAX} cap. The line")
+            print("[ringval]   is too narrow to sample over a 100 nm span. "
+                  "Pick a stronger-coupling")
+            print("[ringval]   geometry (smaller g or longer Lc).")
+            continue
+        if tneed > RINGVAL_T_MAX:
+            print(f"[ringval]   SKIPPED: exceeds the {RINGVAL_T_MAX*1e12:.0f} ps "
+                  "cap. Pick a stronger-coupling")
+            print("[ringval]   geometry (smaller g or longer Lc) -- a line this "
+                  "narrow cannot be")
+            print("[ringval]   resolved affordably, and an unresolved line "
+                  "measures the window.")
+            continue
+
+        p_ = MRRParams(R=gm["R"]*1e-6, w=gm["w"]*1e-9,
+                       g=gm["g"]*1e-9, Lc=gm["Lc"]*1e-6)
+        mesh = MeshConfig.uniform(mesh_nm * 1e-9)
+        dom = DomainConfig(movie=movie, dimension="3D", sim_time=tneed,
+                           auto_shutoff_min=RINGVAL_SHUTOFF, freq_points=nf,
+                           x_margin=margins[0]*1e-6, y_margin=margins[1]*1e-6,
+                           z_margin=margins[2]*1e-6)
+        (sx, sy, sz), cells, gb = _ringval_cells(gm, dom, mesh_nm)
+        print(f"[ringval]   domain {sx:.2f} x {sy:.2f} x {sz:.2f} um at "
+              f"{mesh_nm:g} nm -> {cells/1e6:.1f}M cells")
+        print(f"[ringval]   estimated solver memory: {gb:.1f} GB  "
+              f"(margins {margins[0]:g}/{margins[1]:g}/{margins[2]:g} um)")
+        lumapi = load_lumapi()
+        t0 = time.time()
+        try:
+            with lumapi.FDTD(hide=True) as fdtd:
+                build_mrr(fdtd, p_, mesh, dom)
+                fdtd.save(os.path.abspath(f"ringval_{key}.fsp"))
+                fdtd.run()
+                lam, T = get_spectrum(fdtd, "monitor_drop")
+                # Save AFTER the run so the monitor data is on disk. Without
+                # this the .fsp holds only the layout, and a spectrum cannot
+                # be re-examined without re-simulating -- which cost this
+                # project a 10-hour rerun to test an extraction question.
+                try:
+                    fdtd.save(os.path.abspath(f"ringval_{key}_done.fsp"))
+                except Exception:
+                    pass
+                np.savez(os.path.join(resdir, f"ringval_{key}_spectrum.npz"),
+                         lam=lam, T=T)
+            res = analyse_drop(lam, T)
+        except Exception as exc:                        # noqa: BLE001
+            print(f"[ringval]   FAILED: {exc}  -- re-run to retry")
+            continue
+        dt = (time.time() - t0) / 60.0
+
+        grid = float(np.min(np.diff(lam))) * 1e9 if lam.size > 1 else np.nan
+        fw = res["FWHM"] * 1e9 if res["FWHM"] == res["FWHM"] else np.nan
+        tl = 0.886 * (res["lambda_res"] ** 2) / (C_LIGHT * tneed) * 1e9
+        done[key] = dict(
+            geom=gm, runtime_min=dt,
+            sim=dict(lambda_res_nm=res["lambda_res"]*1e9,
+                     FSR_nm=res["FSR"]*1e9, Q_L=res["Q_L"],
+                     IL_dB=res["IL_dB"], FWHM_nm=fw, n_peaks=res["n_peaks"]),
+            ana={k: float(pred[k]) for k in TARGETS},
+            window_ps=tneed*1e12, grid_nm=grid, transform_limit_nm=tl,
+            freq_points=nf, shutoff=RINGVAL_SHUTOFF, mesh_nm=mesh_nm,
+            pts_across_fwhm=(fw/grid if grid == grid and fw == fw else None),
+            fwhm_over_tl=(fw/tl if tl and fw == fw else None))
+        json.dump(done, open(ck, "w"), indent=1)
+        print(f"[ringval]   simulated: lam {res['lambda_res']*1e9:.3f} nm, "
+              f"FSR {res['FSR']*1e9:.3f} nm, Q_L {res['Q_L']:.0f}, "
+              f"IL {res['IL_dB']:.3f} dB  ({dt:.1f} min)")
+
+    # ---------------- report ------------------------------------------
+    L = ["FULL 3-D RING VALIDATION OF THE ANALYTIC MODEL", "=" * 78,
+         "The complete ring simulated in 3-D FDTD, compared against the",
+         "analytic coupled-mode prediction for the same geometry. This is the",
+         "only check in this work that tests Q_L and IL rather than kappa^2 or",
+         "the mode solver.", "",
+         "RESOLUTION FIRST -- an unresolved line measures the DFT window, not",
+         "the resonator. A run with FWHM/transform-limit below "
+         f"{RINGVAL_MARGIN:g} or fewer than",
+         "5 points across the FWHM is NOT evidence about Q_L and is marked "
+         "so.", ""]
+    rows = [v for v in done.values()]
+    if not rows:
+        L += ["  no completed runs yet."]
+    else:
+        L += [f"  {'R um':>6s} {'window ps':>10s} {'pts/FWHM':>9s} "
+              f"{'FWHM/TL':>8s} {'resolved':>9s} {'min':>7s}", "  " + "-"*56]
+        for v in rows:
+            pf = v.get("pts_across_fwhm"); ft = v.get("fwhm_over_tl")
+            ok = (pf is not None and ft is not None
+                  and pf >= 5.0 and ft >= RINGVAL_MARGIN)
+            L.append(f"  {v['geom']['R']:6.2f} {v['window_ps']:10.0f} "
+                     f"{(pf if pf else float('nan')):9.1f} "
+                     f"{(ft if ft else float('nan')):8.2f} "
+                     f"{'yes' if ok else 'NO':>9s} {v['runtime_min']:7.1f}")
+        L += ["", "  per-target comparison (simulated vs analytic)", ""]
+        L.append(f"  {'R um':>6s} " + " ".join(
+            f"{t:>22s}" for t in TARGETS))
+        L.append("  " + "-" * 96)
+        errs = {t: [] for t in TARGETS}
+        for v in rows:
+            pf = v.get("pts_across_fwhm"); ft = v.get("fwhm_over_tl")
+            ok = (pf is not None and ft is not None
+                  and pf >= 5.0 and ft >= RINGVAL_MARGIN)
+            cells = []
+            for t in TARGETS:
+                sv = v["sim"].get(t); av = v["ana"].get(t)
+                if sv is None or av in (None, 0) or sv != sv:
+                    cells.append(f"{'--':>22s}"); continue
+                e = 100.0 * (sv - av) / av
+                # Q_L and IL from an unresolved line are not evidence
+                if ok or t in ("lambda_res_nm", "FSR_nm"):
+                    errs[t].append(abs(e))
+                cells.append(f"{sv:9.3f}/{av:<8.3f}{e:+5.1f}%")
+            L.append(f"  {v['geom']['R']:6.2f} " + " ".join(cells))
+        L += ["", "  mean |relative error| over runs counted as evidence:"]
+        for t in TARGETS:
+            if errs[t]:
+                L.append(f"    {t:16s} {np.mean(errs[t]):7.3f} %   "
+                         f"(n = {len(errs[t])})")
+            else:
+                L.append(f"    {t:16s} {'no admissible run':>17s}")
+        L += ["", "  HOW TO READ THIS",
+              "  lambda_res and FSR test the mode solver and the length "
+              "convention,",
+              "  which the published-device check already covers. Q_L and IL "
+              "are the",
+              "  NEW information: they are the first independent test of the "
+              "coupled-",
+              "  mode assembly, and they are what the degeneracy argument "
+              "rests on.",
+              "  A systematic offset in Q_L or IL does not by itself "
+              "invalidate the",
+              "  comparison between models -- every model shares it -- but it "
+              "must be",
+              "  reported, and a large one would weaken the claim that Q_L "
+              "and IL act",
+              "  on geometry only through theta."]
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "ringvalidate.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
+
+
 def run_validate():
     """
     Objective O1, second half -- external validation against a published,
@@ -5243,6 +5586,32 @@ def main():
 
     if "--floorconv" in sys.argv:
         run_floorconv()
+        return
+
+    if "--ringvalidate" in sys.argv:
+        nn = None
+        for a_ in sys.argv:
+            if a_.startswith("--n="):
+                nn = int(a_[4:])
+        mg = RINGVAL_MARGINS
+        extra = []
+        for a_ in sys.argv:
+            if a_.startswith("--margins="):
+                mg = tuple(float(x) for x in a_[10:].split(","))
+            if a_.startswith("--try="):
+                extra.append(tuple(float(x) for x in a_[6:].split(",")))
+        if "--dry" in sys.argv:
+            run_ringdry(margins=mg, extra=extra)
+            return
+        mnm = BEND_MESH_NM
+        pts = None
+        for a_ in sys.argv:
+            if a_.startswith("--mesh="):
+                mnm = float(a_[7:])
+            if a_.startswith("--points="):
+                pts = int(a_[9:])
+        run_ringvalidate(nn, movie=("--no-movie" not in sys.argv), margins=mg,
+                         extra=extra, mesh_nm=mnm, points=pts)
         return
 
     if "--validate" in sys.argv:

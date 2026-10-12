@@ -1,0 +1,52 @@
+FULL 3-D RING VALIDATION OF THE ANALYTIC MODEL
+==============================================================================
+The complete ring simulated in 3-D FDTD, compared against the
+analytic coupled-mode prediction for the same geometry. This is the
+only check in this work that tests Q_L and IL rather than kappa^2 or
+the mode solver.
+
+RESOLUTION FIRST -- an unresolved line measures the DFT window, not
+the resonator. A run with FWHM/transform-limit below 3 or fewer than
+5 points across the FWHM is NOT evidence about Q_L and is marked so.
+
+    R um  window ps  pts/FWHM  FWHM/TL  resolved     min
+  --------------------------------------------------------
+    5.20         59       7.7     3.20       yes   842.3
+    5.20         25      17.3     3.14       yes   389.1
+    5.20         87       6.9     4.12       yes  1244.7
+    5.20         59       7.9     3.30       yes   666.3
+    5.20         25      17.6     3.20       yes   301.1
+    5.20         87       6.1     3.63       yes   976.4
+    5.20         59      23.6     3.28       yes   740.2
+    5.20         25      52.9     3.19       yes   330.5
+    5.20         87      17.8     3.62       yes  1077.1
+
+  per-target comparison (simulated vs analytic)
+
+    R um          lambda_res_nm                 FSR_nm                    Q_L                  IL_dB
+  ------------------------------------------------------------------------------------------------
+    5.20  1543.004/1544.088 -0.1%    16.250/15.848   +2.5%  4015.274/4264.472 -5.8%     0.947/0.364   +159.9%
+    5.20  1544.134/1544.952 -0.1%    15.400/15.003   +2.6%  1780.416/1854.829 -4.0%     0.084/0.150   -44.3%
+    5.20  1556.186/1556.880 -0.0%    16.886/16.429   +2.8%  4602.785/6350.853-27.5%     1.420/0.562   +152.8%
+    5.20  1541.932/1544.088 -0.1%    16.250/15.848   +2.5%  3891.755/4264.472 -8.7%     0.858/0.364   +135.5%
+    5.20  1543.104/1544.952 -0.1%    15.350/15.003   +2.3%  1749.387/1854.829 -5.7%     0.057/0.150   -61.7%
+    5.20  1555.007/1556.880 -0.1%    16.837/16.429   +2.5%  5229.498/6350.853-17.7%     0.866/0.562   +54.2%
+    5.20  1541.932/1544.088 -0.1%    16.203/15.848   +2.2%  3921.350/4264.472 -8.0%     0.853/0.364   +134.0%
+    5.20  1543.104/1544.952 -0.1%    15.353/15.003   +2.3%  1750.594/1854.829 -5.6%     0.057/0.150   -61.7%
+    5.20  1555.008/1556.880 -0.1%    16.853/16.429   +2.6%  5252.941/6350.853-17.3%     0.865/0.562   +53.9%
+
+  mean |relative error| over runs counted as evidence:
+    lambda_res_nm      0.103 %   (n = 9)
+    FSR_nm             2.494 %   (n = 9)
+    Q_L               11.157 %   (n = 9)
+    IL_dB             95.330 %   (n = 9)
+
+  HOW TO READ THIS
+  lambda_res and FSR test the mode solver and the length convention,
+  which the published-device check already covers. Q_L and IL are the
+  NEW information: they are the first independent test of the coupled-
+  mode assembly, and they are what the degeneracy argument rests on.
+  A systematic offset in Q_L or IL does not by itself invalidate the
+  comparison between models -- every model shares it -- but it must be
+  reported, and a large one would weaken the claim that Q_L and IL act
+  on geometry only through theta.

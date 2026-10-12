@@ -41,8 +41,9 @@ metrics. We build a dual-fidelity dataset of 1{,}150 labelled geometries over
 ring radius, waveguide width, coupling gap and coupling length, with the
 coupling coefficient obtained from 200 three-dimensional FDTD simulations of
 the coupler alone and the ring response computed analytically, and we validate
-the construction against a published, experimentally characterised device and
-against 68 further independent FDTD runs.
+the construction against a published, experimentally characterised device,
+against 68 further independent FDTD runs, and against nine full 3-D
+simulations of the complete ring.
 
 The naive inverse network \emph{fails} the geometry-space criterion
 ($R^2 \ge 0.80$ on only one of four parameters) and \emph{passes} the
@@ -256,6 +257,97 @@ The $\kappa^2$ model was further tested on 68 coupler geometries that arose
 during closed-loop re-verification and were never seen by the fit. Every one
 fell within $10\%$, with a consistent positive bias of a few per cent that
 should be reported as a known systematic.
+
+\subsection{Full 3-D validation of the ring model}
+\label{sec:ringval}
+
+The checks above validate the \emph{coupler} and the \emph{mode solver}. The
+coupled-mode assembly that turns $\kappa^2$, $n_g$ and loss into $\QL$ and IL
+is not tested by either, and closed-loop re-verification does not test it
+because it re-simulates the coupler and then recomputes the ring with the same
+analytic model that produced the labels. Since $\QL$ and IL carry the
+degeneracy argument of Section~\ref{sec:o6}, we simulated the \emph{complete
+ring} in 3-D FDTD.
+
+Nine runs were performed: three geometries at $R = \SI{5.20}{\micro\metre}$,
+$w = \SI{450}{nm}$, spanning the coupling range, each at the production
+\SI{32}{nm} mesh, at a coarse \SI{40}{nm} mesh, and at \SI{40}{nm} with
+three times denser spectral sampling as a control on the extraction. The
+simulation window was sized from the predicted $\QL$ so that the linewidth
+exceeds the transform limit of the DFT window by at least a factor three, and
+auto-shutoff was disabled so that the window is exactly the one assumed. All
+nine met the resolution criteria (6.1--52.9 points across the FWHM,
+3.14--4.12 times the transform limit).
+
+\begin{table}[t]
+\centering
+\caption{Full 3-D ring simulation against the analytic model. Richardson
+extrapolation assumes second-order convergence, which two mesh sizes cannot
+verify.}
+\label{tab:ringval}
+\small
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+& \multicolumn{4}{c}{simulated $\QL$} & \multicolumn{2}{c}{analytic} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-7}
+Geometry & \SI{32}{nm} & \SI{40}{nm} & 6000 pts & $h \to 0$ & $\QL$ & error \\
+\midrule
+$g = \SI{150}{nm}$, $L_c = \SI{2.00}{\micro\metre}$ & 1780 & 1749 & 1751 & \textbf{1833} & 1855 & \textbf{$-$1.2\%} \\
+$g = \SI{170}{nm}$, $L_c = \SI{1.00}{\micro\metre}$ & 4015 & 3892 & 3921 & \textbf{4182} & 4264 & \textbf{$-$1.9\%} \\
+$g = \SI{180}{nm}$, $L_c = \SI{0.60}{\micro\metre}$ & 4603 & 5229 & 5253 & 3447 & 6351 & $-$45.7\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three findings follow, and they are not all favourable.
+
+\textbf{Resonance wavelength and free spectral range behave as the
+published-device check predicted.} $\lres$ agrees to $0.10\%$ across all nine
+runs. FSR is biased $+2.2$ to $+2.8\%$, the same sign and magnitude every
+time. Since FSR $= \lambda^2/(n_g L)$ and $L = 2\pi R + 2L_c$ is exact
+geometry, the real ring's group index is about $2.5\%$ below the model's. The
+model takes $n_g$ from a \emph{straight-waveguide} mode sweep, and a
+\SI{5.2}{\micro\metre} bend is not a straight waveguide; a bent-waveguide
+mode solve would correct this but would change every dataset label, so it is
+left to future work.
+
+\textbf{The validation itself was mesh-limited, and at low to moderate $\QL$
+the analytic model is correct to within 2\%.} Simulated $\QL$ depends on the
+mesh, so the \SI{32}{nm} spacing --- established as converged for $\kappa^2$,
+a single-pass quantity --- is not converged for $\QL$, which accumulates loss
+over hundreds of round trips. For the two lower-$\QL$ geometries, refinement
+moves the simulation \emph{toward} the analytic prediction and a second-order
+extrapolation to zero mesh recovers it to $1.2\%$ and $1.9\%$
+(Table~\ref{tab:ringval}). A discrepancy of 4--6\% at the production mesh is
+therefore numerical, not physical.
+
+\textbf{At the highest $\QL$ the discrepancy is real and unexplained.} For the
+third geometry, refinement moves the simulation \emph{away} from the model.
+The tripled spectral sampling changed $\QL$ by $0.45\%$, so this is neither an
+extraction nor a sampling artifact. One candidate is that the bend-loss model
+is a function of radius alone and carries no wavelength dependence, while this
+geometry resonates at \SI{1555}{nm} against \SI{1542}{nm} and \SI{1543}{nm}
+for the other two; bend radiation at this radius increases steeply toward
+longer wavelengths, so a wavelength-blind loss model would over-predict $\QL$
+for the reddest resonance, and a finer mesh resolving genuine radiation would
+lower it. We state this as a hypothesis: testing it requires a
+wavelength-resolved bend-loss study that we have not performed.
+
+\textbf{Insertion loss does not validate.} Drop-port peak transmission differs
+from the analytic prediction by $-12.5\%$, $+1.5\%$ and $-17.9\%$ at the
+production mesh, with no consistent sign. One of the three is not evidence at
+all: that geometry's IL is \SI{0.084}{dB}, i.e.\ $T = 0.981$, within 2\% of
+unity, where the absolute uncertainty of extracting IL from a simulated
+spectrum is comparable to the value itself.
+
+\textbf{What this does and does not affect.} Every model compared in
+Section~3 was trained and scored on identical labels, so a bias shared by all
+of them cancels from every model-to-model comparison: the resolution of O6,
+the metric result of Section~\ref{sec:metric}, the realisability result and
+the sample-efficiency comparison are unaffected. What must be qualified is the
+absolute accuracy of $\QL$ above $\QL \approx 4300$, the absolute accuracy of
+IL anywhere, and the scenario verdicts, which are judged against $\QL$
+specifications.
 
 \subsection{Models and protocol}
 
@@ -789,12 +881,21 @@ useful to know before pursuing it.
 \section{Limitations}
 
 \begin{enumerate}[leftmargin=1.6em,itemsep=3pt]
-\item \textbf{The ring response is analytic, not simulated.} Only the coupler
-is simulated in 3-D FDTD. The construction is validated against a published
-device and 68 out-of-sample coupler runs, but a full 3-D ring simulation would
-be a stronger check and was not affordable here. Any error in the coupled-mode
-assembly is common to every model compared, so it affects absolute numbers
-rather than the comparison.
+\item \textbf{The ring validation is not mesh-converged, and cannot be on the
+available hardware.} Simulated $\QL$ depends on mesh spacing
+(Section~\ref{sec:ringval}). A third, finer mesh for these geometries exceeds
+the \SI{15.7}{GB} of system memory available, so the Richardson extrapolation
+rests on two mesh sizes and assumes second-order convergence, which two points
+cannot verify.
+\item \textbf{Ring validation is at small radius only.} All nine runs are at
+$R = \SI{5.20}{\micro\metre}$. A \SI{10}{\micro\metre} ring requires about
+\SI{20}{GB} of solver memory at this mesh and a \SI{14}{\micro\metre} ring
+about \SI{36}{GB}, so the radius range could not be spanned. Small radius is
+where bend loss is largest and the loss model most stressed, but the
+validation does not establish accuracy at large radius.
+\item \textbf{$\QL$ accuracy is established only below $\QL \approx 4300$},
+to within 2\%. Above it the model over-predicts by 17--27\% and the cause is
+not established. \textbf{IL is not validated at all.}
 \item \textbf{The external validation covers FSR only.} It tests the mode
 solver and the length convention. The coupling model, the bend-loss model,
 $\QL$ and IL are not externally validated against measurement.

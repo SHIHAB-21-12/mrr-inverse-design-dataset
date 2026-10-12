@@ -290,20 +290,85 @@ cannot place the resonance. CPO needs post-fabrication trimming.**
 
 ---
 
-## 9. THE REMAINING GAP (blocks Q1)
+## 9. FULL 3-D RING VALIDATION (the Q1 gap, now being closed)
 
-**The ring model is unvalidated.** The κ² model has 68 out-of-sample FDTD
-runs. The mode solver has the Tang FSR check. But the coupled-mode assembly
-that produces **Q_L and IL** is checked against nothing — the closed-loop test
-re-simulates the coupler and recomputes the ring with the same analytic model
-that made the labels.
+Everything else validates the **coupler** (68 out-of-sample κ² runs) or the
+**mode solver** (the Tang FSR check). The coupled-mode assembly that turns
+κ², n_g and loss into **Q_L and IL** was checked against nothing: closed-loop
+re-verification re-simulates the coupler and then recomputes the ring with the
+same analytic model that produced the labels. Q_L and IL carry the entire
+degeneracy argument, so this was the first thing a reviewer would find.
 
-This matters because Q_L and IL carry the entire degeneracy argument. The
-claim that both act only through θ is a property of the analytic model.
+`--ringvalidate` simulates the **complete ring** in 3-D FDTD. All runs at
+R = 5.20 µm, w = 450 nm, production 32 nm mesh, margins 1.0/0.9/0.7 µm,
+auto-shutoff disabled so the DFT window is exactly the one the transform-limit
+criterion assumed.
 
-**Fix:** 3–5 full 3-D FDTD ring simulations comparing simulated Q_L and IL
-against analytic predictions. ~35 h each → 4–7 days. This is the single
-highest-value remaining experiment.
+A 10 µm ring needs ~20 GB of solver memory at this mesh and a 14 µm ring
+~36 GB, against 15.7 GB of system RAM — so the radius range **cannot** be
+spanned on this machine. Validation varies g and L_c at fixed small R instead,
+which exercises the coupled-mode assembly directly (Q_L and IL depend on
+geometry only through κ²) and stresses the loss model hardest, since bend loss
+is greatest at small R. **State the small-radius limitation in print.**
+
+### Results (3 of 3, complete)
+
+| geometry | analytic Q_L | sim Q_L | Q error | T sim | T analytic | ΔT | runtime |
+|---|---|---|---|---|---|---|---|
+| g=150, L_c=2.00 | 1855 | 1780 | **−4.0%** | 0.981 | 0.966 | **+1.5%** | 6.5 h |
+| g=170, L_c=1.00 | 4264 | 4015 | **−5.8%** | 0.804 | 0.920 | **−12.5%** | 14.0 h |
+| g=180, L_c=0.60 | 6351 | 4603 | **−27.5%** | 0.721 | 0.879 | **−17.9%** | 20.7 h |
+
+All three resolved (pts/FWHM 6.9–17.3, FWHM/transform-limit 3.14–4.12).
+λ_res error 0.056% mean. FSR error +2.5%, +2.6%, +2.8%.
+
+### THE HEADLINE FINDING: Q_L accuracy degrades with Q_L
+
+**Both Q_L and transmission errors grow monotonically with Q_L.** That is the
+signature of a loss-like term that accumulates over round trips and that the
+analytic model omits: higher Q means more circulations means more compounding.
+
+Simulated Q **saturates near 4600** while the analytic model climbs to 6351.
+
+It is **not one simple missing term**. A fixed per-round-trip loss would make
+1/Q_sim − 1/Q_analytic constant; the implied parasitic Q is 68 700, 44 400 and
+16 700 across the three — a fourfold spread. Something accumulates with round
+trips AND depends on geometry. Three points do not identify it, and no
+mechanism is claimed here.
+
+**Accuracy regime:** absolute Q_L is good (~5%) below Q ≈ 4000 and degrades
+badly above it. The design space extends well past this — Scenario B requires
+Q ≥ 7750 and candidates reached 12 291 — so a substantial fraction of the
+dataset carries unreliable absolute Q_L.
+
+### What this does and does not affect
+
+**Unaffected** (every model trained and scored on identical labels, so a
+shared label bias cancels from every model-to-model comparison):
+- O6, the one-to-many resolution
+- the θ-vs-RMS-RGE predictive result
+- the buildability result
+- the sample-efficiency comparison (O5) and the four-way comparison (O4)
+
+**Must be qualified:**
+- absolute Q_L and IL values anywhere they are quoted as physical predictions
+- O7 scenario verdicts, which were judged against Q_L specifications
+- the closed-loop errors, which are measured against the analytic model and
+  therefore inherit its bias
+
+**Second consistent systematic, unchanged by the third run:** FSR biased
++2.5/+2.6/+2.8%. FSR = λ²/(n_g·L) with L = 2πR + 2L_c exact, so the real
+ring's group index is ~2.6% below the model's. n_g comes from a
+**straight-waveguide** mode sweep and a 5.2 µm bend is not straight. The fix
+is a bent-waveguide mode solve, which would change every dataset label —
+future work, not this paper.
+
+### λ_res, independently relevant to O7
+
+The analytic model's own λ_res error against full FDTD is **0.8–1.1 nm**,
+about half the Scenario A channel tolerance, before any inverse model is
+involved. This is a **fourth** independent line of support for the
+trimming conclusion in §8.
 
 ---
 
@@ -325,7 +390,11 @@ highest-value remaining experiment.
 
 ## 11. Still open
 
-- [ ] **Full 3-D ring validation** (§9) — blocks Q1
+- [x] **Full 3-D ring validation** (§9) — COMPLETE, 3 geometries, 41 h.
+      Found a real defect: Q_L accuracy degrades with Q_L. See §9.
+- [ ] **Decide how to position the Q_L finding** before submission. It does
+      not touch the central contributions but it does qualify every absolute
+      Q_L/IL claim and the O7 verdicts.
 - [ ] **Independent photonics expert review of the methods.** Not done. Nine
       inferences made during this project turned out wrong and were caught
       only by measurement; the dual-fidelity construction is where that
@@ -354,6 +423,7 @@ highest-value remaining experiment.
 --seedcheck     seed stability of Phase 3  --thetaall    theta vs closed-loop
 --floor         information bound          --floorconv   bound convergence
 --validate      O1 literature validation   --ringvalidate full 3-D ring check
+--ringvalidate --dry   price candidates without simulating (--try=R,w,g,Lc)
 ```
 
 Flags: `--n=`, `--nbank=`, `--no-movie`, method flags for `--closedloop`
