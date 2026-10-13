@@ -746,33 +746,49 @@ Sixty per cent of its designs cannot be made.
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{fig/fig3_sample_efficiency.pdf}
-\caption{Sample efficiency. Left: in the forward direction XGBoost is more
-accurate below about 300 training samples and the network overtakes it by the
-full dataset. Right: in the inverse direction the naive network is best at
-every size, and the tandem network is unstable, peaking at $104.3\%$ at 400
-samples.}
+\caption{Sample efficiency, single seed; the five-seed repetition in the text
+supersedes it where the two disagree. Left: forward direction. The apparent
+XGBoost advantage below 300 samples does not survive repetition over seeds,
+while the network's advantage at full size does. Right: inverse direction,
+where the naive network's margin is reproducible and the tandem network is
+unstable at every size.}
 \label{fig:sample}
 \end{figure}
 
-In the forward direction, XGBoost is the most accurate method in the
-$\le 300$-sample regime, at $13.030\%$ mean aggregate MAPE over sizes 100 and
-200 against the network's $17.465\%$; at the full 805-sample training pool the
-network is most accurate, at $3.568\%$. In the inverse direction the naive
-network is lowest at both ends --- $16.411\%$ mean $\rge$ in the
-$\le 300$-sample regime and $15.506\%$ at full size.
+Because a curve read at a single random seed cannot distinguish an ordering
+from initialisation noise, the whole sweep was repeated over five seeds
+(42--46) and is reported as mean $\pm$ standard deviation. Two methods are
+taken to be separated only when the gap between them exceeds the pooled seed
+spread.
 
-The crossover is worth stating plainly because it bears on practice: for a
-photonic design problem where each label costs hours of simulation, a
-gradient-boosted tree is the better forward surrogate until a few hundred
-samples have been gathered. Pal \emph{et al.}\ [6] drew their result from 462
-samples and Torabi \emph{et al.}\ [12] from 2{,}500, so this range spans the
-operating point of the closest published work.
+In the forward direction at the full 805-sample pool the network is most
+accurate, at $3.776 \pm 0.282\%$ against XGBoost's $5.115 \pm 0.115\%$: a gap
+of $1.34$ against a pooled spread of $0.30$, so the ordering is real. Below
+300 samples it is \emph{not}. XGBoost averages $12.815\%$ and the network
+$14.303\%$, a gap of $1.49$ against a pooled spread of $3.09$, driven by the
+network's seed-to-seed variability at small $n$ ($\pm 3.07$ at $n = 100$).
+The two are comparable in that regime and we do not claim a winner. A
+single-seed reading of the same sweep shows XGBoost ahead by $4.4$ points and
+would support the opposite, stronger statement; it does not survive repetition.
 
-The tandem network's inverse curve is not a learning curve at all: $26.6\%$,
-$36.8\%$, $104.3\%$, $59.2\%$, $29.5\%$ across the five sizes. This is
+In the inverse direction the naive network is lowest at both ends and the
+margin does survive: $16.475\%$ against the random forest's $16.875\%$ below
+300 samples (gap $0.40$, pooled spread $0.14$), and $15.500 \pm 0.069\%$
+against $15.853 \pm 0.016\%$ at full size (gap $0.35$, pooled spread $0.07$).
+The full-size figure also sharpens O3: $15.500 \pm 0.069\%$ sits seven
+standard deviations above the $15\%$ threshold, so the objective is missed
+reproducibly rather than narrowly.
+
+The tandem network's inverse curve is not a learning curve at all:
+$34.6 \pm 8.6$, $39.5 \pm 7.0$, $87.1 \pm 19.3$, $117.5 \pm 38.0$ and
+$29.1 \pm 6.7$ per cent across the five sizes --- non-monotonic in training
+size, with a standard deviation approaching a third of the mean. This is
 consistent with the box-escape mechanism of Section~\ref{sec:build}; with
 nothing anchoring predictions inside the design space, where the network
-wanders is largely a function of initialisation and data.
+wanders is largely a function of initialisation and data. The tandem
+architecture is the standard remedy for one-to-many ambiguity in this
+literature, and on this problem it is not merely worse than the naive network
+but unusable.
 
 A final observation on metric dependence. Ranking parameter difficulty by mean
 $R^2$ gives $L_c > w > g > R$, hardest first; ranking by mean $\rge$
@@ -1067,6 +1083,11 @@ percentage point.
 \item \textbf{No fabrication.} Every result is simulation-based. The
 resonance-placement conclusion in particular predicts that trimming is
 required; it does not demonstrate a trimmed device.
+\item \textbf{Five seeds is a small sample for a spread.} The separation test
+of Section~4.6 uses the standard deviation over five seeds, which is itself
+uncertain; a borderline comparison could be decided either way by a larger
+repetition. Only the clearly separated and clearly unseparated cases are
+treated as results.
 \item \textbf{Label fidelity is tested only against a uniform shift.} The
 $\pm 3\%$ perturbation of Section~3.2 leaves the O6 verdict unchanged, but a
 uniform rescaling is the simplest form the measured discrepancy could take;
