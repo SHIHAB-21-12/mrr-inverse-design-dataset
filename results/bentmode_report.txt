@@ -1,0 +1,46 @@
+BENT-WAVEGUIDE FDE SWEEP
+========================================================================
+Every number below is FDE solver output. n_g is obtained from the
+wavelength dependence of n_eff, the same way the straight sweep
+does it, so the two are directly comparable.
+
+GROUP INDEX AT 1550 nm
+
+    w (nm)   straight       R=5       R=6     R=7.5      R=10    R=12.5      R=15
+  ------------------------------------------------------------------------------
+       400     4.4354    4.4319    4.4330    4.4338    4.4345    4.4348    4.4350
+       425     4.3876    4.3858    4.3893    4.3868    4.3871    4.3873    4.3874
+       440     4.3560    4.3550    4.3553    4.3556    4.3558    4.3558    4.3559
+       450     4.3361    4.3357    4.3358    4.3359    4.3360    4.3361    4.3361
+       475     4.2864    4.2873    4.2870    4.2868    4.2866    4.2865    4.2865
+       500     4.2407    4.2430    4.2423    4.2505    4.2702    4.2411    4.2735
+
+  DIFFERENCE FROM STRAIGHT (%), the FSR bias this explains
+
+    w (nm)       R=5       R=6     R=7.5      R=10    R=12.5      R=15
+  --------------------------------------------------------------------
+       400    -0.08%    -0.05%    -0.03%    -0.02%    -0.01%    -0.01%
+       425    -0.04%     0.04%    -0.02%    -0.01%    -0.01%    -0.00%
+       440    -0.02%    -0.02%    -0.01%    -0.01%    -0.00%    -0.00%
+       450    -0.01%    -0.01%    -0.00%    -0.00%    -0.00%    -0.00%
+       475     0.02%     0.01%     0.01%     0.01%     0.00%     0.00%
+       500     0.05%     0.04%     0.23%     0.70%     0.01%     0.77%
+
+  The ring validation measured FSR biased +2.5 %, implying the
+  real ring's n_g is ~2.5 % BELOW the straight-guide value. A
+  negative entry near R = 5 um of that size confirms the cause.
+
+BEND LOSS vs WAVELENGTH (dB/cm), w = 450 nm
+
+    R (um)        1500        1525        1550        1575        1600
+  --------------------------------------------------------------------
+       5.0  -2.876e-07  -9.359e-07  -2.137e-06  -5.223e-06  -1.355e-05
+       6.0  -2.793e-11  -2.193e-11   -5.36e-07  -1.383e-06  -3.338e-06
+       7.5  -2.003e-08  -5.664e-08  -1.352e-07   -3.24e-07  -7.734e-07
+      10.0  -5.585e-09  -4.701e-12  -2.759e-08  -6.317e-08  -1.452e-07
+      12.5  -2.842e-09  -4.262e-09  -9.415e-09  -1.902e-08  -3.436e-08
+      15.0  -1.965e-09  -1.762e-09  -2.592e-09  -2.868e-09  -7.255e-10
+
+  The current bend-loss model has NO wavelength dependence. If
+  these rows vary strongly across the row, that is the missing
+  physics behind the high-Q discrepancy at 1555 nm.

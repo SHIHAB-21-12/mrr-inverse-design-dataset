@@ -1,0 +1,82 @@
+FSR ATTRIBUTION
+==============================================================================
+Where the ring-validation FSR bias comes from. Each column is the
+same FSR computed a different way; the gaps attribute the bias.
+
+      R    Lc   lam_res   1 label    2 poly     3 FDE    4 FDTD   4 re-ex
+  --------------------------------------------------------------------------
+   5.20  1.00  1543.004   15.8477   15.9589   15.9303   16.2500   16.5356
+   5.20  2.00  1544.134   15.0031   15.1059   15.0693   15.4000   15.6457
+   5.20  0.60  1556.186   16.4295   16.5548   16.4874   16.8863   17.2093
+   5.20  1.00  1541.932   15.8477   15.9415   15.9224   16.2500   16.2077
+   5.20  2.00  1543.104   15.0031   15.0901   15.0622   15.3500   15.3533
+   5.20  0.60  1555.007   16.4295   16.5352   16.4628   16.8375   16.8551
+   5.20  1.00  1541.932   15.8477   15.9415   15.9224   16.2027   16.2077
+   5.20  2.00  1543.104   15.0031   15.0901   15.0622   15.3526   15.3533
+   5.20  0.60  1555.008   16.4295   16.5353   16.4629   16.8528   16.8551
+
+  ATTRIBUTION (% of the FDTD value unless stated)
+
+  gap                                    mean      min      max
+  ------------------------------------------------------------
+  total bias: label vs FDTD            -2.43%   -2.71%   -2.19%
+  label pipeline vs lam^2/(n_g L)      -0.64%   -0.76%   -0.58%
+  polynomial n_g vs direct FDE n_g     +0.26%   +0.12%   +0.44%
+  RESIDUAL: FDE n_g model vs FDTD      -2.06%   -2.36%   -1.73%
+
+  EXTRACTION DIAGNOSTIC -- is the re-extraction trustworthy?
+
+  A missed resonance inflates the mean spacing; a spurious one
+  deflates it. Both show up in the per-gap list below.
+
+  R=5.20 Lc=1.00  file ringval_5.200_450.0_170.0_1.000_m40_p6000_spectrum.npz
+    grid 0.0167 nm   T in [0.0005693, 0.8675]   threshold 0.2173
+    peaks found here: 6    peaks recorded by analyse_drop: 6
+    peak positions (nm): 1509.833 1525.724 1541.932 1558.467 1575.344 1592.567
+    adjacent spacings (nm): 15.8909 16.2077 16.5356 16.8772 17.2228
+    spacing mean 16.5469  median 16.5356  min 15.8909  max 17.2228
+    stored FSR 16.2500   LOCAL at lam_res 16.5356   band mean 16.5469
+    -> local vs stored: +28.563%   (band mean vs stored: +29.687%, a different quantity)
+
+  R=5.20 Lc=2.00  file ringval_5.200_450.0_150.0_2.000_m40_p6000_spectrum.npz
+    grid 0.0167 nm   T in [0.004177, 0.9874]   threshold 0.25
+    peaks found here: 6    peaks recorded by analyse_drop: 6
+    peak positions (nm): 1512.681 1527.750 1543.104 1558.749 1574.697 1590.953
+    adjacent spacings (nm): 15.0699 15.3533 15.6457 15.9473 16.2558
+    spacing mean 15.6544  median 15.6457  min 15.0699  max 16.2558
+    stored FSR 15.4000   LOCAL at lam_res 15.6457   band mean 15.6544
+    -> local vs stored: +24.571%   (band mean vs stored: +25.441%, a different quantity)
+
+  R=5.20 Lc=0.60  file ringval_5.200_450.0_180.0_0.600_m40_p6000_spectrum.npz
+    grid 0.0167 nm   T in [0.0002847, 0.8604]   threshold 0.2153
+    peaks found here: 6    peaks recorded by analyse_drop: 6
+    peak positions (nm): 1505.459 1521.637 1538.153 1555.008 1572.217 1589.785
+    adjacent spacings (nm): 16.1786 16.5153 16.8551 17.2093 17.5682
+    spacing mean 16.8653  median 16.8551  min 16.1786  max 17.5682
+    stored FSR 16.8863   LOCAL at lam_res 17.2093   band mean 16.8653
+    -> local vs stored: +32.301%   (band mean vs stored: -2.098%, a different quantity)
+
+
+  FSR vs MESH -- the remaining candidate for the residual
+
+  The FDTD runs used a 40 nm mesh on a 220 nm core. Mesh
+  staircasing shifts the effective index, and FSR is directly
+  sensitive to it. If FSR moves with mesh, the residual is
+  numerical, as the Q_L discrepancy already proved to be.
+
+      R    Lc  mesh nm   nfreq  grid nm   lam_res       FSR       Q_L
+  --------------------------------------------------------------------
+   5.20  0.60      nan    2050   0.0488  1556.186   16.8863      4603
+   5.20  0.60     40.0    2050   0.0488  1555.007   16.8375      5229
+   5.20  0.60     40.0    6000   0.0167  1555.008   16.8528      5253
+   5.20  1.00      nan    2001   0.0500  1543.004   16.2500      4015
+   5.20  1.00     40.0    2001   0.0500  1541.932   16.2500      3892
+   5.20  1.00     40.0    6000   0.0167  1541.932   16.2027      3921
+   5.20  2.00      nan    2001   0.0500  1544.134   15.4000      1780
+   5.20  2.00     40.0    2001   0.0500  1543.104   15.3500      1749
+   5.20  2.00     40.0    6000   0.0167  1543.104   15.3526      1751
+
+  Column 4 re-ex is now the LOCAL spacing at lam_res, the same
+  by peak finding. If it disagrees with column 4, the extraction
+  itself is in question; if it agrees, the residual is physical or
+  lies in the coupled-mode assembly.

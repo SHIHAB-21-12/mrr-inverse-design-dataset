@@ -487,11 +487,74 @@ bent-vs-straight effect being measured, so the small differences in the n_g
 table are at or below the noise floor. The -0.58% polynomial offset is well
 above it and stands.
 
+### Result 5 — the residual, measured properly (2026-10-13)
+
+Comparing FSR percentages is a trap: FSR varies ~4% across 1500-1600 nm, so
+a model FSR evaluated at lambda_res and an FDTD spacing whose pair is centred
+8 nm away are different quantities. Two of my own numbers (-1.9 pp, then
+-2.06%) were contaminated this way. The robust statement is in group index,
+compared at matched wavelengths:
+
+    n_g from each adjacent resonance pair, n_g = l1*l2 / (L*(l2-l1)),
+    against FDE n_g interpolated at that pair's midpoint:
+
+      geom  lam mid  ring n_g   FDE n_g     diff
+        G1   1533.8    4.1863    4.3018   -2.69%
+        G1   1550.2    4.1915    4.3249   -3.08%
+        G1   1566.9    4.1956    4.3334   -3.18%
+        G2   1520.2    4.1819    4.2847   -2.40%
+        G2   1535.4    4.1868    4.3041   -2.72%
+        G2   1550.9    4.1923    4.3253   -3.07%
+        G2   1566.7    4.1969    4.3333   -3.15%
+        G3   1529.9    4.1837    4.2962   -2.62%
+        G3   1546.6    4.1894    4.3199   -3.02%
+        G3   1563.6    4.1941    4.3317   -3.18%
+
+    mean -2.91%, sd 0.26%, n = 10
+
+**The ring's group index is 2.91% below the mode solver's.** The deficit
+grows mildly with wavelength (-2.4% at 1520 nm to -3.2% at 1567 nm).
+
+RULED OUT, each by measurement:
+- Round-trip length. The straight fraction 2*Lc/L is 3.5% (G3), 5.8% (G1)
+  and 10.9% (G2) -- a factor of three -- and the deficit is the same for all
+  three. A length error or a straight/bend mixing error would scale with it.
+- Bend effects: 0.08% (Result 1).
+- FSR extraction: independent re-extraction agrees with analyse_drop to
+  0.03%, 0.005% and 0.014% on the three geometries.
+- The n_g polynomial: 0.26% at these geometries (Result 3 revised; the
+  -0.58% figure was computed at 1550 nm against the straight guide and does
+  not apply at the validated lambda_res).
+- Mesh, tentatively: refining 40 -> 32 nm moves FSR AWAY from the model
+  (+0.2 to +0.3%), the opposite of a convergence artefact. Rests on the
+  unlabelled runs being the 32 nm production mesh; worth confirming.
+
+REMAINING CANDIDATES: FDTD numerical dispersion at this mesh (despite the
+direction above), or a genuine limitation of the coupled-mode assembly.
+Distinguishing them needs a ring run at a substantially finer mesh, which is
+expensive and was not attempted.
+
+### Result 6 — ng_solver is noisy; do NOT regenerate labels with it
+
+Finite-differencing n_eff(lambda) from bentmode.csv and comparing against the
+ng_solver column over all 210 rows: mean -0.19%, sd 0.54%, range -2.45% to
++3.38%. The two are broadly consistent, so the n_eff -> n_g chain is sound,
+but ng_solver is NOT smooth in wavelength. For the straight 450 nm guide the
+successive steps are +0.0085, +0.0878, +0.0031, -0.0250 -- one step an order
+of magnitude larger than its neighbours, a ~2% discontinuity between 1525 and
+1550 nm that no physical dispersion produces.
+
+**Phase B3 (regenerate labels with FDE n_g) should NOT proceed.** The
+correction it would apply is 0.26%; the noise it would inject is ~0.5% with
+2.4% excursions. It makes the labels worse.
+
+
 ### What this does and does not change
 
 - Does: supplies direct FDE n_g, correcting a systematic -0.58%.
 - Does: removes a wrong physical explanation from the paper.
-- Does not: close the FSR gap (~1.9 pp unexplained).
+- Does not: close the FSR gap. The ring's n_g sits 2.91% below the solver's
+  and nothing tested explains it (Result 5).
 - Does not: enable B2. Bend loss needs a different method entirely.
 
 ---
@@ -514,10 +577,14 @@ above it and stands.
       (paywalled); confirm with library access
 - [ ] Replace the data-availability placeholder with a real URL/DOI
 - [ ] Seed repeats for the sample-efficiency curve (currently single-seed)
-- [ ] **Find the remaining ~1.9 pp of the FSR bias** (§10b). Not bend-related.
-      Next test: compute FSR for the three validated ring geometries three
-      ways -- model as-is, model with FDE n_g substituted, FDTD measured --
-      and attribute each gap.
+- [x] **Attribute the FSR bias** (§10b Result 5) -- DONE. It is a 2.91%
+      group-index deficit, not a length, bend, extraction or fit error.
+- [ ] **Decide whether to chase the 2.91% further.** Distinguishing FDTD
+      numerical dispersion from a coupled-mode limitation needs one ring run
+      at a substantially finer mesh (hours to days). Optional; the residual
+      is already quantified and bounded.
+- [ ] Confirm the unlabelled ring runs used the 32 nm production mesh, which
+      the mesh-direction argument in Result 5 assumes.
 - [ ] **Decide the fate of Phase B2** (wavelength-resolved bend loss). The FDE
       route gives numerical noise; a different method is required, or the
       wavelength-independent loss model stays and is disclosed as a limitation.
@@ -540,6 +607,7 @@ above it and stands.
 --seedcheck     seed stability of Phase 3  --thetaall    theta vs closed-loop
 --floor         information bound          --floorconv   bound convergence
 --bentmode      bent-mode FDE sweep        --modediag    FDE config ladder
+--fsrcheck      FSR attribution            --matcheck    material index models
 --validate      O1 literature validation   --ringvalidate full 3-D ring check
 --ringvalidate --dry   price candidates without simulating (--try=R,w,g,Lc)
 ```

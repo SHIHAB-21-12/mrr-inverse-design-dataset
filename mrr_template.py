@@ -159,11 +159,12 @@ BENTMODE_TE_MIN = 0.50       # quasi-TE; the fundamental reads ~0.97 here
 # selecting on "highest n_eff" alone picks those. These bounds exclude them.
 BENTMODE_NEFF_MIN = 1.45     # just above the SiO2 cladding index (1.444)
 BENTMODE_NEFF_MAX = 3.40
-# FDE's default mode search is "max index", which returns the modes nearest
-# the HIGHEST index in the structure -- bulk silicon at 3.47. Those are not
-# guided modes, and where the guided mode is weak (w = 400 nm at 1600 nm) they
-# crowd it out of the list entirely. Searching near the expected guided index
-# instead targets the fundamental quasi-TE mode directly.
+# SUPERSEDED 2026-10-13. Searching near an expected guided index was tried
+# and measured HARMFUL: setting "use max index"/"n" pins every returned mode
+# at the seed index with n_g undefined (--modediag row 5). The solver's own
+# default search plus PML mode removal finds the guided mode correctly. This
+# constant is retained only because --modediag still exercises the failing
+# configuration; nothing in the production path reads it.
 BENTMODE_SEARCH_N = 2.30
 RINGVAL_FDE_ATTEMPTS = 10
 # (window scale, trial modes) per retry attempt. The first three repeat the
@@ -1452,6 +1453,302 @@ def run_modediag():
         print(f"[modediag] _fde_mode FAILED: {exc}")
 
     print("\n[modediag] done -- send the whole output")
+
+
+
+def run_fsrcheck():
+    """
+    Attribute the ring-validation FSR bias. Computes FSR four ways for each
+    validated geometry and reports where each gap sits:
+
+      1. analytic, as the dataset labels were generated   (ringvalidate.json)
+      2. lambda^2/(n_g L) with the Phase-1 POLYNOMIAL n_g
+      3. lambda^2/(n_g L) with the DIRECT FDE n_g         (bentmode.csv)
+      4. FDTD, re-extracted here from the saved spectrum
+
+    1 vs 2 isolates the first-order FSR relation from the label pipeline.
+    2 vs 3 isolates the polynomial fit error.
+    3 vs 4 is the residual: not geometry, not the fit, not bend n_g.
+    """
+    import json
+    import glob as _glob
+    vdir = "validation" if os.path.isdir("validation") else "."
+    jpath = os.path.join(vdir, "ringvalidate.json")
+    if not os.path.isfile(jpath):
+        raise SystemExit(f"[fsrcheck] {jpath} not found")
+    done = json.load(open(jpath))
+    nc = json.load(open(_find("model_fits.json")))["neff"]
+
+    def ng_poly(lam, w):
+        x = (lam - 1550.0) / 50.0; y = (w - 450.0) / 50.0
+        B = [1.0, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3]
+        dB = [0.0, 1.0, 0.0, 2*x, y, 0.0, 2*x*y, y*y, 0.0]
+        neff = sum(c*b for c, b in zip(nc, B))
+        dneff = sum(c*d for c, d in zip(nc, dB))
+        return neff - lam * dneff / 50.0
+
+    # --- FDE n_g, bilinear in (R, lambda) at the geometry's width ----------
+    rows = []
+    with open(_find(BENTMODE_CSV), newline="") as fh:
+        for r in csv.DictReader(fh):
+            if r["R_um"] == "straight":
+                continue
+            try:
+                rows.append((float(r["R_um"]), float(r["w_nm"]),
+                             float(r["lam_nm"]), float(r["ng_solver"])))
+            except (ValueError, KeyError):
+                continue
+    rows = np.array(rows) if rows else None
+
+    def ng_fde(R, w, lam):
+        if rows is None:
+            return float("nan")
+        m = np.isclose(rows[:, 1], w)
+        if not m.any():                      # nearest available width
+            w = rows[np.argmin(np.abs(rows[:, 1] - w)), 1]
+            m = np.isclose(rows[:, 1], w)
+        sub = rows[m]
+        Rs = np.unique(sub[:, 0])
+        lo = Rs[Rs <= R].max() if (Rs <= R).any() else Rs.min()
+        hi = Rs[Rs >= R].min() if (Rs >= R).any() else Rs.max()
+
+        def at(Rv):
+            t = sub[np.isclose(sub[:, 0], Rv)]
+            t = t[np.argsort(t[:, 2])]
+            return float(np.interp(lam, t[:, 2], t[:, 3]))
+        if hi == lo:
+            return at(lo)
+        f = (R - lo) / (hi - lo)
+        return (1.0 - f) * at(lo) + f * at(hi)
+
+    # --- independent FSR from the saved spectrum --------------------------
+    def fsr_from_spectrum(g, lam_ref):
+        pat = (f"ringval_{g['R']:.3f}_{g['w']:.1f}_{g['g']:.1f}_"
+               f"{g['Lc']:.3f}_*_spectrum.npz")
+        hits = sorted(_glob.glob(os.path.join("results", pat)) +
+                      _glob.glob(pat))
+        if not hits:
+            return (float("nan"), float("nan"), 0, "", [], np.array([]),
+                    float("nan"), float("nan"), float("nan"), float("nan"))
+        d = np.load(hits[-1])
+        lam = np.asarray(d["lam"]).ravel() * 1e9          # nm
+        T = np.asarray(d["T"]).ravel()
+        o = np.argsort(lam); lam, T = lam[o], T[o]
+        thr = T.min() + 0.25 * (T.max() - T.min())
+        pk = [i for i in range(1, len(T) - 1)
+              if T[i] > T[i-1] and T[i] >= T[i+1] and T[i] > thr]
+        if len(pk) < 2:
+            return (float("nan"), float("nan"), len(pk),
+                    os.path.basename(hits[-1]), [], np.array([]),
+                    float(np.median(np.diff(lam))),
+                    float(T.min()), float(T.max()), thr)
+        # parabolic refinement of each peak position
+        pos = []
+        for i in pk:
+            y0, y1, y2 = T[i-1], T[i], T[i+1]
+            den = (y0 - 2*y1 + y2)
+            dx = 0.5 * (y0 - y2) / den if den else 0.0
+            pos.append(lam[i] + dx * (lam[i+1] - lam[i-1]) / 2.0)
+        pos = sorted(pos)
+        sp = np.diff(pos)
+        # LOCAL FSR: the spacing of the pair bracketing lambda_res. FSR varies
+        # ~4% across this band, so a band-average is a different quantity from
+        # what analyse_drop records and the two must not be compared.
+        loc = float("nan")
+        if len(sp):
+            k = int(np.argmin([abs(0.5*(pos[i]+pos[i+1]) - lam_ref)
+                               for i in range(len(sp))]))
+            loc = float(sp[k])
+        return (loc, float(np.mean(sp)), len(pos),
+                os.path.basename(hits[-1]), pos, sp,
+                float(np.median(np.diff(lam))),
+                float(T.min()), float(T.max()), thr)
+
+    L = ["FSR ATTRIBUTION", "=" * 78,
+         "Where the ring-validation FSR bias comes from. Each column is the",
+         "same FSR computed a different way; the gaps attribute the bias.", "",
+         f"  {'R':>5s} {'Lc':>5s} {'lam_res':>9s} {'1 label':>9s} "
+         f"{'2 poly':>9s} {'3 FDE':>9s} {'4 FDTD':>9s} {'4 re-ex':>9s}",
+         "  " + "-" * 74]
+    acc = {"1v4": [], "2v3": [], "3v4": [], "1v2": []}
+    diag = []
+    for v in done.values():
+        g = v["geom"]
+        lam0 = float(v["sim"]["lambda_res_nm"])
+        Lnm = (2.0 * np.pi * g["R"] + 2.0 * g["Lc"]) * 1e3
+        f1 = float(v["ana"]["FSR_nm"])
+        f2 = lam0 * lam0 / (ng_poly(lam0, g["w"]) * Lnm)
+        f3 = lam0 * lam0 / (ng_fde(g["R"], g["w"], lam0) * Lnm)
+        f4 = float(v["sim"]["FSR_nm"])
+        f4b, f4m, npk, fn, pos, sp, grid, tmin, tmax, thr = \
+            fsr_from_spectrum(g, lam0)
+        diag.append((g, lam0, npk, v["sim"].get("n_peaks"), grid,
+                     tmin, tmax, thr, pos, sp, f4, f4b, f4m, fn,
+                     v.get("mesh_nm"), v.get("freq_points"),
+                     v.get("grid_nm"), v["sim"].get("Q_L")))
+        L.append(f"  {g['R']:5.2f} {g['Lc']:5.2f} {lam0:9.3f} "
+                 f"{f1:9.4f} {f2:9.4f} {f3:9.4f} {f4:9.4f} {f4b:9.4f}")
+        acc["1v2"].append(100.0 * (f1 - f2) / f2)
+        acc["2v3"].append(100.0 * (f2 - f3) / f3)
+        acc["3v4"].append(100.0 * (f3 - f4) / f4)
+        acc["1v4"].append(100.0 * (f1 - f4) / f4)
+    L += ["", "  ATTRIBUTION (% of the FDTD value unless stated)", "",
+          f"  {'gap':<34s} {'mean':>8s} {'min':>8s} {'max':>8s}",
+          "  " + "-" * 60]
+    for k, lab in (("1v4", "total bias: label vs FDTD"),
+                   ("1v2", "label pipeline vs lam^2/(n_g L)"),
+                   ("2v3", "polynomial n_g vs direct FDE n_g"),
+                   ("3v4", "RESIDUAL: FDE n_g model vs FDTD")):
+        a_ = np.array(acc[k])
+        L.append(f"  {lab:<34s} {a_.mean():+7.2f}% {a_.min():+7.2f}% "
+                 f"{a_.max():+7.2f}%")
+    # ---- extraction diagnostics -----------------------------------------
+    L += ["", "  EXTRACTION DIAGNOSTIC -- is the re-extraction trustworthy?",
+          "", "  A missed resonance inflates the mean spacing; a spurious one",
+          "  deflates it. Both show up in the per-gap list below.", ""]
+    # Use the run the saved spectrum belongs to (the finest frequency
+    # sampling), not whichever row happens to come first: a different run has
+    # a different lambda_res and therefore a different local pair.
+    best_row = {}
+    for d in diag:
+        kk = (d[0]["R"], d[0]["w"], d[0]["g"], d[0]["Lc"])
+        if kk not in best_row or (d[15] or 0) > (best_row[kk][15] or 0):
+            best_row[kk] = d
+    seen_g = set()
+    for (g, lam0, npk, nstored, grid, tmin, tmax, thr,
+         pos, sp, f4, f4b, f4m, fn, mnm, nfp, gnm, qq) in best_row.values():
+        kk = (g["R"], g["w"], g["g"], g["Lc"])
+        if kk in seen_g:
+            continue
+        seen_g.add(kk)
+        L.append(f"  R={g['R']:.2f} Lc={g['Lc']:.2f}  file {fn}")
+        L.append(f"    grid {grid:.4f} nm   T in [{tmin:.4g}, {tmax:.4g}]"
+                 f"   threshold {thr:.4g}")
+        L.append(f"    peaks found here: {npk}    peaks recorded by "
+                 f"analyse_drop: {nstored}")
+        if len(pos):
+            L.append("    peak positions (nm): " +
+                     " ".join(f"{x:.3f}" for x in pos))
+        if len(sp):
+            L.append("    adjacent spacings (nm): " +
+                     " ".join(f"{x:.4f}" for x in sp))
+            L.append(f"    spacing mean {sp.mean():.4f}  median "
+                     f"{np.median(sp):.4f}  min {sp.min():.4f}  max "
+                     f"{sp.max():.4f}")
+            L.append(f"    stored FSR {f4:.4f}   LOCAL at lam_res "
+                     f"{f4b:.4f}   band mean {f4m:.4f}")
+            L.append(f"    -> local vs stored: "
+                     f"{100.0*(f4b-f4)/f4:+.3f}%   (band mean vs stored: "
+                     f"{100.0*(f4m-f4)/f4:+.3f}%, a different quantity)")
+        L.append("")
+    L += ["", "  FSR vs MESH -- the remaining candidate for the residual",
+          "", "  The FDTD runs used a 40 nm mesh on a 220 nm core. Mesh",
+          "  staircasing shifts the effective index, and FSR is directly",
+          "  sensitive to it. If FSR moves with mesh, the residual is",
+          "  numerical, as the Q_L discrepancy already proved to be.", "",
+          f"  {'R':>5s} {'Lc':>5s} {'mesh nm':>8s} {'nfreq':>7s} "
+          f"{'grid nm':>8s} {'lam_res':>9s} {'FSR':>9s} {'Q_L':>9s}",
+          "  " + "-" * 68]
+    for v in sorted(done.values(),
+                    key=lambda d: (d["geom"]["Lc"], d.get("mesh_nm") or 0)):
+        g = v["geom"]
+        L.append(f"  {g['R']:5.2f} {g['Lc']:5.2f} "
+                 f"{(v.get('mesh_nm') or float('nan')):8.1f} "
+                 f"{(v.get('freq_points') or 0):7d} "
+                 f"{(v.get('grid_nm') or float('nan')):8.4f} "
+                 f"{v['sim']['lambda_res_nm']:9.3f} "
+                 f"{v['sim']['FSR_nm']:9.4f} {v['sim']['Q_L']:9.0f}")
+    L += ["",
+          "  Column 4 re-ex is now the LOCAL spacing at lam_res, the same",
+          "  by peak finding. If it disagrees with column 4, the extraction",
+          "  itself is in question; if it agrees, the residual is physical or",
+          "  lies in the coupled-mode assembly."]
+    txt = "\n".join(L)
+    print("\n" + txt)
+    resdir = "results" if os.path.isdir("results") else "."
+    open(os.path.join(resdir, "fsr_attribution.txt"), "w").write(txt + "\n")
+    print(f"\n[fsrcheck] wrote {resdir}/fsr_attribution.txt")
+
+
+
+def run_matcheck():
+    """
+    Compare the silicon and oxide index models the two solvers actually use.
+
+    The ring validation shows lambda_res correct to 0.10% but FSR off by ~2%:
+    n_eff is right and dn_eff/dlambda is not. FDTD fits the Palik data with a
+    multi-coefficient model over the whole band; FDE samples the tabulated
+    index per wavelength. Two fits can agree on n and disagree on dn/dlambda,
+    which is this signature exactly.
+
+    Accessor names differ between installs, so each is tried and the one that
+    worked is reported. Nothing is assumed.
+    """
+    lumapi = load_lumapi()
+    lam = np.linspace(1500.0, 1600.0, 11)
+    f = C_LIGHT / (lam * 1e-9)
+
+    def sample(sess, tag):
+        out = {}
+        for mat in (MAT_CORE, MAT_CLAD):
+            got, how = None, None
+            for name, call in (
+                ("getfdtdindex",
+                 lambda: sess.getfdtdindex(mat, f, float(f.min()),
+                                           float(f.max()))),
+                ("getindex", lambda: sess.getindex(mat, f)),
+                ("getmaterial(nk)",
+                 lambda: sess.getmaterial(mat, "refractive index")),
+            ):
+                try:
+                    v = np.array(call()).flatten()
+                    if v.size >= lam.size:
+                        got, how = v[:lam.size].real, name
+                        break
+                except Exception:                       # noqa: BLE001
+                    continue
+            out[mat] = (got, how)
+            print(f"[matcheck] {tag:5s} {mat:24s} via "
+                  f"{how if how else 'NO ACCESSOR WORKED'}")
+        return out
+
+    res = {}
+    for tag, opener in (("FDTD", lambda: lumapi.FDTD(hide=True)),
+                        ("MODE", lambda: lumapi.MODE(hide=True))):
+        try:
+            with opener() as sess:
+                res[tag] = sample(sess, tag)
+        except Exception as exc:                        # noqa: BLE001
+            print(f"[matcheck] {tag} session failed: {exc}")
+            res[tag] = {}
+
+    L = ["MATERIAL INDEX MODELS -- FDTD vs FDE", "=" * 78,
+         "lambda_res matches to 0.10% while FSR is off ~2%, i.e. n_eff is",
+         "right and dn_eff/dlambda is not. If the two solvers disagree on",
+         "dn/dlambda for silicon, that is the cause.", ""]
+    for mat in (MAT_CORE, MAT_CLAD):
+        a = res.get("FDTD", {}).get(mat, (None, None))[0]
+        b = res.get("MODE", {}).get(mat, (None, None))[0]
+        L += [f"  {mat}", f"  {'lam nm':>8s} {'FDTD n':>10s} {'FDE n':>10s} "
+              f"{'diff':>10s} {'diff %':>9s}", "  " + "-" * 52]
+        if a is None or b is None:
+            L.append("    not available from one or both solvers")
+            L.append("")
+            continue
+        for i, l in enumerate(lam):
+            L.append(f"  {l:8.1f} {a[i]:10.5f} {b[i]:10.5f} "
+                     f"{a[i]-b[i]:10.5f} {100*(a[i]-b[i])/b[i]:8.3f}%")
+        sa = np.polyfit(lam, a, 1)[0]
+        sb = np.polyfit(lam, b, 1)[0]
+        L += ["", f"    dn/dlambda   FDTD {sa:.3e}   FDE {sb:.3e}   "
+              f"difference {100*(sa-sb)/sb:+.2f}%",
+              "    (n_g = n_eff - lambda dn_eff/dlambda, so a slope",
+              "     difference here propagates straight into FSR)", ""]
+    txt = "\n".join(L)
+    print("\n" + txt)
+    resdir = "results" if os.path.isdir("results") else "."
+    open(os.path.join(resdir, "material_check.txt"), "w").write(txt + "\n")
+    print(f"\n[matcheck] wrote {resdir}/material_check.txt")
 
 
 def run_bentmode():
@@ -6136,6 +6433,14 @@ def main():
 
     if "--floorconv" in sys.argv:
         run_floorconv()
+        return
+
+    if "--matcheck" in sys.argv:
+        run_matcheck()
+        return
+
+    if "--fsrcheck" in sys.argv:
+        run_fsrcheck()
         return
 
     if "--modediag" in sys.argv:
