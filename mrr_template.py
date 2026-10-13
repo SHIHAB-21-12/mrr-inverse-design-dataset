@@ -2423,6 +2423,113 @@ def run_seedcurve():
     print(f"\n[seedcurve] wrote {resdir}/seedcurve.txt")
 
 
+
+# Categorical hues for the seed-curve figure, in fixed order. Validated for
+# colourblind separation and contrast against a light surface; distinct
+# markers carry identity as well, so the figure is not colour-alone.
+SEEDFIG_COLORS = ["#0072B2", "#009E73", "#D55E00", "#8C4A9C"]
+SEEDFIG_MARKERS = ["o", "s", "^", "D"]
+
+
+def run_seedfig():
+    """
+    Redraw the sample-efficiency figure from the five-seed study, with error
+    bars. The published figure is single-seed and its caption carries the
+    caveat; a figure that shows the spread makes the caveat unnecessary.
+    """
+    import json
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as exc:                            # noqa: BLE001
+        raise SystemExit(f"[seedfig] matplotlib required: {exc}")
+
+    resdir = "results" if os.path.isdir("results") else "."
+    jp = os.path.join(resdir, "seedcurve.json")
+    if not os.path.isfile(jp):
+        raise SystemExit(f"[seedfig] {jp} not found -- run --seedcurve first")
+    done = json.load(open(jp))
+    seeds = sorted({int(k.split("|")[0]) for k in done})
+    sizes = sorted({int(k.split("|")[1]) for k in done})
+
+    def stat(key, n):
+        v = [done[f"{sd}|{n}"][key] for sd in seeds
+             if f"{sd}|{n}" in done and key in done[f"{sd}|{n}"]]
+        return (float(np.mean(v)), float(np.std(v))) if v else \
+            (float("nan"), float("nan"))
+
+    # Three panels, all linear. The tandem curve spans 29-118% and on a
+    # shared axis -- linear or log -- it flattens the three stable inverse
+    # curves whose differences (15.5 vs 16.7%) are the point of the panel.
+    # It gets its own scale instead of distorting theirs.
+    panels = [("Forward surrogate", "aggregate test MAPE (%)",
+               ["DNN forward", "XGB forward", "RF forward"]),
+              ("Inverse model", "RMS-RGE (%)",
+               ["naive DNN inverse", "RF inverse", "XGB inverse"]),
+              ("Tandem inverse (own scale)", "RMS-RGE (%)",
+               ["Tandem inverse"])]
+
+    fig, axes = plt.subplots(1, 3, figsize=(12.6, 3.8))
+    for ax, (title, ylab, keys) in zip(axes, panels):
+        ends = []
+        for i, k in enumerate(keys):
+            m = np.array([stat(k, n)[0] for n in sizes])
+            e = np.array([stat(k, n)[1] for n in sizes])
+            ax.errorbar(sizes, m, yerr=e, label=k,
+                        color=SEEDFIG_COLORS[i % len(SEEDFIG_COLORS)],
+                        marker=SEEDFIG_MARKERS[i % len(SEEDFIG_MARKERS)],
+                        markersize=5, linewidth=1.6, capsize=3,
+                        elinewidth=1.0)
+            ends.append((m[-1], k, SEEDFIG_COLORS[i % len(SEEDFIG_COLORS)]))
+        ax.set_xscale("log")
+        ax.set_xticks(sizes)
+        ax.set_xticklabels([str(n) for n in sizes], fontsize=8)
+        ax.minorticks_off()
+        ax.set_xlabel("training-set size", fontsize=9)
+        ax.set_ylabel(ylab, fontsize=9)
+        ax.set_title(title, fontsize=10)
+        ax.grid(True, which="major", linewidth=0.4, color="#dddddd")
+        ax.set_axisbelow(True)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+        ax.tick_params(labelsize=8)
+        ax.set_xlim(sizes[0] * 0.85, sizes[-1] * 1.9)
+
+        # Direct labels, spaced so they cannot collide: walk the end values
+        # top-down and push each at least one step below the previous.
+        lo, hi = ax.get_ylim()
+        step = 0.075 * (hi - lo)
+        ends.sort(key=lambda t: -t[0])
+        prev = None
+        for val, k, col in ends:
+            y = val if prev is None else min(val, prev - step)
+            prev = y
+            ax.annotate(k.replace(" inverse", "").replace(" forward", ""),
+                        xy=(sizes[-1], val), xytext=(sizes[-1] * 1.08, y),
+                        fontsize=7, va="center", color=col)
+        if len(keys) > 1:
+            ax.legend(fontsize=7, frameon=False, loc="upper right")
+    fig.suptitle(f"Sample efficiency, mean $\\pm$ s.d. over seeds "
+                 f"{seeds[0]}-{seeds[-1]}", fontsize=10)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+
+    outs = [os.path.join(resdir, "seedcurve.pdf"),
+            os.path.join(resdir, "seedcurve.png")]
+    if os.path.isdir(os.path.join("paper", "fig")):
+        outs.append(os.path.join("paper", "fig",
+                                 "fig3_sample_efficiency.pdf"))
+    elif os.path.isdir("fig"):
+        outs.append(os.path.join("fig", "fig3_sample_efficiency.pdf"))
+    for o in outs:
+        fig.savefig(o, dpi=200, bbox_inches="tight")
+        print(f"[seedfig] wrote {o}")
+    plt.close(fig)
+    print("[seedfig] three linear panels: the tandem curve spans 29-118% "
+          "and on a shared axis it flattens the three stable inverse curves, "
+          "whose 15.5-17.6% spread is what that panel is for.")
+
+
 def run_bentmode():
     """
     Bent-waveguide FDE sweep over (R, w, lambda).
@@ -7105,6 +7212,10 @@ def main():
 
     if "--floorconv" in sys.argv:
         run_floorconv()
+        return
+
+    if "--seedfig" in sys.argv:
+        run_seedfig()
         return
 
     if "--seedcurve" in sys.argv:

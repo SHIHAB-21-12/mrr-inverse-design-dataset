@@ -520,8 +520,15 @@ absolute error of $0.07$\,dB produces $13.7\%$ relative error at the median
 and over $200\%$ at the extreme. Clearing a $10\%$ MAPE bar would require
 absolute accuracy better than about $0.052$\,dB on a decibel quantity already
 predicted to seven hundredths of a decibel. We report O2 as not met under the
-criterion as defined, and note that $0.072$\,dB sits inside typical CPO
-link-budget tolerance.
+criterion as defined. Whether that verdict carries system-level meaning is a
+separate question, and this work can answer it from its own scenario
+definitions rather than by appeal to typical practice: Scenario A allows
+\SI{1.5}{dB} of insertion loss per ring and Scenario B \SI{1.0}{dB}, so a
+\SI{0.072}{dB} RMSE consumes $4.8\%$ and $7.2\%$ of those budgets
+respectively. The model is accurate enough for both. A relative-error
+threshold was the wrong instrument for a target whose values approach zero,
+and we would specify an absolute one --- tied to the link budget, as above
+--- if fixing the objectives again.
 
 The resonance wavelength is not learnable by any method here. All four tree
 variants return \emph{negative} $R^2$ --- worse than predicting the mean ---
@@ -746,12 +753,14 @@ Sixty per cent of its designs cannot be made.
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{fig/fig3_sample_efficiency.pdf}
-\caption{Sample efficiency, single seed; the five-seed repetition in the text
-supersedes it where the two disagree. Left: forward direction. The apparent
-XGBoost advantage below 300 samples does not survive repetition over seeds,
-while the network's advantage at full size does. Right: inverse direction,
-where the naive network's margin is reproducible and the tandem network is
-unstable at every size.}
+\caption{Sample efficiency, mean $\pm$ standard deviation over five seeds
+(42--46). Left: forward direction --- the apparent XGBoost advantage below
+300 samples is inside the seed spread and is not claimed, while the network's
+advantage at the full pool is outside it. Centre: inverse direction, where
+the naive network's margin over the random forest is reproducible. Right: the
+tandem network on its own scale, spanning $29$--$118\%$ and non-monotonic in
+training size; plotted on the centre panel's axis it would flatten the
+differences that panel exists to show.}
 \label{fig:sample}
 \end{figure}
 
