@@ -142,6 +142,38 @@ MODE_W_NM = [400.0, 425.0, 440.0, 450.0, 475.0, 500.0]
 MODE_LAM_NM = [1500.0, 1525.0, 1550.0, 1575.0, 1600.0]
 MODE_MESH_NM = 10.0                 # cross-section only, so a fine mesh is cheap
 MODESWEEP_CSV = "modesweep.csv"
+
+# --- Bent-waveguide FDE sweep (Phase B) ------------------------------------
+# The straight-waveguide mode sweep is the source of two measured defects in
+# the ring validation: FSR biased +2.5 % (n_g of a 5.2 um bend is not n_g of a
+# straight guide) and a bend-loss model with no wavelength dependence. An FDE
+# solve WITH a bend radius returns a COMPLEX effective index: the real part
+# fixes the first, the imaginary part fixes the second. Same solver, one sweep.
+BENTMODE_CSV = "bentmode.csv"
+BENTMODE_R_UM = [5.0, 6.0, 7.5, 10.0, 12.5, 15.0]
+BENTMODE_MESH_NM = 10.0      # FDE is cheap; finer than the FDTD production mesh
+BENTMODE_TE_MIN = 0.50       # quasi-TE; the fundamental reads ~0.97 here
+# A GUIDED mode must lie strictly between the cladding and core indices. The
+# FDE solver also returns non-guided solutions sitting at the core index
+# (n_eff = 3.471 = bulk Si at 1600 nm, with n_g undefined and zero loss);
+# selecting on "highest n_eff" alone picks those. These bounds exclude them.
+BENTMODE_NEFF_MIN = 1.45     # just above the SiO2 cladding index (1.444)
+BENTMODE_NEFF_MAX = 3.40
+# FDE's default mode search is "max index", which returns the modes nearest
+# the HIGHEST index in the structure -- bulk silicon at 3.47. Those are not
+# guided modes, and where the guided mode is weak (w = 400 nm at 1600 nm) they
+# crowd it out of the list entirely. Searching near the expected guided index
+# instead targets the fundamental quasi-TE mode directly.
+BENTMODE_SEARCH_N = 2.30
+RINGVAL_FDE_ATTEMPTS = 10
+# (window scale, trial modes) per retry attempt. The first three repeat the
+# default configuration, which is what recovers the intermittent failures;
+# later attempts enlarge the solver window for weakly confined modes.
+BENTMODE_ESCALATION = [
+    (1.00, 10), (1.00, 10), (1.00, 10),
+    (1.67, 10), (1.67, 10), (1.67, 20),
+    (2.33, 20), (2.33, 20), (3.00, 30), (3.00, 30),
+]
 # Paper 11 (Tang et al. 2024): fabricated SOI TE ring, measured values
 P11_W_NM, P11_R_UM, P11_FSR_NM = 440.0, 20.0, 4.4
 
@@ -1049,6 +1081,524 @@ def build_bend(fdtd, R, w, mesh, dom):
     fdtd.set("z", z)
     if not two_d:
         fdtd.set("z span", dom.monitor_z_span)
+
+
+
+def _dump_fde_state(m, tag):
+    """
+    Print the solver state as the session actually holds it, right before
+    findmodes(). Used to compare two code paths that send what appears to be
+    the same sequence of calls but solve differently.
+    """
+    print(f"[state] ---- {tag} ----")
+    for k in ("solver type", "y span", "z span",
+              "define y mesh by", "dy", "define z mesh by", "dz",
+              "y min bc", "y max bc", "z min bc", "z max bc",
+              "mesh cells y", "mesh cells z"):
+        try:
+            print(f"[state]   set {k:22s} = {m.get(k)!r}")
+        except Exception as exc:                        # noqa: BLE001
+            print(f"[state]   set {k:22s} : {type(exc).__name__}")
+    for k in ("wavelength", "number of trial modes", "use max index", "n",
+              "bent waveguide", "bend radius", "calculate group index"):
+        try:
+            print(f"[state]   ana {k:22s} = {m.getanalysis(k)!r}")
+        except Exception as exc:                        # noqa: BLE001
+            print(f"[state]   ana {k:22s} : {type(exc).__name__}")
+
+
+def _fde_mode(m, R_um, w_nm, lam_nm, probe=False):
+    """
+    One FDE solve of the bent waveguide cross-section. Returns
+    (neff_real, neff_imag, te_fraction). R_um = None solves the straight
+    guide, which is the control: it must reproduce the existing straight
+    mode sweep, and if it does not, nothing else here can be trusted.
+    """
+    m.switchtolayout(); m.deleteall()
+    m.addrect(); m.set("name", "cladding")
+    m.set("x", 0.0); m.set("x span", 6e-6)
+    m.set("y", 0.0); m.set("y span", 6e-6)
+    m.set("z", 0.0); m.set("z span", 6e-6)
+    m.set("material", MAT_CLAD)
+    m.set("override mesh order from material database", True)
+    m.set("mesh order", 3)
+    m.addrect(); m.set("name", "wg")
+    m.set("x", 0.0); m.set("x span", 6e-6)
+    m.set("y", 0.0); m.set("y span", w_nm * 1e-9)
+    m.set("z", 0.0); m.set("z span", H_CORE)
+    m.set("material", MAT_CORE)
+    m.set("override mesh order from material database", True)
+    m.set("mesh order", 2)
+
+    d = BENTMODE_MESH_NM * 1e-9
+
+    def _build_solver(scale=1.0, ntrial=None):
+        """
+        Add the FDE and apply every solver + analysis setting.
+
+        scale enlarges the solver window. A weakly confined mode (narrow
+        guide, long wavelength, tight bend) extends further into the cladding
+        than a well confined one, so the default window can put PML where the
+        field still has amplitude. Enlarging it is the escalation used when
+        repeated rebuilds at the default size keep returning a degenerate
+        solve.
+        """
+        if ntrial is None:
+            ntrial = N_TRIAL_MODES
+        m.addfde()
+        m.set("solver type", "2D X normal")
+        m.set("x", 0.0)
+        m.set("y", 0.0); m.set("y span", 3.0e-6 * scale)
+        m.set("z", 0.0); m.set("z span", 2.5e-6 * scale)
+        m.set("define y mesh by", "maximum mesh step"); m.set("dy", d)
+        m.set("define z mesh by", "maximum mesh step"); m.set("dz", d)
+        m.set("y min bc", "PML"); m.set("y max bc", "PML")
+        m.set("z min bc", "PML"); m.set("z max bc", "PML")
+        m.setanalysis("wavelength", lam_nm * 1e-9)
+        m.setanalysis("number of trial modes", ntrial)
+        # No near-n search and no "calculate group index": each of those, on
+        # its own, has been measured to pin every mode at a seed index with
+        # n_g undefined (2026-10-12). PML already removes the radiation modes.
+        if R_um is not None:
+            m.setanalysis("bent waveguide", 1)
+            m.setanalysis("bend radius", R_um * 1e-6)
+            m.setanalysis("bend orientation", 0.0)
+        return m.findmodes()
+
+    # RETRY. The identical call sequence has been observed to produce either a
+    # correct solve (PML active, 2 modes, n_g ~ 4.35) or a degenerate one
+    # (PML inactive, N modes all at the bulk index, n_g undefined) in
+    # different sessions -- see --modediag row 4 against --bentmode on
+    # 2026-10-12. The root cause is not understood, so the solve is verified
+    # and the solver rebuilt from scratch until it produces a real result.
+    # A degenerate solve is cheap to detect: every mode shares one index.
+    searched = None
+    nfound = 0
+    used = None
+    for attempt in range(1, RINGVAL_FDE_ATTEMPTS + 1):
+        scale, ntrial = BENTMODE_ESCALATION[
+            min(attempt - 1, len(BENTMODE_ESCALATION) - 1)]
+        used = (scale, ntrial)
+        nfound = _build_solver(scale, ntrial)
+        # ACCEPTANCE. Test for the thing actually needed -- at least one
+        # guided mode -- not for a proxy. An earlier version accepted any
+        # solve whose indices were not all identical, which passed a result
+        # holding two distinct bulk-silicon values and no guided mode at all.
+        idx, guided_here = [], 0
+        for i in range(1, int(ntrial) + 1):
+            nm0 = f"FDE::data::mode{i}"
+            try:
+                ne0 = complex(np.array(
+                    m.getdata(nm0, "neff")).flatten()[0])
+            except Exception:                           # noqa: BLE001
+                break
+            idx.append(round(ne0.real, 6))
+            try:
+                ng0 = complex(np.array(
+                    m.getdata(nm0, "ng")).flatten()[0]).real
+            except Exception:                           # noqa: BLE001
+                ng0 = float("nan")
+            try:
+                te0 = complex(np.array(
+                    m.getdata(nm0, "TE polarization fraction")
+                ).flatten()[0]).real
+            except Exception:                           # noqa: BLE001
+                te0 = float("nan")
+            if (BENTMODE_NEFF_MIN < ne0.real < BENTMODE_NEFF_MAX
+                    and np.isfinite(ng0)
+                    and (te0 != te0 or te0 >= BENTMODE_TE_MIN)):
+                guided_here += 1
+        if guided_here:
+            if attempt > 1:
+                print(f"[bentmode] solve recovered on attempt {attempt} "
+                      f"(R={R_um}, w={w_nm}, {lam_nm} nm) with window "
+                      f"x{used[0]:.2f}, {used[1]:.0f} trial modes "
+                      f"-- {guided_here} guided mode(s)")
+            break
+        if attempt < RINGVAL_FDE_ATTEMPTS:
+            nxt = BENTMODE_ESCALATION[
+                min(attempt, len(BENTMODE_ESCALATION) - 1)]
+            print(f"[bentmode] no guided mode ({len(idx)} modes, "
+                  f"{len(set(idx))} distinct index/indices) "
+                  f"at R={R_um}, w={w_nm}, {lam_nm} nm -- rebuilding "
+                  f"the solver, attempt {attempt + 1} "
+                  f"(window x{nxt[0]:.2f}, {nxt[1]:.0f} trial modes)")
+            m.switchtolayout()
+            try:
+                m.select("FDE"); m.delete()
+            except Exception:                           # noqa: BLE001
+                pass
+    if probe:
+        print(f"[bentmode] probe: findmodes() returned {nfound!r} "
+              f"(trial modes requested: {N_TRIAL_MODES})")
+
+    # SELECTION. Lumerical's "TE polarization fraction" uses a convention
+    # that does not match the waveguide sense here (no mode exceeded 0.8 even
+    # for a strip whose fundamental mode is quasi-TE at 98 % by the FDTD
+    # source's own reckoning). Rather than guess which convention means what,
+    # select on something unambiguous: for a 220 nm SOI strip 400-500 nm wide
+    # the fundamental quasi-TE mode has the HIGHEST real effective index. Both
+    # polarisation fractions are recorded so the choice can be checked after
+    # the fact instead of trusted.
+    best, seen, recs = None, 0, []
+    for i in range(1, N_TRIAL_MODES + 1):
+        nm_ = f"FDE::data::mode{i}"
+        try:
+            ne = complex(np.array(m.getdata(nm_, "neff")).flatten()[0])
+        except Exception:                               # noqa: BLE001
+            break
+        seen = i
+        rec = dict(neff=ne)
+        for key, out in (("ng", "ng"), ("loss", "loss"),
+                         ("TE polarization fraction", "te"),
+                         ("waveguide TE/TM fraction", "wg_te")):
+            try:
+                rec[out] = complex(
+                    np.array(m.getdata(nm_, key)).flatten()[0]).real
+            except Exception:                           # noqa: BLE001
+                rec[out] = float("nan")
+        # Guided-mode test: index between cladding and core, a finite group
+        # index, and predominantly TE. All three come from the solver.
+        guided = (BENTMODE_NEFF_MIN < ne.real < BENTMODE_NEFF_MAX
+                  and np.isfinite(rec.get("ng", float("nan")))
+                  and (rec.get("te") != rec.get("te")      # NaN -> unavailable
+                       or rec["te"] >= BENTMODE_TE_MIN))
+        rec["guided"] = guided
+        rec["i"] = i
+        recs.append(rec)
+        if probe:
+            print(f"[bentmode]   mode{i:<2d} neff={ne.real:8.5f}"
+                  f"{ne.imag:+10.3e}j  ng={rec.get('ng'):9.5f}  "
+                  f"TE={rec.get('te'):6.3f}  wgTE={rec.get('wg_te'):6.3f}  "
+                  f"loss={rec.get('loss'):10.4g}  "
+                  f"{'GUIDED' if guided else 'rejected'}")
+        if guided and (best is None or ne.real > best["neff"].real):
+            best = rec
+    if probe:
+        print(f"[bentmode] probe: "
+              f"{seen} mode(s) readable; selected "
+              f"neff = {best['neff'].real:.5f}, ng = {best.get('ng'):.5f}, "
+              f"TE frac = {best.get('te'):.3f}, "
+              f"wg TE/TM = {best.get('wg_te'):.3f}" if best else
+              f"[bentmode] probe: {seen} mode(s) readable, none guided")
+    if best is not None:
+        _ng = best.get("ng", float("nan"))
+        if np.isfinite(_ng) and _ng <= best["neff"].real * 1.05:
+            raise RuntimeError(
+                f"group index has collapsed onto the phase index at "
+                f"R={R_um} um, w={w_nm} nm, {lam_nm} nm: n_g = {_ng:.5f} "
+                f"against n_eff = {best['neff'].real:.5f}. A guided silicon "
+                f"mode has n_g well above n_eff (about 4.35 here), so this "
+                f"is the dispersion calculation not running, not a physical "
+                f"result. Refusing to record it.")
+    if best is None:
+        # Print what the solver actually returned. A rejection is only
+        # informative if the rejected candidates are visible.
+        print(f"[bentmode] no guided mode at R={R_um} um, w={w_nm} nm, "
+              f"{lam_nm} nm -- the {seen} returned mode(s) were:")
+        for r in recs:
+            print(f"[bentmode]   mode{r['i']:<2d} "
+                  f"neff={r['neff'].real:8.5f}{r['neff'].imag:+10.3e}j  "
+                  f"ng={r.get('ng'):9.5f}  TE={r.get('te'):6.3f}  "
+                  f"wgTE={r.get('wg_te'):6.3f}  loss={r.get('loss'):10.4g}")
+        raise RuntimeError(
+            f"no guided mode at R={R_um} um, w={w_nm} nm, {lam_nm} nm "
+            f"({seen} mode(s) readable; required "
+            f"{BENTMODE_NEFF_MIN} < neff < {BENTMODE_NEFF_MAX}, finite ng, "
+            f"TE fraction >= {BENTMODE_TE_MIN})")
+    return best
+
+
+def _bent_loss_db_per_cm(neff_imag, lam_nm):
+    """
+    Propagation loss from the imaginary part of the effective index.
+    Power decays as exp(-2 k0 Im(neff) z), so
+      loss[dB/m] = 10 log10(e) * 2 * (2 pi / lambda) * Im(neff).
+    """
+    k0 = 2.0 * np.pi / (lam_nm * 1e-9)
+    return float(10.0 * np.log10(np.e) * 2.0 * k0 * abs(neff_imag) / 100.0)
+
+
+
+def _diag_build(m, cfg):
+    """Build structures + FDE for one diagnostic configuration."""
+    m.switchtolayout(); m.deleteall()
+    m.addrect(); m.set("name", "cladding")
+    m.set("x", 0.0); m.set("x span", 6e-6)
+    m.set("y", 0.0); m.set("y span", 6e-6)
+    m.set("z", 0.0); m.set("z span", 6e-6)
+    m.set("material", MAT_CLAD)
+    m.set("override mesh order from material database", True)
+    m.set("mesh order", 3)
+    m.addrect(); m.set("name", "wg")
+    m.set("x", 0.0); m.set("x span", 6e-6)
+    m.set("y", 0.0); m.set("y span", 400e-9)
+    m.set("z", 0.0); m.set("z span", H_CORE)
+    m.set("material", MAT_CORE)
+    m.set("override mesh order from material database", True)
+    m.set("mesh order", 2)
+
+    def _fde():
+        m.addfde()
+        m.set("solver type", "2D X normal")
+        m.set("x", 0.0)
+        m.set("y", 0.0); m.set("y span", 3.0e-6)
+        m.set("z", 0.0); m.set("z span", 2.5e-6)
+        if cfg["mesh"]:
+            d = BENTMODE_MESH_NM * 1e-9
+            m.set("define y mesh by", "maximum mesh step"); m.set("dy", d)
+            m.set("define z mesh by", "maximum mesh step"); m.set("dz", d)
+        if cfg["pml"]:
+            m.set("y min bc", "PML"); m.set("y max bc", "PML")
+            m.set("z min bc", "PML"); m.set("z max bc", "PML")
+
+    _fde()
+    if cfg["recreate"]:
+        # Mimic the GUI sequence that worked: delete the solver and add it
+        # again before solving.
+        m.switchtolayout(); m.select("FDE"); m.delete()
+        _fde()
+
+    m.setanalysis("wavelength", 1500.0e-9)
+    m.setanalysis("number of trial modes", N_TRIAL_MODES)
+    if cfg["search"]:
+        m.setanalysis("use max index", 0)
+        m.setanalysis("n", BENTMODE_SEARCH_N)
+    if cfg.get("calcng"):
+        m.setanalysis("calculate group index", 1)
+    if cfg["bent"] == 1:
+        m.setanalysis("bent waveguide", 0)
+    elif cfg["bent"] == 2:
+        m.setanalysis("bent waveguide", 1)
+        m.setanalysis("bend radius", 5.0e-6)
+        m.setanalysis("bend orientation", 0.0)
+    if cfg.get("dump"):
+        _dump_fde_state(m, "_diag_build row 4")
+    return m.findmodes()
+
+
+def _diag_read(m, nfound):
+    """Return (n_modes, best_neff, best_ng, best_te) for a solved FDE."""
+    out = []
+    for i in range(1, N_TRIAL_MODES + 1):
+        nm_ = f"FDE::data::mode{i}"
+        try:
+            ne = complex(np.array(m.getdata(nm_, "neff")).flatten()[0])
+        except Exception:                               # noqa: BLE001
+            break
+        vals = {}
+        for key, o in (("ng", "ng"), ("TE polarization fraction", "te")):
+            try:
+                vals[o] = complex(
+                    np.array(m.getdata(nm_, key)).flatten()[0]).real
+            except Exception:                           # noqa: BLE001
+                vals[o] = float("nan")
+        out.append((ne, vals["ng"], vals["te"]))
+    if not out:
+        return 0, float("nan"), float("nan"), float("nan")
+    # Distinct real parts -- the signature that separated a real solve from a
+    # seed-pinned one in every GUI test.
+    distinct = len({round(o[0].real, 6) for o in out})
+    best = max(out, key=lambda o: o[0].real)
+    return distinct, best[0].real, best[1], best[2]
+
+
+def run_modediag():
+    """
+    Run the FDE configuration ladder from Python and report which rows
+    produce a real solve. Every row below was verified to work in the MODE
+    GUI on 2026-10-12; this measures whether lumapi reproduces that, instead
+    of assuming it does.
+
+    A real solve shows several DISTINCT effective indices and a finite n_g.
+    A failed solve pins every mode at the search seed with n_g undefined.
+    """
+    lumapi = load_lumapi()
+    rows = [
+        ("4 mesh+pml (good)", dict(mesh=1, pml=1, search=0, bent=0,
+                                   recreate=0, dump=1)),
+    ]
+    print("[modediag] straight guide, w = 400 nm, lambda = 1500 nm")
+    print("[modediag] expect the real mode near neff 2.2966, ng 4.349")
+    for hide in (True,):
+        print(f"\n[modediag] ---- lumapi.MODE(hide={hide}) ----")
+        print(f"[modediag] {'config':<24} {'nfound':>7} {'distinct':>9} "
+              f"{'neff':>9} {'ng':>9} {'TE':>7}  verdict")
+        try:
+            with lumapi.MODE(hide=hide) as m:
+                for name, cfg in rows:
+                    try:
+                        nf = _diag_build(m, cfg)
+                        dist, ne, ng, te = _diag_read(m, nf)
+                        ok = dist > 1 and np.isfinite(ng)
+                        print(f"[modediag] {name:<24} {nf:>7} {dist:>9} "
+                              f"{ne:>9.5f} {ng:>9.5f} {te:>7.3f}  "
+                              f"{'OK' if ok else 'FAILED'}")
+                    except Exception as exc:            # noqa: BLE001
+                        print(f"[modediag] {name:<24} raised "
+                              f"{type(exc).__name__}: {exc}")
+        except Exception as exc:                        # noqa: BLE001
+            print(f"[modediag] session with hide={hide} failed: {exc}")
+    # Same session, same structure: call the production function itself.
+    # If this fails where row 4 above succeeded, the difference is inside
+    # _fde_mode and the two state dumps will show where.
+    print("\n[modediag] ---- calling _fde_mode() in the same session ----")
+    try:
+        with lumapi.MODE(hide=True) as m:
+            md = _fde_mode(m, None, 400.0, 1500.0, probe=True)
+            print(f"[modediag] _fde_mode OK: neff = {md['neff'].real:.5f}, "
+                  f"ng = {md.get('ng'):.5f}")
+    except Exception as exc:                            # noqa: BLE001
+        print(f"[modediag] _fde_mode FAILED: {exc}")
+
+    print("\n[modediag] done -- send the whole output")
+
+
+def run_bentmode():
+    """
+    Bent-waveguide FDE sweep over (R, w, lambda).
+
+    Fixes, at the source, the two defects the full 3-D ring validation
+    measured: n_g taken from a straight guide, and a bend-loss model with no
+    wavelength dependence. Everything here is solver output -- no fitted
+    analytic form is introduced.
+
+    Resumable. Writes bentmode.csv.
+    """
+    lumapi = load_lumapi()
+    csv_path = _out("results", BENTMODE_CSV)
+    fields = ["R_um", "w_nm", "lam_nm", "neff_real", "neff_imag",
+              "ng_solver", "te_fraction", "wg_te_fraction",
+              "loss_dB_per_cm_solver", "loss_dB_per_cm"]
+    done = set()
+    if os.path.isfile(csv_path):
+        with open(csv_path, newline="") as fh:
+            for r in csv.DictReader(fh):
+                done.add((r["R_um"], r["w_nm"], r["lam_nm"]))
+
+    # straight (R = None) first: it is the control against modesweep.csv
+    jobs = [(None, w, l) for w in MODE_W_NM for l in MODE_LAM_NM]
+    jobs += [(R, w, l) for R in BENTMODE_R_UM
+             for w in MODE_W_NM for l in MODE_LAM_NM]
+    todo = [j for j in jobs
+            if (("straight" if j[0] is None else f"{j[0]:g}"),
+                f"{j[1]:g}", f"{j[2]:g}") not in done]
+    print(f"[bentmode] {len(jobs)} solves, {len(jobs)-len(todo)} cached, "
+          f"{len(todo)} to run")
+    print(f"[bentmode] FDE mesh {BENTMODE_MESH_NM:g} nm, "
+          f"TE fraction >= {BENTMODE_TE_MIN:g}")
+
+    t0 = time.time()
+    with lumapi.MODE(hide=True) as m:
+        for k, (R, w, l) in enumerate(todo, 1):
+            try:
+                md = _fde_mode(m, R, w, l, probe=(k == 1))
+            except Exception as exc:                    # noqa: BLE001
+                print(f"[bentmode] FAILED at R={R} w={w} lam={l}: {exc}")
+                print("[bentmode] send this message -- an API name may differ "
+                      "on this install")
+                return
+            ner, nei = md["neff"].real, md["neff"].imag
+            ngv = md.get("ng", float("nan"))
+            if not (BENTMODE_NEFF_MIN < ner < BENTMODE_NEFF_MAX
+                    and np.isfinite(ngv)):
+                print(f"[bentmode] REFUSED to record R={R} w={w} lam={l}: "
+                      f"neff={ner:.5f}, ng={ngv} is not a guided mode")
+                return
+            # The solver reports loss in dB/m. Im(neff) gives the same thing
+            # independently; both are stored so a disagreement is visible
+            # rather than averaged away.
+            row = dict(R_um=("straight" if R is None else f"{R:g}"),
+                       w_nm=f"{w:g}", lam_nm=f"{l:g}",
+                       neff_real=ner, neff_imag=nei,
+                       ng_solver=md.get("ng", float("nan")),
+                       te_fraction=md.get("te", float("nan")),
+                       wg_te_fraction=md.get("wg_te", float("nan")),
+                       loss_dB_per_cm_solver=md.get("loss", float("nan"))/100.0,
+                       loss_dB_per_cm=_bent_loss_db_per_cm(nei, l))
+            with open(csv_path, "a", newline="") as fh:
+                wr = csv.DictWriter(fh, fieldnames=fields)
+                if fh.tell() == 0:
+                    wr.writeheader()
+                wr.writerow(row)
+            if k % 10 == 0 or k == len(todo):
+                el = (time.time() - t0) / 60.0
+                print(f"[bentmode] {k}/{len(todo)}  R={row['R_um']:>8s} "
+                      f"w={w:g} lam={l:g}  neff {ner:.5f}  "
+                      f"ng {row['ng_solver']:.5f}  "
+                      f"loss {row['loss_dB_per_cm_solver']:.4g} dB/cm  "
+                      f"({el:.1f} min, {el/k*len(todo):.0f} min total)")
+    print(f"\n[bentmode] wrote {csv_path}")
+    _bentmode_report(csv_path)
+
+
+def _bentmode_report(csv_path):
+    """Bent vs straight n_g, and the wavelength dependence of bend loss."""
+    rows = list(csv.DictReader(open(csv_path, newline="")))
+    if not rows:
+        print("[bentmode] no rows"); return
+    byk = {}
+    for r in rows:
+        byk.setdefault((r["R_um"], float(r["w_nm"])), []).append(
+            (float(r["lam_nm"]), float(r["neff_real"]),
+             float(r.get("loss_dB_per_cm_solver") or "nan"),
+             float(r.get("ng_solver") or "nan")))
+
+    def ng_at(key, lam0=1550.0):
+        """Solver-reported n_g at lam0; no finite differencing needed."""
+        v = sorted(byk.get(key, []))
+        if not v:
+            return float("nan")
+        for lam, _ne, _ls, ng in v:
+            if abs(lam - lam0) < 1e-6:
+                return ng
+        return float("nan")
+
+    L = ["BENT-WAVEGUIDE FDE SWEEP", "=" * 72,
+         "Every number below is FDE solver output. n_g is obtained from the",
+         "wavelength dependence of n_eff, the same way the straight sweep",
+         "does it, so the two are directly comparable.", "",
+         "GROUP INDEX AT 1550 nm", "",
+         f"  {'w (nm)':>8s} {'straight':>10s}" +
+         "".join(f"{('R=' + f'{R:g}'):>10s}" for R in BENTMODE_R_UM),
+         "  " + "-" * (18 + 10 * len(BENTMODE_R_UM))]
+    for w in MODE_W_NM:
+        st = ng_at(("straight", w))
+        cells = "".join(f"{ng_at((f'{R:g}', w)):10.4f}" for R in BENTMODE_R_UM)
+        L.append(f"  {w:8.0f} {st:10.4f}" + cells)
+    L += ["", "  DIFFERENCE FROM STRAIGHT (%), the FSR bias this explains", "",
+          f"  {'w (nm)':>8s}" +
+          "".join(f"{('R=' + f'{R:g}'):>10s}" for R in BENTMODE_R_UM),
+          "  " + "-" * (8 + 10 * len(BENTMODE_R_UM))]
+    for w in MODE_W_NM:
+        st = ng_at(("straight", w))
+        cells = ""
+        for R in BENTMODE_R_UM:
+            b = ng_at((f"{R:g}", w))
+            cells += f"{100.0*(b-st)/st:9.2f}%" if st == st and b == b else "       ---"
+        L.append(f"  {w:8.0f}" + cells)
+    L += ["", "  MEASURED 2026-10-13: every entry is below 0.1 %, against the",
+          "  +2.2 to +2.8 % FSR bias this phase was built to explain. The",
+          "  straight-versus-bent n_g hypothesis is REFUTED -- the effect is",
+          "  ~30x too small. Note also that the scatter across R at a fixed w",
+          "  (up to 0.77 % at w = 500 nm, non-monotonic in R) exceeds the",
+          "  effect itself, so these differences are not resolvable here.", "",
+          "BEND LOSS vs WAVELENGTH (dB/cm), w = 450 nm", "",
+          f"  {'R (um)':>8s}" +
+          "".join(f"{l:>12.0f}" for l in MODE_LAM_NM),
+          "  " + "-" * (8 + 12 * len(MODE_LAM_NM))]
+    for R in BENTMODE_R_UM:
+        v = dict((x[0], x[2]) for x in byk.get((f"{R:g}", 450.0), []))  # loss
+        L.append(f"  {R:8.1f}" +
+                 "".join(f"{v.get(l, float('nan')):12.4g}" for l in MODE_LAM_NM))
+    L += ["", "  MEASURED 2026-10-13: every entry is NEGATIVE, i.e. gain, which",
+          "  is not physical, and the magnitudes (1e-5 down to 1e-12 dB/cm)",
+          "  sit at the solver's numerical floor. These are noise, not bend",
+          "  loss, and cannot support a wavelength-dependent loss model."]
+    resdir = "results" if os.path.isdir("results") else "."
+    txt = "\n".join(L)
+    open(os.path.join(resdir, "bentmode_report.txt"), "w").write(txt + "\n")
+    print("\n" + txt)
 
 
 def run_bendloss(dimension="3D"):
@@ -5586,6 +6136,14 @@ def main():
 
     if "--floorconv" in sys.argv:
         run_floorconv()
+        return
+
+    if "--modediag" in sys.argv:
+        run_modediag()
+        return
+
+    if "--bentmode" in sys.argv:
+        run_bentmode()
         return
 
     if "--ringvalidate" in sys.argv:

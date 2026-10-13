@@ -311,57 +311,97 @@ which exercises the coupled-mode assembly directly (Q_L and IL depend on
 geometry only through κ²) and stresses the loss model hardest, since bend loss
 is greatest at small R. **State the small-radius limitation in print.**
 
-### Results (3 of 3, complete)
+### Results — 9 runs, ~120 h, complete
 
-| geometry | analytic Q_L | sim Q_L | Q error | T sim | T analytic | ΔT | runtime |
-|---|---|---|---|---|---|---|---|
-| g=150, L_c=2.00 | 1855 | 1780 | **−4.0%** | 0.981 | 0.966 | **+1.5%** | 6.5 h |
-| g=170, L_c=1.00 | 4264 | 4015 | **−5.8%** | 0.804 | 0.920 | **−12.5%** | 14.0 h |
-| g=180, L_c=0.60 | 6351 | 4603 | **−27.5%** | 0.721 | 0.879 | **−17.9%** | 20.7 h |
+Three geometries x three configurations: production mesh 32 nm, coarse mesh
+40 nm, and 40 nm with 3x denser spectral sampling (a control for the
+extraction method). All nine resolved (pts/FWHM 6.1–52.9,
+FWHM/transform-limit 3.14–4.12).
 
-All three resolved (pts/FWHM 6.9–17.3, FWHM/transform-limit 3.14–4.12).
-λ_res error 0.056% mean. FSR error +2.5%, +2.6%, +2.8%.
+**Simulated Q_L:**
 
-### THE HEADLINE FINDING: Q_L accuracy degrades with Q_L
+| geometry | analytic Q | 32 nm | 40 nm | 40 nm, 6000 pts | sampling effect |
+|---|---|---|---|---|---|
+| G2 g=150 L_c=2.00 | 1855 | 1780 | 1749 | 1751 | +0.07% |
+| G1 g=170 L_c=1.00 | 4264 | 4015 | 3892 | 3921 | +0.76% |
+| G3 g=180 L_c=0.60 | 6351 | 4603 | 5229 | 5253 | +0.45% |
 
-**Both Q_L and transmission errors grow monotonically with Q_L.** That is the
-signature of a loss-like term that accumulates over round trips and that the
-analytic model omits: higher Q means more circulations means more compounding.
+**Spectral sampling is NOT a factor.** Tripling the points across the
+linewidth (6.1 → 17.8 for G3) moved Q by under 1% everywhere. The extraction
+is sound and the numbers are robust.
 
-Simulated Q **saturates near 4600** while the analytic model climbs to 6351.
+### THE KEY FINDING: the validation was mesh-limited, not the model
 
-It is **not one simple missing term**. A fixed per-round-trip loss would make
-1/Q_sim − 1/Q_analytic constant; the implied parasitic Q is 68 700, 44 400 and
-16 700 across the three — a fourfold spread. Something accumulates with round
-trips AND depends on geometry. Three points do not identify it, and no
-mechanism is claimed here.
+Q depends on mesh, so **32 nm was never converged for Q**. Sub-study 2
+established 32 nm for κ² — a *single-pass* quantity — and Q accumulates loss
+over hundreds of round trips, so a per-pass numerical loss invisible in κ²
+compounds.
 
-**Accuracy regime:** absolute Q_L is good (~5%) below Q ≈ 4000 and degrades
-badly above it. The design space extends well past this — Scenario B requires
-Q ≥ 7750 and candidates reached 12 291 — so a substantial fraction of the
-dataset carries unreliable absolute Q_L.
+Richardson extrapolation to zero mesh (2nd order assumed; two mesh sizes
+cannot verify the order):
+
+| | Richardson Q | analytic Q | error |
+|---|---|---|---|
+| G2 | 1833 | 1855 | **−1.2%** |
+| G1 | 4182 | 4264 | **−1.9%** |
+| G3 | 3447 | 6351 | −45.7% (diverges) |
+
+**At low and mid Q the analytic model is correct to ~2%**, and the 4–6%
+originally reported as model error was numerical error in the validation.
+
+**At high Q (G3) the discrepancy is real.** Refinement moves the simulation
+*away* from the model, and that is now confirmed not to be sampling or
+extraction.
+
+### Candidate explanation for G3 — HYPOTHESIS, NOT ESTABLISHED
+
+The bend-loss model is `bend = 4·exp(b₁ + b₀·R)` — **a function of radius
+only, with no wavelength dependence** (this is a fact about the code).
+G3 resonates at 1555 nm; G1 and G2 at 1542–1543 nm. Bend radiation at
+R = 5.2 µm rises steeply toward longer wavelengths, so a wavelength-blind
+loss model would over-predict Q specifically for the reddest resonance.
+
+It would also explain the mesh reversal: for a genuinely radiative mode a
+finer mesh resolves real radiation and *lowers* Q, whereas for G1 and G2 a
+finer mesh mainly removes spurious numerical loss and *raises* it.
+
+**Testing this needs a wavelength-resolved bend-loss study — future work.**
+
+### IL does not validate
+
+Drop-port transmission error at 32 nm: G1 −12.5%, G2 +1.5%, G3 −17.9%. No
+consistent sign, robust to sampling. G2's IL of 0.084 dB (T = 0.981) is within
+2% of unity, where the absolute uncertainty of extracting IL from an FDTD
+spectrum is comparable to the value itself — **G2 cannot validate IL at all**.
+
+### FSR — the second consistent systematic
+
++2.2% to +2.8% across all nine runs. FSR = λ²/(n_g·L) with L = 2πR + 2L_c
+exact, so the real ring's group index is ~2.5% below the model's. n_g comes
+from a **straight-waveguide** mode sweep and a 5.2 µm bend is not straight.
+The fix is a bent-waveguide mode solve, which would change every dataset
+label — future work.
+
+### Stated limitations for the paper
+
+1. Validation is at small radius only (R = 5.20 µm). A 10 µm ring needs
+   ~20 GB of solver memory and a 14 µm ring ~36 GB, against 15.7 GB of RAM.
+2. The validation is **not mesh-converged** and cannot be on this hardware;
+   a third mesh size for these geometries exceeds available memory.
+3. Richardson extrapolation assumes second-order convergence, which two mesh
+   sizes cannot verify.
+4. Q_L accuracy is demonstrated to ~2% for Q ≲ 4300 and is **not established**
+   above it.
+5. IL is not validated.
 
 ### What this does and does not affect
 
-**Unaffected** (every model trained and scored on identical labels, so a
-shared label bias cancels from every model-to-model comparison):
-- O6, the one-to-many resolution
-- the θ-vs-RMS-RGE predictive result
-- the buildability result
-- the sample-efficiency comparison (O5) and the four-way comparison (O4)
+**Unaffected** — every model was trained and scored on identical labels, so a
+shared label bias cancels from every model-to-model comparison:
+O6, the θ-vs-RMS-RGE result, buildability, O4 and O5.
 
-**Must be qualified:**
-- absolute Q_L and IL values anywhere they are quoted as physical predictions
-- O7 scenario verdicts, which were judged against Q_L specifications
-- the closed-loop errors, which are measured against the analytic model and
-  therefore inherit its bias
-
-**Second consistent systematic, unchanged by the third run:** FSR biased
-+2.5/+2.6/+2.8%. FSR = λ²/(n_g·L) with L = 2πR + 2L_c exact, so the real
-ring's group index is ~2.6% below the model's. n_g comes from a
-**straight-waveguide** mode sweep and a 5.2 µm bend is not straight. The fix
-is a bent-waveguide mode solve, which would change every dataset label —
-future work, not this paper.
+**Must be qualified:** absolute Q_L above Q ≈ 4300; absolute IL anywhere;
+O7 scenario verdicts, which were judged against Q_L specifications.
 
 ### λ_res, independently relevant to O7
 
@@ -388,6 +428,74 @@ trimming conclusion in §8.
 
 ---
 
+## 10b. Phase B1 — bent-mode FDE sweep (2026-10-13)
+
+210 FDE solves: straight control + 6 radii (5-15 um) x 6 widths (400-500 nm)
+x 5 wavelengths (1500-1600 nm). 10 nm mesh, PML on all four boundaries,
+`bentmode.csv`. Purpose: replace straight-guide n_g and the
+wavelength-independent bend-loss model with solver-measured values.
+
+### Result 1 — the stated cause of the FSR bias is REFUTED
+
+n_g(bent) vs n_g(straight) at 1550 nm differs by **at most 0.08%**, across
+every radius and width. The ring validation (§9) measured FSR biased
+**+2.2 to +2.8%** and §9 attributed it to straight-vs-bent n_g at ~2.5%.
+That attribution is wrong by a factor of ~30. n_eff shows the same: R=5,
+w=450, 1600 nm gives 2.29001 against 2.28881 straight (+0.05%).
+
+**Any text in the draft attributing the FSR bias to bend effects must be
+removed.** The measurement that was supposed to confirm it refutes it.
+
+### Result 2 — bend loss is not measurable this way
+
+Every entry of the bend-loss table is **negative** (i.e. gain, unphysical),
+with magnitudes from 1e-5 down to 1e-12 dB/cm -- the solver's numerical
+floor. Phase B2 as designed cannot proceed on this data.
+
+### Result 3 — the n_g polynomial carries a systematic -0.58% offset
+
+Phase-1 polynomial (`model_fits.json: neff`) against direct FDE at 1550 nm:
+
+    w (nm)    poly n_g   FDE n_g    error
+       400      4.4100    4.4354   -0.57%
+       425      4.3609    4.3876   -0.61%
+       440      4.3310    4.3560   -0.57%
+       450      4.3112    4.3361   -0.57%
+       475      4.2625    4.2864   -0.56%
+       500      4.2163    4.2407   -0.58%
+
+Flat across all widths -- systematic, not scatter. FSR ~ 1/n_g, so this
+makes predicted FSR 0.58% high. It accounts for ~0.6 pp of the 2.2-2.8 pp
+FSR bias. **~1.9 pp remains unexplained and is not bend-related.**
+
+Round-trip length is NOT the error: `build_mrr` draws two straights of
+length L_c plus two 180-deg bends, so L = 2*pi*R + 2*L_c as Eq. 1 assumes.
+
+### Result 4 — solver reliability (disclose in limitations)
+
+The FDE solver returns, non-deterministically, either a correct solve or a
+degenerate one (all modes pinned at the bulk index, n_g undefined) from an
+identical call sequence -- verified by two byte-identical state dumps giving
+opposite outcomes. The script detects this and rebuilds the solver until a
+guided mode appears, escalating the window (up to 3x) and trial-mode count.
+Most points needed 1-3 attempts; the hardest (R=6, w=400, 1600 nm) needed 8.
+
+Consequent caveat: **run-to-run and window-to-window scatter in n_g reaches
+0.7%** (w=500: +0.23% at R=7.5, +0.70% at R=10, +0.01% at R=12.5, +0.77% at
+R=15 -- non-monotonic in R, which is unphysical). That scatter is ~10x the
+bent-vs-straight effect being measured, so the small differences in the n_g
+table are at or below the noise floor. The -0.58% polynomial offset is well
+above it and stands.
+
+### What this does and does not change
+
+- Does: supplies direct FDE n_g, correcting a systematic -0.58%.
+- Does: removes a wrong physical explanation from the paper.
+- Does not: close the FSR gap (~1.9 pp unexplained).
+- Does not: enable B2. Bend loss needs a different method entirely.
+
+---
+
 ## 11. Still open
 
 - [x] **Full 3-D ring validation** (§9) — COMPLETE, 3 geometries, 41 h.
@@ -406,6 +514,15 @@ trimming conclusion in §8.
       (paywalled); confirm with library access
 - [ ] Replace the data-availability placeholder with a real URL/DOI
 - [ ] Seed repeats for the sample-efficiency curve (currently single-seed)
+- [ ] **Find the remaining ~1.9 pp of the FSR bias** (§10b). Not bend-related.
+      Next test: compute FSR for the three validated ring geometries three
+      ways -- model as-is, model with FDE n_g substituted, FDTD measured --
+      and attribute each gap.
+- [ ] **Decide the fate of Phase B2** (wavelength-resolved bend loss). The FDE
+      route gives numerical noise; a different method is required, or the
+      wavelength-independent loss model stays and is disclosed as a limitation.
+- [ ] Quantify the FDE repeatability directly: solve one point N times and
+      report the n_g spread (§10b Result 4 estimates 0.7% from the sweep).
 
 ---
 
@@ -422,6 +539,7 @@ trimming conclusion in §8.
 --kappafit      8-fold CV of kappa^2       --modesweep   n_eff / n_g sweep
 --seedcheck     seed stability of Phase 3  --thetaall    theta vs closed-loop
 --floor         information bound          --floorconv   bound convergence
+--bentmode      bent-mode FDE sweep        --modediag    FDE config ladder
 --validate      O1 literature validation   --ringvalidate full 3-D ring check
 --ringvalidate --dry   price candidates without simulating (--try=R,w,g,Lc)
 ```
