@@ -305,11 +305,56 @@ Three findings follow, and they are not all favourable.
 published-device check predicted.} $\lres$ agrees to $0.10\%$ across all nine
 runs. FSR is biased $+2.2$ to $+2.8\%$, the same sign and magnitude every
 time. Since FSR $= \lambda^2/(n_g L)$ and $L = 2\pi R + 2L_c$ is exact
-geometry, the real ring's group index is about $2.5\%$ below the model's. The
-model takes $n_g$ from a \emph{straight-waveguide} mode sweep, and a
-\SI{5.2}{\micro\metre} bend is not a straight waveguide; a bent-waveguide
-mode solve would correct this but would change every dataset label, so it is
-left to future work.
+geometry --- the ring is built as two straights of length $L_c$ joined by two
+\SI{180}{\degree} bends --- the discrepancy must lie in $n_g$: the product
+$n_g L$ the model uses differs from the ring's by about $2.5\%$.
+
+The obvious explanation is that the model takes $n_g$ from a
+\emph{straight-waveguide} mode sweep while a \SI{5.2}{\micro\metre} bend is
+not a straight waveguide. \emph{That explanation does not survive
+measurement.} A 210-point bent-waveguide FDE sweep (six radii from
+\SIrange{5}{15}{\micro\metre}, six widths, five wavelengths, \SI{10}{nm}
+mesh, PML on all boundaries) gives $n_g$ of the bent guide within $0.08\%$ of
+the straight guide at every point in the grid, and $n_{\mathrm{eff}}$ within
+$0.05\%$. The bend contribution is roughly thirty times too small to account
+for the observed bias.
+
+Stated as a percentage of FSR this comparison is treacherous, because FSR
+itself varies by about $4\%$ across \SIrange{1500}{1600}{nm}; a model FSR
+evaluated at $\lres$ and a measured spacing whose resonance pair is centred
+\SI{8}{nm} away are not the same quantity. We therefore compare group
+indices at matched wavelengths. Each adjacent resonance pair gives
+$n_g = \lambda_1\lambda_2 / [L(\lambda_2-\lambda_1)]$, which we compare with
+the FDE value interpolated at that pair's midpoint. Over ten pairs spanning
+the three geometries, \textbf{the ring's group index is $2.91\%$ below the
+mode solver's}, with a standard deviation of $0.26\%$ and a mild wavelength
+trend ($-2.4\%$ at \SI{1520}{nm} to $-3.2\%$ at \SI{1567}{nm}).
+
+Four candidate explanations are excluded by measurement. \emph{Round-trip
+length:} the straight fraction $2L_c/L$ is $3.5\%$, $5.8\%$ and $10.9\%$ for
+the three geometries --- a factor of three --- and the deficit is identical
+for all three, whereas a length error or a straight/bend mixing error would
+scale with it. \emph{Bend effects:} $0.08\%$, above. \emph{FSR extraction:}
+an independent re-extraction from the saved spectra agrees with the
+production analysis to $0.03\%$, $0.005\%$ and $0.014\%$. \emph{The $n_g$
+polynomial:} $0.26\%$ at these geometries. What remains is either FDTD
+numerical dispersion at this mesh or a limitation of the coupled-mode
+assembly itself; refining the mesh from \SI{40}{nm} to \SI{32}{nm} moves FSR
+\emph{away} from the model rather than toward it, which argues against a
+simple convergence artefact, and distinguishing the two would require a ring
+simulation at a substantially finer mesh than was affordable here.
+
+Two caveats attach to the sweep itself. The FDE solver intermittently returns
+a degenerate result from an identical call sequence, so each solve is
+verified and repeated until a guided mode is found. And the solver's reported
+$n_g$ is not smooth in wavelength: successive steps for the straight
+\SI{450}{nm} guide are $+0.0085$, $+0.0878$, $+0.0031$, $-0.0250$, one of
+them an order of magnitude larger than its neighbours. Against a
+finite-difference $n_g$ computed from the solver's own $n_{\mathrm{eff}}(\lambda)$
+the reported values scatter with a standard deviation of $0.54\%$. We
+therefore do \emph{not} regenerate the dataset labels from these values: the
+correction they would apply ($0.26\%$) is smaller than the noise they would
+inject.
 
 \textbf{The validation itself was mesh-limited, and at low to moderate $\QL$
 the analytic model is correct to within 2\%.} Simulated $\QL$ depends on the
@@ -566,6 +611,28 @@ $14\,659.8$ to the last digit. The naive network recovers $\theta$ itself to
 $1.824\%$, with $96.5\%$ of its predictions within $5\%$ of the correct level
 set. It is not failing; it is landing on the right level set and being scored
 on its position along it.
+
+Because this verdict rests on labels produced by the coupled-mode assembly,
+and Section~2.4 measured that assembly's group index to sit $2.91\%$ below
+full 3-D FDTD, it is fair to ask whether a label error of that size could
+manufacture or conceal the degeneracy. We tested it directly. The inverse
+model is trained on FSR labels rescaled by $\pm 3\%$ and then asked for
+geometries matching \emph{unshifted} targets --- the mismatch between the
+labels a model learns from and the response a user requests is what a biased
+label actually costs. (Shifting both sides instead is invariant: tree splits
+rescale with the feature and standardisation absorbs a uniform factor, so no
+model in the pipeline can respond to it.) Across $\pm 3\%$ the aggregate
+geometric error moves by $0.65$ percentage points and the reconstructed
+response error by $0.13$, and the count of parameters reaching
+$R^2 \ge 0.80$ never leaves one of four: $R$ stays at $0.958$--$0.961$ while
+$w$, $g$ and $L_c$ stay at $0.16$--$0.68$. The degeneracy is structural, as
+the constraint-counting argument requires --- a uniform shift in one label
+cannot change how many independent constraints four targets impose. This
+test uses a plain random-forest inverse as its vehicle, so its absolute
+error level is not comparable with Table~\ref{tab:score}; only the
+differences across the three label scalings are meaningful. It also probes
+the simplest form the label error could take, a uniform scaling, whereas the
+measured discrepancy is geometry-dependent with a mild wavelength trend.
 
 \subsection{Geometry-space error does not predict response-space error}
 \label{sec:metric}
@@ -836,6 +903,89 @@ response --- free spectral range, loaded $Q$, insertion loss --- and cannot
 deliver absolute resonance position. A CPO deployment must place channels by
 post-fabrication thermal or carrier trimming.
 
+\subsection{What the trimming costs}
+\label{sec:trim}
+
+That conclusion is only useful if the trimming it demands is affordable, so
+we quantify it. The thermo-optic sensitivity is solved for rather than
+assumed: each material index is perturbed in turn and the mode re-solved,
+giving $\Gamma_i = \partial n_{\mathrm{eff}} / \partial n_i$ directly.
+Perturbing both materials together reproduces the sum of the separate
+perturbations to within $0.17\%$ across all six widths, so the response is
+linear and the two sensitivities combine. With the literature
+$\mathrm{d}n/\mathrm{d}T$ of silicon and oxide --- the same class of input as
+the Palik index data used throughout --- and $n_g$ from the mode sweep,
+
+\begin{equation}
+\frac{\mathrm{d}\lres}{\mathrm{d}T}
+= \frac{\lambda}{n_g}\left[\Gamma_{\mathrm{Si}}
+\frac{\mathrm{d}n_{\mathrm{Si}}}{\mathrm{d}T}
++ \Gamma_{\mathrm{SiO_2}}
+\frac{\mathrm{d}n_{\mathrm{SiO_2}}}{\mathrm{d}T}\right],
+\end{equation}
+
+which evaluates to \SIrange{0.0700}{0.0734}{nm/K} over
+\SIrange{400}{500}{nm} of width. Published silicon microring tuning is
+\SIrange{0.07}{0.08}{nm/K}; nothing here was fitted to that, so the agreement
+is an independent check.
+
+Two physical constraints govern the budget. A thermo-optic heater shifts a
+resonance to the red only, and the resonance comb repeats every FSR, so a
+ring is tuned onto whichever resonance is nearest above it. A ring designed
+with a deliberate blue bias $\delta$ therefore needs a shift of
+$(\delta - e_i) \bmod \mathrm{FSR}_i$, where $e_i$ is its closed-loop $\lres$
+error. Choosing $\delta$ to minimise the worst case is a covering problem on
+a circle of circumference FSR, solved here by direct search. The requirement
+is bounded by one FSR --- about \SI{227}{K} for these geometries --- however
+poorly a model places $\lres$.
+
+\begin{table}[htbp]
+\centering
+\caption{Thermal trimming demand over the twenty closed-loop targets.
+\emph{Biased} assumes the optimal design offset; \emph{unbiased} assumes
+none. Power uses a thermal resistance of \SI{3}{K/mW}, a device parameter
+that scales the power columns linearly and the temperature columns not at
+all.}
+\label{tab:trim}
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+ & & \multicolumn{3}{c}{biased} & \multicolumn{2}{c}{unbiased} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-7}
+Method & RMS $\lres$ & spread & max $\Delta T$ & max & mean $\Delta T$
+& max $\Delta T$ \\
+ & (nm) & (nm) & (K) & (mW) & (K) & (K) \\
+\midrule
+Naive DNN   & 4.332 & 18.940 & 125.0 & 41.7 &  80.1 & 227.5 \\
+RF (raw)    & 4.015 & 16.433 & \textbf{121.4} & 40.5 &  70.1 & 190.4 \\
+XGBoost (norm) & 3.346 & 12.371 & 131.9 & 44.0 &  56.7 & 204.9 \\
+\midrule
+\multicolumn{7}{@{}l}{\itshape Tandem realises only 8 of 20 predictions and is
+excluded from the ranking: scoring it on} \\
+\multicolumn{7}{@{}l}{\itshape the subset it happened to realise is selection
+after the fact.} \\
+Tandem ($n=8$) & 3.638 & 9.082 & 76.0 & 25.3 & 58.0 & 104.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:trim} gives the result. The best fully-evaluated model needs a
+heater spanning \SI{121}{K}, drawing \SI{18.2}{mW} on average across rings
+and \SI{40.5}{mW} at worst --- \SI{73}{mW} static for a four-channel link and
+\SI{146}{mW} for eight channels, at typical draw. Trimming is therefore
+affordable, and the paper's central negative result about resonance placement
+does not invalidate the approach so much as price it.
+
+One consequence deserves emphasis because it inverts the usual figure of
+merit. Under a biased design the cost is set by how tightly the $\lres$
+errors \emph{cluster} once wrapped into one FSR, not by their RMS. XGBoost
+has the lowest RMS error of the three fully-evaluated models and the
+\emph{highest} trimming demand; the random forest is worse on RMS and cheaper
+to trim. A systematic offset is absorbed by the design bias at no cost, while
+scatter is paid for in heater range and static power. For a system that will
+be trimmed anyway --- which is every deployed microring link --- consistency
+is worth more than accuracy, and inverse-design models should be selected
+accordingly.
+
 \section{Discussion}
 
 The central result is that a question treated as empirical in the
@@ -917,6 +1067,24 @@ percentage point.
 \item \textbf{No fabrication.} Every result is simulation-based. The
 resonance-placement conclusion in particular predicts that trimming is
 required; it does not demonstrate a trimmed device.
+\item \textbf{Label fidelity is tested only against a uniform shift.} The
+$\pm 3\%$ perturbation of Section~3.2 leaves the O6 verdict unchanged, but a
+uniform rescaling is the simplest form the measured discrepancy could take;
+a geometry-dependent label error was not tested and would require
+regenerating the dataset from full 3-D simulation.
+\item \textbf{The ring's group index is $2.91\%$ below the mode solver's,
+and the cause is not established.} Round-trip length, bend effects, FSR
+extraction and the $n_g$ polynomial are each excluded by measurement
+(Section~2.4). The residual is a quantified, reproducible disagreement
+between the coupled-mode assembly and full 3-D FDTD, stable across three
+geometries. Every FSR-derived quantity, including the $L_c$ recovered from
+the FSR constraint, inherits it.
+\item \textbf{Bend loss is not resolvable by the eigenmode route.} The
+imaginary part of $n_{\mathrm{eff}}$ returned by the FDE solve at these radii
+is negative at every grid point and of magnitude \SIrange{e-12}{e-5}{dB/cm},
+i.e.\ at the solver's numerical floor. The wavelength-independent bend-loss
+model therefore stands uncorrected, and a wavelength-resolved replacement
+would require 3-D FDTD of a bend section.
 \item \textbf{No independent expert review of the physical methods} was
 obtained prior to this draft.
 \end{enumerate}
