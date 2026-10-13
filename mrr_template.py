@@ -2158,6 +2158,118 @@ def run_trimbudget():
     print(f"\n[trim] wrote {resdir}/trim_budget.txt")
 
 
+
+LABELSENS_SCALES = [0.97, 1.00, 1.03]
+
+
+def run_labelsens():
+    """
+    Label-fidelity sensitivity for O6.
+
+    The dataset's FSR labels come from the coupled-mode assembly, which the
+    full 3-D ring validation measured to disagree with FDTD by 2.91% in group
+    index (section 10b). FSR = lambda^2/(n_g L), so the labels inherit that.
+    A referee is entitled to ask what the O6 verdict means if the labels are
+    systematically off by ~3%.
+
+    This answers it directly: rescale the FSR labels by +/-3%, retrain, and
+    report whether the verdict changes. O6's geometry criterion counts
+    parameters reaching R^2 >= 0.80; its response criterion asks whether the
+    requested response is reproduced. If the degeneracy is structural -- four
+    targets collapsing to two effective constraints -- a uniform shift in one
+    label cannot create or remove it, and the counts will not move.
+
+    Tree models only. Retraining the networks per scale would add hours
+    without changing what is being tested, and the response column here is a
+    SURROGATE proxy, not the 3-D FDTD closed loop -- it compares predicted
+    geometry pushed back through a forward model, so it is a consistency
+    check, not an independent verification.
+    """
+    try:
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.metrics import r2_score
+    except Exception as exc:                            # noqa: BLE001
+        raise SystemExit(f"[labelsens] scikit-learn required: {exc}")
+
+    Xtr, Ytr = _load_split_raw("train")
+    Xte, Yte = _load_split_raw("test")
+    j_fsr = TARGETS.index("FSR_nm")
+
+    L = ["LABEL-FIDELITY SENSITIVITY OF O6", "=" * 78,
+         "The FSR labels come from the coupled-mode assembly, which the 3-D",
+         "ring validation found to disagree with FDTD by 2.91% in n_g. This",
+         "asks whether the O6 verdict survives a systematic shift of that",
+         "size in the labels.", "",
+         "Tree models only; the response column is a forward-surrogate proxy,",
+         "not the 3-D FDTD closed loop.", "",
+         f"  {'FSR x':>7} {'RMS-RGE':>9} " +
+         " ".join(f"{'R2 ' + k.split('_')[0]:>9}" for k in INPUTS) +
+         f" {'n>=0.80':>8} {'resp MAPE':>10}",
+         "  " + "-" * 78]
+    out = {}
+    for sc in LABELSENS_SCALES:
+        # TRAIN on biased labels, TEST against true targets. Scaling both
+        # sides is invariant -- trees split on thresholds that rescale with
+        # the feature, and standardisation absorbs a uniform factor, so no
+        # model in this pipeline can respond to it. An earlier version did
+        # exactly that and reported identical numbers to four decimals as
+        # though they were evidence of robustness. The mismatch between the
+        # labels a model was trained on and the targets a user requests is
+        # what a biased label actually costs.
+        ytr = Ytr.copy()
+        ytr[:, j_fsr] *= sc
+        yte = Yte            # true targets, unscaled
+        inv = RandomForestRegressor(n_estimators=400, random_state=42,
+                                    n_jobs=-1).fit(ytr, Xtr)
+        P = inv.predict(yte)
+        agg, per, p12 = _rms_rge(P, Xte)
+        r2 = [float(r2_score(Xte[:, j], P[:, j])) for j in range(len(INPUTS))]
+        n80 = sum(1 for v in r2 if v >= 0.80)
+        # forward model on TRUE labels: it stands in for the real device
+        fwd = RandomForestRegressor(n_estimators=400, random_state=42,
+                                    n_jobs=-1).fit(Xtr, Ytr)
+        Rp = fwd.predict(P)
+        den = np.where(np.abs(yte) > 1e-12, np.abs(yte), np.nan)
+        mape = float(np.nanmean(np.abs(Rp - yte) / den) * 100.0)
+        out[f"{sc:.2f}"] = dict(rms_rge=agg, r2=r2, n80=n80, resp_mape=mape)
+        L.append(f"  {sc:7.2f} {agg:8.3f}% " +
+                 " ".join(f"{v:9.4f}" for v in r2) +
+                 f" {n80:8d} {mape:9.3f}%")
+
+    base = out["1.00"]
+    L += ["", "  VERDICT", ""]
+    same = all(v["n80"] == base["n80"] for v in out.values())
+    L.append("  O6 geometry criterion (parameters reaching R^2 >= 0.80): "
+             + ("UNCHANGED at %d of %d under +/-3%% label shift."
+                % (base["n80"], len(INPUTS)) if same
+                else "CHANGES under a +/-3% label shift -- the verdict is "
+                     "NOT robust and this must be reported."))
+    sp = max(v["rms_rge"] for v in out.values()) - \
+        min(v["rms_rge"] for v in out.values())
+    L.append(f"  RMS-RGE moves by {sp:.3f} percentage points across the "
+             f"+/-3% range.")
+    rp = max(v["resp_mape"] for v in out.values()) - \
+        min(v["resp_mape"] for v in out.values())
+    L.append(f"  Surrogate response MAPE moves by {rp:.3f} points.")
+    L += ["",
+          "  Read the 1.00 row as the baseline: it is the pipeline as",
+          "  published. The 0.97 and 1.03 rows show what a 3% label bias",
+          "  costs when the model is then asked for true targets.", "",
+          "  A uniform scaling of one label is the SIMPLEST form the label",
+          "  error could take. It is not a proof of robustness against a",
+          "  geometry-dependent error, which is what a 2.91% n_g deficit",
+          "  with a mild wavelength trend actually is. Stated as a bound on",
+          "  what was tested, not as a general claim."]
+    txt = "\n".join(L)
+    print("\n" + txt)
+    resdir = "results" if os.path.isdir("results") else "."
+    open(os.path.join(resdir, "label_sensitivity.txt"), "w").write(txt + "\n")
+    import json as _j
+    _j.dump(out, open(os.path.join(resdir, "label_sensitivity.json"), "w"),
+            indent=1)
+    print(f"\n[labelsens] wrote {resdir}/label_sensitivity.txt")
+
+
 def run_bentmode():
     """
     Bent-waveguide FDE sweep over (R, w, lambda).
@@ -6840,6 +6952,10 @@ def main():
 
     if "--floorconv" in sys.argv:
         run_floorconv()
+        return
+
+    if "--labelsens" in sys.argv:
+        run_labelsens()
         return
 
     if "--trimbudget" in sys.argv:

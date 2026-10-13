@@ -622,6 +622,50 @@ selected on spread.
 
 ---
 
+## 10d. Label-fidelity sensitivity of O6 (2026-10-13)
+
+The dataset's FSR labels come from the coupled-mode assembly, which §10b
+measured at 2.91% below full 3-D FDTD in n_g. A referee is entitled to ask
+what the O6 verdict means if the labels carry a systematic error of that
+size. This answers it.
+
+**Design.** Train the inverse model on FSR labels rescaled by +/-3%, then ask
+it for geometries matching UNSHIFTED targets. The mismatch between the labels
+a model learns from and the response a user requests is what a biased label
+costs.
+
+**A vacuous first attempt, recorded so it is not repeated.** The first
+version scaled train AND test labels together and returned numbers identical
+to four decimal places, which was presented as robustness. It was invariance:
+tree splits rescale with the feature, and standardisation absorbs a uniform
+factor, so no model in this pipeline can respond to that perturbation. This
+is the second vacuous test built in this project (the --thetaall ordering
+test was the first); both had the same signature -- a suspiciously clean
+result accepted before checking whether the quantity could vary at all.
+
+    FSR x   RMS-RGE    R2 R     R2 w     R2 g    R2 Lc   n>=0.80  resp MAPE
+     0.97   16.060%  0.9582   0.1872   0.6673   0.2029         1    11.012%
+     1.00   16.285%  0.9610   0.1996   0.6788   0.1840         1    11.060%
+     1.03   16.706%  0.9589   0.2129   0.6641   0.1640         1    10.931%
+
+**Result: the O6 verdict is unchanged.** RMS-RGE moves 0.646 pp across the
++/-3% range, the response proxy 0.130 pp, and the count of parameters
+reaching R^2 >= 0.80 never leaves 1 of 4. R stays 0.958-0.961; w, g and Lc
+stay 0.16-0.68. The degeneracy is structural, as constraint counting
+requires: a uniform shift in one label cannot change how many independent
+constraints four targets impose.
+
+**Two caveats that must travel with this number.**
+1. The 16.285% baseline is a plain RF inverse on raw targets, used only as a
+   vehicle for the perturbation. It is NOT comparable to the 15.506% in the
+   objective table. Only the differences between rows are meaningful.
+2. A uniform scaling is the simplest form the label error could take. The
+   measured discrepancy is geometry-dependent with a mild wavelength trend.
+   Testing that would require regenerating the dataset from full 3-D
+   simulation.
+
+---
+
 ## 11. Still open
 
 - [x] **Full 3-D ring validation** (§9) — COMPLETE, 3 geometries, 41 h.
@@ -640,6 +684,10 @@ selected on spread.
       (paywalled); confirm with library access
 - [ ] Replace the data-availability placeholder with a real URL/DOI
 - [ ] Seed repeats for the sample-efficiency curve (currently single-seed)
+- [ ] Label sensitivity against a GEOMETRY-DEPENDENT label error, not just a
+      uniform scaling (§10d caveat 2). Needs the dataset regenerated from
+      full 3-D simulation, which is the expensive path the dual-fidelity
+      construction exists to avoid.
 - [x] **Attribute the FSR bias** (§10b Result 5) -- DONE. It is a 2.91%
       group-index deficit, not a length, bend, extraction or fit error.
 - [ ] **Decide whether to chase the 2.91% further.** Distinguishing FDTD
@@ -675,6 +723,7 @@ selected on spread.
 --bentmode      bent-mode FDE sweep        --modediag    FDE config ladder
 --fsrcheck      FSR attribution            --matcheck    material index models
 --thermal       tuning sensitivity         --trimbudget  trimming power budget
+--labelsens     O6 label-fidelity test
 --validate      O1 literature validation   --ringvalidate full 3-D ring check
 --ringvalidate --dry   price candidates without simulating (--try=R,w,g,Lc)
 ```

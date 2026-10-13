@@ -1,0 +1,31 @@
+LABEL-FIDELITY SENSITIVITY OF O6
+==============================================================================
+The FSR labels come from the coupled-mode assembly, which the 3-D
+ring validation found to disagree with FDTD by 2.91% in n_g. This
+asks whether the O6 verdict survives a systematic shift of that
+size in the labels.
+
+Tree models only; the response column is a forward-surrogate proxy,
+not the 3-D FDTD closed loop.
+
+    FSR x   RMS-RGE      R2 R      R2 w      R2 g     R2 Lc  n>=0.80  resp MAPE
+  ------------------------------------------------------------------------------
+     0.97   16.060%    0.9582    0.1872    0.6673    0.2029        1    11.012%
+     1.00   16.285%    0.9610    0.1996    0.6788    0.1840        1    11.060%
+     1.03   16.706%    0.9589    0.2129    0.6641    0.1640        1    10.931%
+
+  VERDICT
+
+  O6 geometry criterion (parameters reaching R^2 >= 0.80): UNCHANGED at 1 of 4 under +/-3% label shift.
+  RMS-RGE moves by 0.646 percentage points across the +/-3% range.
+  Surrogate response MAPE moves by 0.130 points.
+
+  Read the 1.00 row as the baseline: it is the pipeline as
+  published. The 0.97 and 1.03 rows show what a 3% label bias
+  costs when the model is then asked for true targets.
+
+  A uniform scaling of one label is the SIMPLEST form the label
+  error could take. It is not a proof of robustness against a
+  geometry-dependent error, which is what a 2.91% n_g deficit
+  with a mild wavelength trend actually is. Stated as a bound on
+  what was tested, not as a general claim.
