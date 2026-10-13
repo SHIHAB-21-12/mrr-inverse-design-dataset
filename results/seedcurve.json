@@ -1,0 +1,227 @@
+{
+ "42|100": {
+  "DNN forward": 20.551273106880203,
+  "naive DNN inverse": 16.532253298862187,
+  "Tandem inverse": 26.64253541096846,
+  "RF forward": 35.699645713517384,
+  "RF inverse": 17.218595860742973,
+  "XGB forward": 15.175902517687733,
+  "XGB inverse": 17.509459586142555
+ },
+ "42|200": {
+  "DNN forward": 14.378320027193201,
+  "naive DNN inverse": 16.288983641123185,
+  "Tandem inverse": 36.82774174105003,
+  "RF forward": 25.87266436180925,
+  "RF inverse": 16.527526236504457,
+  "XGB forward": 10.88341068586639,
+  "XGB inverse": 16.962910763797513
+ },
+ "42|400": {
+  "DNN forward": 4.737625528574695,
+  "naive DNN inverse": 16.038974131949512,
+  "Tandem inverse": 104.33213990147124,
+  "RF forward": 16.317277195511164,
+  "RF inverse": 15.7219635010029,
+  "XGB forward": 7.4258398697596455,
+  "XGB inverse": 16.769678067874246
+ },
+ "42|600": {
+  "DNN forward": 5.897556958544171,
+  "naive DNN inverse": 15.832120071241757,
+  "Tandem inverse": 59.20079101823862,
+  "RF forward": 13.102256203153981,
+  "RF inverse": 15.561432022227798,
+  "XGB forward": 5.457518820688669,
+  "XGB inverse": 16.881211336568764
+ },
+ "42|805": {
+  "DNN forward": 3.5678707349669825,
+  "naive DNN inverse": 15.505514440292709,
+  "Tandem inverse": 29.460969447328612,
+  "RF forward": 11.929129850114656,
+  "RF inverse": 15.83483671084853,
+  "XGB forward": 5.32288757143213,
+  "XGB inverse": 16.54630610142191
+ },
+ "43|100": {
+  "DNN forward": 14.617899162449277,
+  "naive DNN inverse": 16.52024873845054,
+  "Tandem inverse": 29.493679104339975,
+  "RF forward": 35.052259996905846,
+  "RF inverse": 17.201702433932443,
+  "XGB forward": 14.567691173227534,
+  "XGB inverse": 17.843448487210082
+ },
+ "43|200": {
+  "DNN forward": 14.93157467364279,
+  "naive DNN inverse": 16.185346612417284,
+  "Tandem inverse": 53.19407806704564,
+  "RF forward": 25.38509827669165,
+  "RF inverse": 16.465617859948956,
+  "XGB forward": 10.63815186821564,
+  "XGB inverse": 17.012681742569523
+ },
+ "43|400": {
+  "DNN forward": 7.639854093262002,
+  "naive DNN inverse": 15.96688218896384,
+  "Tandem inverse": 113.32882001452182,
+  "RF forward": 16.179130737054457,
+  "RF inverse": 15.731803285603352,
+  "XGB forward": 7.357969535950683,
+  "XGB inverse": 16.70740431411672
+ },
+ "43|600": {
+  "DNN forward": 5.557271410978017,
+  "naive DNN inverse": 15.624090140362101,
+  "Tandem inverse": 152.59058587108717,
+  "RF forward": 13.032262419167882,
+  "RF inverse": 15.457542677205074,
+  "XGB forward": 5.513454745925907,
+  "XGB inverse": 16.780719260290216
+ },
+ "43|805": {
+  "DNN forward": 3.9764693693766238,
+  "naive DNN inverse": 15.454373775437801,
+  "Tandem inverse": 18.062209980544914,
+  "RF forward": 11.687030503745984,
+  "RF inverse": 15.839140418086597,
+  "XGB forward": 5.023084606498815,
+  "XGB inverse": 16.545073060914337
+ },
+ "44|100": {
+  "DNN forward": 13.585556603423505,
+  "naive DNN inverse": 16.531706400796907,
+  "Tandem inverse": 29.29821946832262,
+  "RF forward": 34.38076243490289,
+  "RF inverse": 17.20802418393743,
+  "XGB forward": 14.863231592224679,
+  "XGB inverse": 17.450886495405715
+ },
+ "44|200": {
+  "DNN forward": 7.601650112779504,
+  "naive DNN inverse": 16.20542058585095,
+  "Tandem inverse": 33.32851817935673,
+  "RF forward": 25.022122354910135,
+  "RF inverse": 16.591015203990164,
+  "XGB forward": 10.32050237944269,
+  "XGB inverse": 17.0217971069565
+ },
+ "44|400": {
+  "DNN forward": 5.874209655747762,
+  "naive DNN inverse": 15.811480644903348,
+  "Tandem inverse": 84.61395913202928,
+  "RF forward": 16.351880459727717,
+  "RF inverse": 15.664140377505408,
+  "XGB forward": 7.5837948641539406,
+  "XGB inverse": 16.642101303134403
+ },
+ "44|600": {
+  "DNN forward": 9.55947184401903,
+  "naive DNN inverse": 15.668044319753893,
+  "Tandem inverse": 149.500211031843,
+  "RF forward": 13.181728902157516,
+  "RF inverse": 15.454928289883888,
+  "XGB forward": 5.597302721012156,
+  "XGB inverse": 16.359299136591563
+ },
+ "44|805": {
+  "DNN forward": 3.334270329459082,
+  "naive DNN inverse": 15.427053453598585,
+  "Tandem inverse": 26.844668674403255,
+  "RF forward": 11.819902056945832,
+  "RF inverse": 15.851978461829855,
+  "XGB forward": 5.089777321826819,
+  "XGB inverse": 16.62803513320837
+ },
+ "45|100": {
+  "DNN forward": 17.17780554732046,
+  "naive DNN inverse": 16.846292345765722,
+  "Tandem inverse": 50.194807797663366,
+  "RF forward": 34.698783796303196,
+  "RF inverse": 17.194545700478532,
+  "XGB forward": 14.809357452972105,
+  "XGB inverse": 17.657661490248866
+ },
+ "45|200": {
+  "DNN forward": 7.931289587745528,
+  "naive DNN inverse": 16.290708991856945,
+  "Tandem inverse": 36.07538514155058,
+  "RF forward": 25.225766526943303,
+  "RF inverse": 16.607041498255708,
+  "XGB forward": 10.74506459359056,
+  "XGB inverse": 17.042447747925372
+ },
+ "45|400": {
+  "DNN forward": 4.601156138646934,
+  "naive DNN inverse": 15.758081823830189,
+  "Tandem inverse": 69.75480496716358,
+  "RF forward": 16.23663787456043,
+  "RF inverse": 15.70826689905465,
+  "XGB forward": 7.181526294713413,
+  "XGB inverse": 16.66264144684304
+ },
+ "45|600": {
+  "DNN forward": 5.785595375816596,
+  "naive DNN inverse": 15.704362708955596,
+  "Tandem inverse": 85.64056880139356,
+  "RF forward": 13.190008846414795,
+  "RF inverse": 15.46660814904838,
+  "XGB forward": 5.8261876630872536,
+  "XGB inverse": 16.839468510576502
+ },
+ "45|805": {
+  "DNN forward": 3.9047198887255834,
+  "naive DNN inverse": 15.627954392509471,
+  "Tandem inverse": 37.7565939249434,
+  "RF forward": 11.761689257873947,
+  "RF inverse": 15.856875325772915,
+  "XGB forward": 5.0007661794391804,
+  "XGB inverse": 16.76967900697078
+ },
+ "46|100": {
+  "DNN forward": 21.260727053646654,
+  "naive DNN inverse": 16.83016831820103,
+  "Tandem inverse": 37.19676516307412,
+  "RF forward": 34.721963710153965,
+  "RF inverse": 17.15907396144604,
+  "XGB forward": 15.582650854874547,
+  "XGB inverse": 17.51031624173338
+ },
+ "46|200": {
+  "DNN forward": 10.989374474936032,
+  "naive DNN inverse": 16.513881840317268,
+  "Tandem inverse": 38.22861312907063,
+  "RF forward": 25.659013897953876,
+  "RF inverse": 16.57336720705524,
+  "XGB forward": 10.56759253127601,
+  "XGB inverse": 17.1827711151861
+ },
+ "46|400": {
+  "DNN forward": 5.439512885606337,
+  "naive DNN inverse": 15.918205178175949,
+  "Tandem inverse": 63.26204487393339,
+  "RF forward": 16.829336538971965,
+  "RF inverse": 15.710352809826231,
+  "XGB forward": 7.141451132875823,
+  "XGB inverse": 16.881565431358855
+ },
+ "46|600": {
+  "DNN forward": 4.077229238795784,
+  "naive DNN inverse": 15.820395935520523,
+  "Tandem inverse": 140.80642154935916,
+  "RF forward": 13.240727438018057,
+  "RF inverse": 15.422864695378994,
+  "XGB forward": 5.4800284933523535,
+  "XGB inverse": 16.600508922289436
+ },
+ "46|805": {
+  "DNN forward": 4.095608344302916,
+  "naive DNN inverse": 15.485829839232329,
+  "Tandem inverse": 33.58068063196777,
+  "RF forward": 11.81172420884638,
+  "RF inverse": 15.880885629923133,
+  "XGB forward": 5.138378139237316,
+  "XGB inverse": 16.79396111126532
+ }
+}

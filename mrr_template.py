@@ -2270,6 +2270,159 @@ def run_labelsens():
     print(f"\n[labelsens] wrote {resdir}/label_sensitivity.txt")
 
 
+
+SEEDCURVE_SEEDS = [42, 43, 44, 45, 46]
+
+
+def run_seedcurve():
+    """
+    Sample-efficiency curve repeated over seeds.
+
+    Phase 6.3 reports the curve at a single seed, which cannot distinguish a
+    real ordering between methods from initialisation noise. This repeats the
+    whole curve over SEEDCURVE_SEEDS and reports mean +/- sd at every size,
+    so the Phase 6 conclusions can be checked against their own error bars.
+
+    Resumable: results are checkpointed per (seed, size).
+    """
+    import json
+    torch = _torch()
+    outdir = "data" if os.path.isdir("data") else "."
+    resdir = "results" if os.path.isdir("results") else "."
+    sc = json.load(open(os.path.join(outdir, "scaler.json")))["scaler"]
+    p5 = json.load(open(os.path.join(resdir, "phase5_results.json")))
+    fck = torch.load(os.path.join(resdir, "phase3_forward_model.pt"),
+                     weights_only=False)
+
+    Gn_tr, Rn_tr, _ = _load_split("train")
+    Gn_va, Rn_va, _ = _load_split("val")
+    Gn_te, Rn_te, _ = _load_split("test")
+    Gr_te, Rr_te = _load_split_raw("test")
+    sizes = [n if n else len(Gn_tr) for n in SAMPLE_SIZES]
+
+    ck_path = os.path.join(resdir, "seedcurve.json")
+    done = json.load(open(ck_path)) if os.path.isfile(ck_path) else {}
+    todo = [(sd, n) for sd in SEEDCURVE_SEEDS for n in sizes
+            if f"{sd}|{n}" not in done]
+    print(f"[seedcurve] {len(SEEDCURVE_SEEDS)} seeds x {len(sizes)} sizes, "
+          f"{len(todo)} to run")
+
+    t0 = time.time()
+    for c, (sd, n) in enumerate(todo, 1):
+        print(f"[seedcurve] seed {sd}, n = {n}  ({c}/{len(todo)})")
+        rec = {}
+        torch.manual_seed(sd)
+        fnet, _ = _build_mlp(torch, fck["depth"], fck["width"])
+        _train_mlp(torch, fnet, Gn_tr[:n], Rn_tr[:n], Gn_va, Rn_va,
+                   fck["lr"], fck["wd"])
+        fnet.eval()
+        with torch.no_grad():
+            P = _res_physical(fnet(torch.from_numpy(Gn_te)).numpy(), sc)
+        rec["DNN forward"] = float(np.mean(
+            [_metrics(Rr_te[:, j], P[:, j])[1] for j in range(4)]))
+        for prm in fnet.parameters():
+            prm.requires_grad_(False)
+
+        gn = _build_inverse(torch, sd)
+        _train_inverse(torch, gn, Gn_tr[:n], Rn_tr[:n], Gn_va, Rn_va,
+                       forward=None, tag=f"s{sd}-n{n}-naive")
+        gn.eval()
+        with torch.no_grad():
+            rec["naive DNN inverse"] = _rms_rge(
+                _geo_physical(gn(torch.from_numpy(Rn_te)).numpy(), sc),
+                Gr_te)[0]
+
+        gt = _build_inverse(torch, sd + 1)
+        _train_inverse(torch, gt, Gn_tr[:n], Rn_tr[:n], Gn_va, Rn_va,
+                       forward=fnet, tag=f"s{sd}-n{n}-tandem")
+        gt.eval()
+        with torch.no_grad():
+            rec["Tandem inverse"] = _rms_rge(
+                _geo_physical(gt(torch.from_numpy(Rn_te)).numpy(), sc),
+                Gr_te)[0]
+
+        for kind in ("rf", "xgb"):
+            pref = "estimator__" if kind == "xgb" else ""
+            for direction, Xa, Ya in (("forward", Gn_tr, Rn_tr),
+                                      ("inverse", Rn_tr, Gn_tr)):
+                bp = {k.replace("estimator__", ""): v for k, v
+                      in p5[f"{direction}_{kind}_norm"]["best"].items()}
+                bp = {f"{pref}{k}": v for k, v in bp.items()}
+                # the seed must actually reach the estimator; _fit_sized
+                # accepts a seed argument but does not apply it
+                bp[f"{pref}random_state"] = int(sd)
+                e = _fit_sized(kind, direction, n, Xa, Ya, bp)
+                if direction == "forward":
+                    Pf = _res_physical(e.predict(Gn_te), sc)
+                    rec[f"{kind.upper()} forward"] = float(np.mean(
+                        [_metrics(Rr_te[:, j], Pf[:, j])[1]
+                         for j in range(4)]))
+                else:
+                    rec[f"{kind.upper()} inverse"] = _rms_rge(
+                        _geo_physical(e.predict(Rn_te), sc), Gr_te)[0]
+
+        done[f"{sd}|{n}"] = rec
+        json.dump(done, open(ck_path, "w"), indent=1)
+        el = (time.time() - t0) / 60.0
+        print(f"[seedcurve]   done ({el:.1f} min elapsed, "
+              f"{el / c * (len(todo) - c):.1f} min left)")
+
+    fwd_keys = ["DNN forward", "RF forward", "XGB forward"]
+    inv_keys = ["naive DNN inverse", "Tandem inverse", "RF inverse",
+                "XGB inverse"]
+
+    def stat(k, n):
+        v = [done[f"{sd}|{n}"][k] for sd in SEEDCURVE_SEEDS
+             if f"{sd}|{n}" in done and k in done[f"{sd}|{n}"]]
+        return (float(np.mean(v)), float(np.std(v)), len(v)) if v else \
+            (float("nan"), float("nan"), 0)
+
+    L = ["SAMPLE-EFFICIENCY CURVE OVER SEEDS", "=" * 92,
+         f"Seeds {SEEDCURVE_SEEDS}. Phase 6.3 reports this curve at one seed,",
+         "which cannot separate a real ordering from initialisation noise.",
+         "Each cell is mean +/- sd over the seeds.", ""]
+    for title, keys, unit in (("FORWARD -- aggregate test MAPE (%)",
+                               fwd_keys, "%"),
+                              ("INVERSE -- RMS-RGE (%)", inv_keys, "%")):
+        L += ["", f"  {title}",
+              "  " + f"{'method':<20}" +
+              "".join(f"{('n=' + str(n)):>18}" for n in sizes)]
+        for k in keys:
+            cells = []
+            for n in sizes:
+                m, sd_, cnt = stat(k, n)
+                cells.append(f"{m:9.3f}+-{sd_:<6.3f}")
+            L.append("  " + f"{k:<20}" + "".join(f"{c:>18}" for c in cells))
+
+    L += ["", "  DOES THE SINGLE-SEED CONCLUSION SURVIVE?", ""]
+    small = [n for n in sizes if n <= 300]
+    for label, keys, where in (("forward, n <= 300", fwd_keys, small),
+                               ("forward, full size", fwd_keys, [sizes[-1]]),
+                               ("inverse, n <= 300", inv_keys, small),
+                               ("inverse, full size", inv_keys, [sizes[-1]])):
+        if not where:
+            continue
+        sc_ = {k: np.mean([stat(k, n)[0] for n in where]) for k in keys}
+        sd_ = {k: np.mean([stat(k, n)[1] for n in where]) for k in keys}
+        rank = sorted(sc_, key=lambda k: sc_[k])
+        a, b_ = rank[0], rank[1]
+        gap = sc_[b_] - sc_[a]
+        pooled = float(np.sqrt(sd_[a] ** 2 + sd_[b_] ** 2))
+        verdict = ("SEPARATED" if gap > pooled else
+                   "NOT separated -- within seed noise")
+        L.append(f"  {label:<20} best {a} ({sc_[a]:.3f}), "
+                 f"runner-up {b_} ({sc_[b_]:.3f});")
+        L.append(f"  {'':<20} gap {gap:.3f} vs pooled sd {pooled:.3f} "
+                 f"-> {verdict}")
+    L += ["", "  A gap smaller than the pooled seed spread is not evidence of",
+          "  an ordering. Where that is the case the single-seed Phase 6",
+          "  statement must be softened to 'comparable'."]
+    txt = "\n".join(L)
+    print("\n" + txt)
+    open(os.path.join(resdir, "seedcurve.txt"), "w").write(txt + "\n")
+    print(f"\n[seedcurve] wrote {resdir}/seedcurve.txt")
+
+
 def run_bentmode():
     """
     Bent-waveguide FDE sweep over (R, w, lambda).
@@ -6952,6 +7105,10 @@ def main():
 
     if "--floorconv" in sys.argv:
         run_floorconv()
+        return
+
+    if "--seedcurve" in sys.argv:
+        run_seedcurve()
         return
 
     if "--labelsens" in sys.argv:

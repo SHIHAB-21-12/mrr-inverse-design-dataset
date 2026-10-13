@@ -666,6 +666,61 @@ constraints four targets impose.
 
 ---
 
+## 10e. Sample-efficiency curve over five seeds (2026-10-13)
+
+Phase 6.3 reports the curve at ONE seed, which cannot separate an ordering
+from initialisation noise. Repeated over seeds 42-46; 14.3 min.
+Two methods count as separated only when the gap exceeds the pooled sd.
+
+    FORWARD -- aggregate test MAPE (%)
+    method              n=100         n=200         n=400         n=600         n=805
+    DNN forward   17.44+-3.07   11.17+-3.09    5.66+-1.09    6.18+-1.82    3.78+-0.28
+    RF forward    34.91+-0.45   25.43+-0.30   16.38+-0.23   13.15+-0.07   11.80+-0.08
+    XGB forward   15.00+-0.35   10.63+-0.19    7.34+-0.16    5.58+-0.13    5.12+-0.12
+
+    INVERSE -- RMS-RGE (%)
+    naive DNN     16.65+-0.15   16.30+-0.12   15.90+-0.10   15.73+-0.08   15.50+-0.07
+    Tandem        34.57+-8.57   39.53+-7.02   87.06+-19.3  117.55+-38.0   29.14+-6.66
+    RF inverse    17.20+-0.02   16.55+-0.05   15.71+-0.02   15.47+-0.05   15.85+-0.02
+    XGB inverse   17.59+-0.14   17.05+-0.07   16.73+-0.09   16.69+-0.19   16.66+-0.11
+
+### One published claim FAILS
+
+"XGBoost forward is most accurate below 300 samples" is NOT supported.
+XGB 12.815 vs DNN 14.303: gap 1.487 against pooled sd 3.092. The DNN's
+forward MAPE varies +-3.07 at n=100, twice the gap. The single-seed reading
+showed XGB ahead by 4.4 points and supported the opposite, stronger claim.
+**The paper must say "comparable" in that regime.** Corrected in v8.
+
+### Three claims HOLD
+
+- forward, full size: DNN 3.776+-0.282 vs XGB 5.115+-0.115, gap 1.34 vs
+  pooled 0.30 -- separated.
+- inverse, n<=300: naive 16.475 vs RF 16.875, gap 0.40 vs 0.14 -- separated.
+- inverse, full: naive 15.500+-0.069 vs RF 15.853+-0.016, gap 0.35 vs 0.07.
+
+### Two new findings
+
+**Tandem is unusable, not merely worse.** 34.6+-8.6, 39.5+-7.0, 87.1+-19.3,
+117.5+-38.0, 29.1+-6.7 -- non-monotonic in training size, sd approaching a
+third of the mean. The tandem architecture is the standard literature remedy
+for one-to-many ambiguity; on this problem it fails outright. This reinforces
+the O6 argument rather than sitting beside it.
+
+**O3 now has an error bar.** The naive inverse reaches 15.500 +- 0.069% at
+full size against the <=15% threshold -- seven sd above it. O3 is missed
+REPRODUCIBLY, not narrowly, and no luckier seed would clear it. The rerun
+also independently reproduces the published 15.506%.
+
+### A latent bug found while building this
+
+`_fit_sized(kind, direction, n, X, Y, best, seed=NN_SEED)` accepts a seed and
+never applies it to the estimator. Any tree comparison that relied on that
+argument to vary was comparing identical fits. --seedcurve passes the seed
+through the hyperparameter dict instead. **Worth auditing other callers.**
+
+---
+
 ## 11. Still open
 
 - [x] **Full 3-D ring validation** (§9) — COMPLETE, 3 geometries, 41 h.
@@ -683,7 +738,9 @@ constraints four targets impose.
 - [ ] Ref [13] (Bogaerts et al.) — typeset Eq. 6 never read directly
       (paywalled); confirm with library access
 - [ ] Replace the data-availability placeholder with a real URL/DOI
-- [ ] Seed repeats for the sample-efficiency curve (currently single-seed)
+- [x] Seed repeats for the sample-efficiency curve -- DONE (§10e), five seeds.
+      One published claim failed and was corrected.
+- [ ] Audit other callers of `_fit_sized` for the ignored `seed` argument
 - [ ] Label sensitivity against a GEOMETRY-DEPENDENT label error, not just a
       uniform scaling (§10d caveat 2). Needs the dataset regenerated from
       full 3-D simulation, which is the expensive path the dual-fidelity
@@ -723,7 +780,7 @@ constraints four targets impose.
 --bentmode      bent-mode FDE sweep        --modediag    FDE config ladder
 --fsrcheck      FSR attribution            --matcheck    material index models
 --thermal       tuning sensitivity         --trimbudget  trimming power budget
---labelsens     O6 label-fidelity test
+--labelsens     O6 label-fidelity test    --seedcurve   5-seed sample efficiency
 --validate      O1 literature validation   --ringvalidate full 3-D ring check
 --ringvalidate --dry   price candidates without simulating (--try=R,w,g,Lc)
 ```

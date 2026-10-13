@@ -1,0 +1,34 @@
+SAMPLE-EFFICIENCY CURVE OVER SEEDS
+============================================================================================
+Seeds [42, 43, 44, 45, 46]. Phase 6.3 reports this curve at one seed,
+which cannot separate a real ordering from initialisation noise.
+Each cell is mean +/- sd over the seeds.
+
+
+  FORWARD -- aggregate test MAPE (%)
+  method                           n=100             n=200             n=400             n=600             n=805
+  DNN forward             17.439+-3.071     11.166+-3.089      5.658+-1.094      6.175+-1.815      3.776+-0.282 
+  RF forward              34.911+-0.448     25.433+-0.303     16.383+-0.231     13.149+-0.073     11.802+-0.079 
+  XGB forward             15.000+-0.350     10.631+-0.188      7.338+-0.162      5.575+-0.134      5.115+-0.115 
+
+  INVERSE -- RMS-RGE (%)
+  method                           n=100             n=200             n=400             n=600             n=805
+  naive DNN inverse       16.652+-0.152     16.297+-0.117     15.899+-0.102     15.730+-0.083     15.500+-0.069 
+  Tandem inverse          34.565+-8.573     39.531+-7.016     87.058+-19.288   117.548+-37.980    29.141+-6.664 
+  RF inverse              17.196+-0.020     16.553+-0.051     15.707+-0.023     15.473+-0.047     15.853+-0.016 
+  XGB inverse             17.594+-0.142     17.045+-0.074     16.733+-0.086     16.692+-0.192     16.657+-0.107 
+
+  DOES THE SINGLE-SEED CONCLUSION SURVIVE?
+
+  forward, n <= 300    best XGB forward (12.815), runner-up DNN forward (14.303);
+                       gap 1.487 vs pooled sd 3.092 -> NOT separated -- within seed noise
+  forward, full size   best DNN forward (3.776), runner-up XGB forward (5.115);
+                       gap 1.339 vs pooled sd 0.304 -> SEPARATED
+  inverse, n <= 300    best naive DNN inverse (16.475), runner-up RF inverse (16.875);
+                       gap 0.400 vs pooled sd 0.139 -> SEPARATED
+  inverse, full size   best naive DNN inverse (15.500), runner-up RF inverse (15.853);
+                       gap 0.353 vs pooled sd 0.071 -> SEPARATED
+
+  A gap smaller than the pooled seed spread is not evidence of
+  an ordering. Where that is the case the single-seed Phase 6
+  statement must be softened to 'comparable'.
