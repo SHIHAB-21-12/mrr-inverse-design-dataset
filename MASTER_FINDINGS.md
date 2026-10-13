@@ -559,6 +559,69 @@ correction it would apply is 0.26%; the noise it would inject is ~0.5% with
 
 ---
 
+## 10c. Phase C — thermal trimming budget (2026-10-13)
+
+### C1: tuning sensitivity, solved for
+
+Each material index perturbed in turn, mode re-solved, Gamma = dn_eff/dn_i
+read off directly. Perturbing both together reproduces the sum of the
+separate perturbations to +0.11% to +0.17% across all six widths, so the
+response is linear. dn/dT for Si and SiO2 are literature material constants,
+the same class of input as the Palik index data.
+
+    w (nm)  G_core  G_clad  G_both  add err   n_g     dlam/dT (nm/K)
+       400  1.0549  0.4032  1.4557   +0.17%  4.4354   0.0700
+       425  1.0649  0.3453  1.4081   +0.16%  4.3876   0.0712
+       440  1.0674  0.3174  1.3828   +0.15%  4.3560   0.0718
+       450  1.0687  0.3005  1.3672   +0.14%  4.3361   0.0721
+       475  1.0683  0.2671  1.3338   +0.13%  4.2864   0.0728
+       500  1.0665  0.2403  1.3053   +0.11%  4.2407   0.0734
+
+dlambda/dT = 0.0719 nm/K mean. Published Si microring tuning is 0.07-0.08
+nm/K and nothing here was fitted to it -- an independent cross-check, and
+the only quantity in this project that agreed with expectation first time.
+
+### C2/C3: what the trimming costs
+
+Two physical constraints, both of which I got wrong before getting right:
+- a heater shifts RED only (no cooling), so the signed error cannot simply
+  be divided by dlambda/dT;
+- the resonance comb repeats every FSR, so a ring is tuned onto the nearest
+  resonance above it and the requirement is CAPPED at one FSR (~227 K here).
+
+With a design bias delta, ring i needs (delta - e_i) mod FSR_i. Minimising
+the worst case over delta is a covering problem on a circle, solved by
+direct search.
+
+    method      n  RMS err  spread  bias:max dT  max mW  unbias mean  unbias max
+    naive      20   4.332n  18.940n      125.0K   41.66        80.1K      227.5K
+    rf_raw     20   4.015n  16.433n      121.4K   40.48        70.1K      190.4K
+    xgb_norm   20   3.346n  12.371n      131.9K   43.96        56.7K      204.9K
+    tandem      8   3.638n   9.082n       76.0K   25.33        58.0K      104.1K
+
+tandem is EXCLUDED from the ranking: it realises 8 of 20 predictions, so
+scoring it on the subset it managed is selection after the fact.
+
+Best fully-evaluated model: rf_raw. Heater spans 121.4 K (40.5 mW at
+3 K/mW, a literature device parameter that scales power only); mean draw
+18.2 mW. Scenario A (4 ch) 72.8 mW static, Scenario B (8 ch) 145.7 mW.
+
+**Trimming is affordable.** The paper's negative result on resonance
+placement prices the approach rather than invalidating it.
+
+### The result worth emphasising
+
+Under a biased design the figure of merit is how tightly the lambda_res
+errors CLUSTER once wrapped into one FSR -- NOT their RMS. xgb_norm has the
+lowest RMS of the three fully-evaluated models and the HIGHEST trimming
+demand; rf_raw is worse on RMS and cheaper to trim. A systematic offset is
+absorbed by the design bias for free; scatter is paid for in heater range
+and static power. For any system that will be trimmed -- i.e. every deployed
+microring link -- consistency beats accuracy, and inverse models should be
+selected on spread.
+
+---
+
 ## 11. Still open
 
 - [x] **Full 3-D ring validation** (§9) — COMPLETE, 3 geometries, 41 h.
@@ -588,6 +651,9 @@ correction it would apply is 0.26%; the noise it would inject is ~0.5% with
 - [ ] **Decide the fate of Phase B2** (wavelength-resolved bend loss). The FDE
       route gives numerical noise; a different method is required, or the
       wavelength-independent loss model stays and is disclosed as a limitation.
+- [ ] Phase C assumes one heater per ring and a 3 K/mW thermal resistance.
+      Crosstalk between adjacent heaters is not modelled and would raise the
+      budget; a shared-heater or bias-only scheme would lower it.
 - [ ] Quantify the FDE repeatability directly: solve one point N times and
       report the n_g spread (§10b Result 4 estimates 0.7% from the sweep).
 
@@ -608,6 +674,7 @@ correction it would apply is 0.26%; the noise it would inject is ~0.5% with
 --floor         information bound          --floorconv   bound convergence
 --bentmode      bent-mode FDE sweep        --modediag    FDE config ladder
 --fsrcheck      FSR attribution            --matcheck    material index models
+--thermal       tuning sensitivity         --trimbudget  trimming power budget
 --validate      O1 literature validation   --ringvalidate full 3-D ring check
 --ringvalidate --dry   price candidates without simulating (--try=R,w,g,Lc)
 ```

@@ -1,0 +1,38 @@
+THERMO-OPTIC TUNING SENSITIVITY (Phase C1)
+==============================================================================
+Gamma = dn_eff/dn_material, solved for directly by perturbing each
+material index and re-solving. dn/dT are literature material
+constants, the same class of input as the Palik data used
+throughout; everything geometry dependent is solved for.
+
+  lambda 1550 nm,  dn/dT: Si 1.860e-04/K, SiO2 1.000e-05/K,  perturbation 5.0e-03
+
+    w nm    n_eff   G_core   G_clad   G_both  add err      n_g   dlam/dT   ok
+  --------------------------------------------------------------------------------
+     400  2.22733   1.0549   0.4032   1.4557   +0.17%   4.4354    0.0700  yes
+     425  2.29484   1.0649   0.3453   1.4081   +0.16%   4.3876    0.0712  yes
+     440  2.33124   1.0674   0.3174   1.3828   +0.15%   4.3560    0.0718  yes
+     450  2.35307   1.0687   0.3005   1.3672   +0.14%   4.3361    0.0721  yes
+     475  2.40224   1.0683   0.2671   1.3338   +0.13%   4.2864    0.0728  yes
+     500  2.44547   1.0665   0.2403   1.3053   +0.11%   4.2407    0.0734  yes
+
+  CHECKS, each measured rather than assumed:
+  - additivity: G_core + G_clad against G_both, the two materials
+    perturbed together. Agreement means the response is linear and
+    the two sensitivities can be combined.
+  - a row marked NO had its four solves land on different modes and
+    must not be used.
+
+  G_both spans 1.305 to 1.456; n_g/n_eff spans 1.734 to 1.991.
+  Perturbation theory gives dn_eff/dn_i = Gamma_i^power *
+  n_g/n_eff, so G_both below n_g/n_eff indicates mode energy
+  outside the two perturbed rectangles (the PML region). The
+  cladding term contributes ~1.5% of dn_eff/dT, so this
+  affects dlambda/dT only marginally.
+
+  dlambda/dT = 0.0719 nm/K (spread 0.0700 to 0.0734) over 6 usable widths.
+  Published silicon microring tuning is ~0.07-0.08 nm/K, so
+  this is consistent with the literature it was not fitted to.
+
+  NEXT (C2): required dT per ring = lambda_res error /
+  (dlambda/dT), using the closed-loop errors already measured.

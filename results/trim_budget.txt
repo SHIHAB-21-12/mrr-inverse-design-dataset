@@ -1,0 +1,60 @@
+THERMAL TRIMMING BUDGET (Phase C2/C3)
+==============================================================================
+Resonance placement is the binding constraint for CPO: the O7
+scenarios fail almost entirely on lambda_res. This asks what it
+costs to fix that with a heater instead of with a better model.
+
+  dlambda/dT = 0.0700 to 0.0734 nm/K over w = 400-500 nm (measured, --thermal)
+  heater thermal resistance 3 K/mW (LITERATURE device parameter; scales the power column only)
+
+  Scenario A window +/-2.0 nm (4 nm channel grid),
+  Scenario B window +/-0.4 nm (0.8 nm ITU grid).
+
+  A heater shifts a resonance RED only. 'biased' assumes each ring
+  is designed deliberately blue of its channel and heated up, so
+  the error SPREAD sets the requirement; 'unbiased' assumes no such
+  bias, so a ring sitting red of its channel must be heated nearly
+  a full FSR to bring the next resonance onto the channel.
+
+      method    n   RMS err    spread  mean dT   max dT   max mW  unb mean  unb max   in A   in B
+                                    <------ biased ------>  <-- unbiased -->
+  ----------------------------------------------------------------------------------------------------
+       naive   20    4.332n   18.940n    57.1K   125.0K   41.66    80.1K   227.5K    50%    15%
+      rf_raw   20    4.015n   16.433n    54.6K   121.4K   40.48    70.1K   190.4K    40%     5%
+      tandem    8    3.638n    9.082n    31.3K    76.0K   25.33    58.0K   104.1K    38%    12%
+    xgb_norm   20    3.346n   12.371n    52.8K   131.9K   43.96    56.7K   204.9K    60%    20%
+
+  'in A' / 'in B' are the fraction of rings already inside the
+  window WITHOUT trimming. The dT columns are what the rest need.
+
+  INTERPRETATION
+
+  A heater must hold its ring at the trimmed temperature for as
+  long as the link is powered, so this is static power per ring,
+  paid continuously, multiplied by the channel count.
+
+  Ranked over the 3 model(s) evaluated on all 20 targets. Excluded from the ranking: tandem (n=8) -- scored on fewer points because
+  unrealisable predictions were dropped -- that is a
+  self-selected subset, not an easier-won result.
+
+  Best model by trimming demand: rf_raw (optimal design bias +2.991 nm, FSR 9.74 nm).
+  Biased design: heater must span 121.4 K (40.5 mW at 3 K/mW); mean draw across rings 18.2 mW.
+  Unbiased: 70 K on average, 190 K worst -- which is why the bias
+  is not optional.
+
+  Scenario A: 4 rings x 18.21 mW mean = 72.8 mW static (worst case 161.9 mW).
+  Scenario B: 8 rings x 18.21 mW mean = 145.7 mW static (worst case 323.9 mW).
+
+  The heater must be SIZED for the max and will typically
+  DRAW the mean. Both are quoted because they answer different
+  questions: what to build, and what it costs to run.
+
+  Note what this rewards: the figure of merit is how tightly the
+  lambda_res errors CLUSTER once wrapped into one FSR, not the
+  RMS error. A large but consistent offset is absorbed by the
+  design bias and costs nothing; scatter is what costs power.
+
+  The requirement is capped at one FSR by construction: a ring
+  that is further off than that is tuned onto the next
+  resonance instead. So no model, however poor at placing
+  lambda_res, can demand more than ~227 K here.

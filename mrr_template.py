@@ -166,6 +166,22 @@ BENTMODE_NEFF_MAX = 3.40
 # constant is retained only because --modediag still exercises the failing
 # configuration; nothing in the production path reads it.
 BENTMODE_SEARCH_N = 2.30
+
+# ---- Phase C: thermo-optic trimming -----------------------------------
+# dn/dT are MATERIAL constants from literature, the same class of input as
+# the Palik index data already used throughout. Everything geometry
+# dependent -- confinement, n_g, the resulting dlambda/dT -- is solved for.
+DNDT_SI = 1.86e-4        # /K, crystalline Si near 1550 nm
+DNDT_SIO2 = 1.0e-5       # /K, thermal oxide
+THERMAL_LAM_NM = 1550.0
+THERMAL_DN = 5.0e-3      # index perturbation for the sensitivity solve
+THERMAL_JSON = "thermal_c1.json"
+# Heater thermal resistance, K per mW of electrical drive. This is a DEVICE
+# parameter from the literature, not a result of this work, and it scales the
+# power column linearly -- the kelvin column is independent of it. Reported
+# values for silicon ring heaters span roughly 1-10 K/mW depending on whether
+# the ring is thermally isolated (undercut) or sits on bulk oxide.
+HEATER_K_PER_MW = 3.0
 RINGVAL_FDE_ATTEMPTS = 10
 # (window scale, trial modes) per retry attempt. The first three repeat the
 # default configuration, which is what recovers the intermittent failures;
@@ -1749,6 +1765,397 @@ def run_matcheck():
     resdir = "results" if os.path.isdir("results") else "."
     open(os.path.join(resdir, "material_check.txt"), "w").write(txt + "\n")
     print(f"\n[matcheck] wrote {resdir}/material_check.txt")
+
+
+
+def _fde_fixed_index(m, w_nm, lam_nm, n_core, n_clad):
+    """
+    One FDE solve with BOTH materials replaced by fixed indices. Used only to
+    measure how n_eff responds to an index change; the absolute n_eff from a
+    dispersionless solve is not used for anything else.
+    """
+    d = BENTMODE_MESH_NM * 1e-9
+
+    def build():
+        m.switchtolayout(); m.deleteall()
+        for nm_, ys, zs, idx, order in (
+                ("cladding", 6e-6, 6e-6, n_clad, 3),
+                ("wg", w_nm * 1e-9, H_CORE, n_core, 2)):
+            m.addrect(); m.set("name", nm_)
+            m.set("x", 0.0); m.set("x span", 6e-6)
+            m.set("y", 0.0); m.set("y span", ys)
+            m.set("z", 0.0); m.set("z span", zs)
+            m.set("material", "<Object defined dielectric>")
+            m.set("index", idx)
+            m.set("override mesh order from material database", True)
+            m.set("mesh order", order)
+        m.addfde()
+        m.set("solver type", "2D X normal")
+        m.set("x", 0.0)
+        m.set("y", 0.0); m.set("y span", 3.0e-6)
+        m.set("z", 0.0); m.set("z span", 2.5e-6)
+        m.set("define y mesh by", "maximum mesh step"); m.set("dy", d)
+        m.set("define z mesh by", "maximum mesh step"); m.set("dz", d)
+        m.set("y min bc", "PML"); m.set("y max bc", "PML")
+        m.set("z min bc", "PML"); m.set("z max bc", "PML")
+        m.setanalysis("wavelength", lam_nm * 1e-9)
+        m.setanalysis("number of trial modes", N_TRIAL_MODES)
+        return m.findmodes()
+
+    # same verify-and-rebuild loop the sweep uses
+    for attempt in range(1, RINGVAL_FDE_ATTEMPTS + 1):
+        build()
+        best = None
+        for i in range(1, N_TRIAL_MODES + 1):
+            nm0 = f"FDE::data::mode{i}"
+            try:
+                ne = complex(np.array(m.getdata(nm0, "neff")).flatten()[0])
+            except Exception:                           # noqa: BLE001
+                break
+            try:
+                te = complex(np.array(m.getdata(
+                    nm0, "TE polarization fraction")).flatten()[0]).real
+            except Exception:                           # noqa: BLE001
+                te = float("nan")
+            # Use the sweep's own guided-mode bounds, not the local core
+            # index: with the core perturbed upward a bulk-silicon mode at
+            # 3.47656 is strictly below n_core + dn and passes, which is what
+            # made the w = 400 and 425 rows disagree by 1.25 in n_eff.
+            if (BENTMODE_NEFF_MIN < ne.real < BENTMODE_NEFF_MAX
+                    and (te != te or te >= BENTMODE_TE_MIN)
+                    and (best is None or ne.real > best.real)):
+                best = ne
+        if best is not None:
+            return best.real
+        if attempt < RINGVAL_FDE_ATTEMPTS:
+            m.switchtolayout()
+            try:
+                m.select("FDE"); m.delete()
+            except Exception:                           # noqa: BLE001
+                pass
+    raise RuntimeError(f"no guided mode at w={w_nm} nm with fixed indices "
+                       f"n_core={n_core}, n_clad={n_clad}")
+
+
+def run_thermal():
+    """
+    Phase C1. Resonance tuning sensitivity dlambda_res/dT per geometry.
+
+    Measures, from the solver, how n_eff responds to an index change in the
+    core and in the cladding separately:
+
+        Gamma_core = dn_eff/dn_core,  Gamma_clad = dn_eff/dn_clad
+
+    then combines them with the literature dn/dT of each material:
+
+        dn_eff/dT = Gamma_core * (dn/dT)_Si + Gamma_clad * (dn/dT)_SiO2
+        dlambda_res/dT = lambda * (dn_eff/dT) / n_g
+
+    n_g comes from bentmode.csv, i.e. from the solver, not from a fit.
+    """
+    lumapi = load_lumapi()
+    lam = THERMAL_LAM_NM
+
+    ng_by_w = {}
+    try:
+        with open(_find(BENTMODE_CSV), newline="") as fh:
+            for r in csv.DictReader(fh):
+                if r["R_um"] != "straight":
+                    continue
+                if abs(float(r["lam_nm"]) - lam) < 1e-6:
+                    ng_by_w[float(r["w_nm"])] = float(r["ng_solver"])
+    except Exception as exc:                            # noqa: BLE001
+        print(f"[thermal] could not read {BENTMODE_CSV}: {exc}")
+
+    n_si = 3.47656        # index at 1550 nm as both solvers report it
+    n_ox = 1.44402
+    rows = []
+    with lumapi.MODE(hide=True) as m:
+        for w in MODE_W_NM:
+            # Four solves per width. The first three give the two
+            # sensitivities; the fourth perturbs BOTH materials and tests
+            # additivity, which is a measured check rather than an assumed
+            # one. A mode-selection slip in any single solve shows up as a
+            # wild Gamma, so the four n_eff values are also required to agree
+            # to within the perturbation itself before the row is accepted.
+            ok, n0 = False, float("nan")
+            for attempt in range(1, 4):
+                n0 = _fde_fixed_index(m, w, lam, n_si, n_ox)
+                nc = _fde_fixed_index(m, w, lam, n_si + THERMAL_DN, n_ox)
+                nl = _fde_fixed_index(m, w, lam, n_si, n_ox + THERMAL_DN)
+                nb = _fde_fixed_index(m, w, lam,
+                                      n_si + THERMAL_DN, n_ox + THERMAL_DN)
+                sp = max(nc, nl, nb, n0) - min(nc, nl, nb, n0)
+                if sp < 10.0 * THERMAL_DN:
+                    ok = True
+                    break
+                print(f"[thermal] w={w:5.0f} nm: the four solves disagree by "
+                      f"{sp:.4f} in n_eff, far more than the {THERMAL_DN:.1e} "
+                      f"perturbation -- a mode-selection slip. Retrying "
+                      f"({attempt + 1}).")
+            g_core = (nc - n0) / THERMAL_DN
+            g_clad = (nl - n0) / THERMAL_DN
+            g_both = (nb - n0) / THERMAL_DN
+            add_err = (100.0 * (g_core + g_clad - g_both) / g_both
+                       if g_both else float("nan"))
+            dneff_dT = g_core * DNDT_SI + g_clad * DNDT_SIO2
+            ng = ng_by_w.get(w, float("nan"))
+            dlam_dT = lam * dneff_dT / ng if ng == ng else float("nan")
+            rows.append((w, n0, g_core, g_clad, g_both, add_err,
+                         dneff_dT, ng, dlam_dT, ok))
+            print(f"[thermal] w={w:5.0f} nm  G_core {g_core:.4f}  "
+                  f"G_clad {g_clad:.4f}  G_both {g_both:.4f}  "
+                  f"additivity {add_err:+.2f}%  dlam/dT {dlam_dT:.4f} nm/K"
+                  f"{'' if ok else '   <-- UNRELIABLE'}")
+
+    L = ["THERMO-OPTIC TUNING SENSITIVITY (Phase C1)", "=" * 78,
+         "Gamma = dn_eff/dn_material, solved for directly by perturbing each",
+         "material index and re-solving. dn/dT are literature material",
+         "constants, the same class of input as the Palik data used",
+         "throughout; everything geometry dependent is solved for.", "",
+         f"  lambda {lam:.0f} nm,  dn/dT: Si {DNDT_SI:.3e}/K, "
+         f"SiO2 {DNDT_SIO2:.3e}/K,  perturbation {THERMAL_DN:.1e}", "",
+         f"  {'w nm':>6} {'n_eff':>8} {'G_core':>8} {'G_clad':>8} "
+         f"{'G_both':>8} {'add err':>8} {'n_g':>8} {'dlam/dT':>9} {'ok':>4}",
+         "  " + "-" * 80]
+    for w, n0, gc, gl, gb, ae, dn, ng, dl, ok in rows:
+        L.append(f"  {w:6.0f} {n0:8.5f} {gc:8.4f} {gl:8.4f} {gb:8.4f} "
+                 f"{ae:+7.2f}% {ng:8.4f} {dl:9.4f} {'yes' if ok else 'NO':>4}")
+    good = [r for r in rows if r[9]]
+    L += ["", "  CHECKS, each measured rather than assumed:",
+          "  - additivity: G_core + G_clad against G_both, the two materials",
+          "    perturbed together. Agreement means the response is linear and",
+          "    the two sensitivities can be combined.",
+          "  - a row marked NO had its four solves land on different modes and",
+          "    must not be used."]
+    if good:
+        gb_ = np.array([r[4] for r in good])
+        ne_ = np.array([r[1] for r in good])
+        ng_ = np.array([r[7] for r in good])
+        dl_ = np.array([r[8] for r in good])
+        L += ["", f"  G_both spans {gb_.min():.3f} to {gb_.max():.3f}; "
+              f"n_g/n_eff spans {(ng_/ne_).min():.3f} to "
+              f"{(ng_/ne_).max():.3f}.",
+              "  Perturbation theory gives dn_eff/dn_i = Gamma_i^power *",
+              "  n_g/n_eff, so G_both below n_g/n_eff indicates mode energy",
+              "  outside the two perturbed rectangles (the PML region). The",
+              "  cladding term contributes ~1.5% of dn_eff/dT, so this",
+              "  affects dlambda/dT only marginally.", "",
+              f"  dlambda/dT = {dl_.mean():.4f} nm/K "
+              f"(spread {dl_.min():.4f} to {dl_.max():.4f}) over "
+              f"{len(good)} usable widths.",
+              "  Published silicon microring tuning is ~0.07-0.08 nm/K, so",
+              "  this is consistent with the literature it was not fitted to.",
+              "", "  NEXT (C2): required dT per ring = lambda_res error /",
+              "  (dlambda/dT), using the closed-loop errors already measured."]
+    txt = "\n".join(L)
+    print("\n" + txt)
+    resdir = "results" if os.path.isdir("results") else "."
+    open(os.path.join(resdir, "thermal_c1.txt"), "w").write(txt + "\n")
+    import json as _j
+    _j.dump({"lambda_nm": lam, "dndt_si": DNDT_SI, "dndt_sio2": DNDT_SIO2,
+             "rows": [{"w_nm": r[0], "n_eff": r[1], "g_core": r[2],
+                       "g_clad": r[3], "g_both": r[4], "add_err_pct": r[5],
+                       "dneff_dT": r[6], "ng": r[7], "dlam_dT_nm_per_K": r[8],
+                       "ok": bool(r[9])} for r in rows]},
+            open(os.path.join(resdir, THERMAL_JSON), "w"), indent=1)
+    print(f"\n[thermal] wrote {resdir}/thermal_c1.txt and {THERMAL_JSON}")
+
+
+
+def run_trimbudget():
+    """
+    Phase C2/C3. How much thermal trimming each inverse-designed ring needs
+    to land inside its channel window, and what that costs in power.
+
+    Inputs, all already measured:
+      - dlambda/dT per width, from --thermal (thermal_c1.json)
+      - the closed-loop re-simulated lambda_res for each model, from the
+        3-D FDTD coupler runs (closedloop_*.json)
+      - the requested target lambda_res for those same test points
+
+    The kelvin column depends only on measured quantities. The power column
+    additionally uses HEATER_K_PER_MW, a device parameter from the
+    literature, and scales linearly with it.
+    """
+    import json
+    resdir = "results" if os.path.isdir("results") else "."
+    tj = os.path.join(resdir, THERMAL_JSON)
+    if not os.path.isfile(tj):
+        raise SystemExit(f"[trim] {tj} not found -- run --thermal first")
+    tc = json.load(open(tj))
+    good = [r for r in tc["rows"] if r["ok"]]
+    if not good:
+        raise SystemExit("[trim] no usable widths in thermal_c1.json")
+    tw = np.array([r["w_nm"] for r in good])
+    td = np.array([r["dlam_dT_nm_per_K"] for r in good])
+    order = np.argsort(tw); tw, td = tw[order], td[order]
+
+    def dlam_dT(w):
+        return float(np.interp(w, tw, td))
+
+    _, _, _ = None, None, None
+    Gr_te, Rr_te = _load_split_raw("test")
+    i_lam = TARGETS.index("lambda_res_nm")
+
+    methods = []
+    for fn in sorted(os.listdir(resdir)):
+        if fn.startswith("closedloop_") and fn.endswith(".json"):
+            methods.append(fn[len("closedloop_"):-len(".json")])
+    if not methods:
+        raise SystemExit("[trim] no closedloop_*.json in results/")
+
+    L = ["THERMAL TRIMMING BUDGET (Phase C2/C3)", "=" * 78,
+         "Resonance placement is the binding constraint for CPO: the O7",
+         "scenarios fail almost entirely on lambda_res. This asks what it",
+         "costs to fix that with a heater instead of with a better model.",
+         "",
+         f"  dlambda/dT = {td.min():.4f} to {td.max():.4f} nm/K over "
+         f"w = {tw.min():.0f}-{tw.max():.0f} nm (measured, --thermal)",
+         f"  heater thermal resistance {HEATER_K_PER_MW:g} K/mW "
+         "(LITERATURE device parameter; scales the power column only)",
+         "",
+         "  Scenario A window +/-2.0 nm (4 nm channel grid),",
+         "  Scenario B window +/-0.4 nm (0.8 nm ITU grid).", ""]
+    L += ["  A heater shifts a resonance RED only. 'biased' assumes each ring",
+          "  is designed deliberately blue of its channel and heated up, so",
+          "  the error SPREAD sets the requirement; 'unbiased' assumes no such",
+          "  bias, so a ring sitting red of its channel must be heated nearly",
+          "  a full FSR to bring the next resonance onto the channel.", "",
+          f"  {'method':>10} {'n':>4} {'RMS err':>9} {'spread':>9} "
+          f"{'mean dT':>8} {'max dT':>8} {'max mW':>8} "
+          f"{'unb mean':>9} {'unb max':>8} {'in A':>6} {'in B':>6}",
+          "  " + (" " * 34) + "<------ biased ------>  <-- unbiased -->",
+          "  " + "-" * 100]
+    store = {}
+    for meth in methods:
+        rec = json.load(open(os.path.join(resdir, f"closedloop_{meth}.json")))
+        errs, sl, fs = [], [], []
+        for k, v in rec.items():
+            if v.get("status") != "ok":
+                continue
+            try:
+                tgt = float(Rr_te[int(k)][i_lam])
+                sim = float(v["resim"]["lambda_res_nm"])
+                w = float(v["geom"][1])
+            except Exception:                           # noqa: BLE001
+                continue
+            e = sim - tgt
+            errs.append(e)
+            sl.append(dlam_dT(w))
+            # the ring's own FSR sets how far "one resonance along" is
+            try:
+                fs.append(float(v["resim"]["FSR_nm"]))
+            except Exception:                           # noqa: BLE001
+                fs.append(float("nan"))
+        if not errs:
+            L.append(f"  {meth:>10}    --  no usable closed-loop points")
+            continue
+        e = np.array(errs); sens = np.array(sl)
+        rms_e = float(np.sqrt(np.mean(e ** 2)))
+        # HEAT-ONLY PHYSICS, done properly. A heater moves a resonance red
+        # only, AND the resonance comb repeats every FSR, so ring i needs a
+        # shift of (delta - e_i) mod FSR_i for a design bias delta. The
+        # requirement is therefore bounded by one FSR however bad the model
+        # is -- you use the next resonance along. Choosing delta to minimise
+        # the worst case is a covering problem on a circle; it is solved here
+        # by scanning delta, which is exact to the grid and needs no
+        # assumption about the error distribution.
+        #
+        # An earlier version used (e_i - e_min)/sens, which ignores the wrap
+        # and produced a "biased" requirement LARGER than the unbiased one --
+        # impossible, and the reason this is now computed rather than argued.
+        fsr_nm = np.array(fs)
+        fsr_nm = np.where(np.isfinite(fsr_nm), fsr_nm, np.nanmedian(fsr_nm))
+        grid = np.linspace(0.0, float(np.nanmax(fsr_nm)), 4001)
+        shifts = np.mod(grid[:, None] - e[None, :], fsr_nm[None, :])
+        dts = shifts / sens[None, :]
+        worst = dts.max(axis=1)
+        j = int(np.argmin(worst))
+        delta_opt = float(grid[j])
+        dt_b = dts[j]
+        dt_u = np.mod(-e, fsr_nm) / sens
+        mw_b = dt_b / HEATER_K_PER_MW
+        inA = 100.0 * np.mean(np.abs(e) <= 2.0)
+        inB = 100.0 * np.mean(np.abs(e) <= 0.4)
+        store[meth] = dict(n=len(e), rms_err=rms_e,
+                           spread_nm=float(e.max() - e.min()),
+                           delta_opt_nm=float(np.mod(
+                               delta_opt, float(np.nanmean(fsr_nm)))),
+                           fsr_mean_nm=float(np.nanmean(fsr_nm)),
+                           max_dt_biased=float(dt_b.max()),
+                           mean_dt_biased=float(dt_b.mean()),
+                           max_mw_biased=float(mw_b.max()),
+                           mean_mw_biased=float(mw_b.mean()),
+                           mean_dt_unbiased=float(dt_u.mean()),
+                           max_dt_unbiased=float(dt_u.max()),
+                           inA=inA, inB=inB)
+        L.append(f"  {meth:>10} {len(e):4d} {rms_e:8.3f}n "
+                 f"{e.max()-e.min():8.3f}n {dt_b.mean():7.1f}K "
+                 f"{dt_b.max():7.1f}K {mw_b.max():7.2f} "
+                 f"{dt_u.mean():7.1f}K {dt_u.max():7.1f}K "
+                 f"{inA:5.0f}% {inB:5.0f}%")
+    L += ["", "  'in A' / 'in B' are the fraction of rings already inside the",
+          "  window WITHOUT trimming. The dT columns are what the rest need.",
+          "",
+          "  INTERPRETATION", "",
+          "  A heater must hold its ring at the trimmed temperature for as",
+          "  long as the link is powered, so this is static power per ring,",
+          "  paid continuously, multiplied by the channel count.", ""]
+    if store:
+        # Compare only models evaluated on the SAME number of targets. A
+        # model whose unrealisable predictions were dropped is scored on the
+        # subset it happened to succeed on, which is selection after the
+        # fact, not a fairer test. tandem realises 33.5% of its predictions
+        # and would otherwise win on 8 self-selected points.
+        nmax = max(v["n"] for v in store.values())
+        full = {m: v for m, v in store.items() if v["n"] == nmax}
+        partial = sorted(m for m in store if m not in full)
+        best = min(full, key=lambda m: full[m]["max_dt_biased"])
+        b = store[best]
+        if partial:
+            plist = ", ".join(
+                "%s (n=%d)" % (m, store[m]["n"]) for m in partial)
+            L += [f"  Ranked over the {len(full)} model(s) evaluated on all "
+                  f"{nmax} targets. Excluded from the ranking: "
+                  f"{plist} -- scored on fewer points because",
+                  "  unrealisable predictions were dropped -- that is a",
+                  "  self-selected subset, not an easier-won result.", ""]
+        L += [f"  Best model by trimming demand: {best} "
+              f"(optimal design bias {b['delta_opt_nm']:+.3f} nm, "
+              f"FSR {b['fsr_mean_nm']:.2f} nm).",
+              f"  Biased design: heater must span {b['max_dt_biased']:.1f} K "
+              f"({b['max_mw_biased']:.1f} mW at "
+              f"{HEATER_K_PER_MW:g} K/mW); mean draw across rings "
+              f"{b['mean_mw_biased']:.1f} mW.",
+              f"  Unbiased: {b['mean_dt_unbiased']:.0f} K on average, "
+              f"{b['max_dt_unbiased']:.0f} K worst -- which is why the bias",
+              "  is not optional.", ""]
+        for nch, scen in ((4, "A"), (8, "B")):
+            L.append(f"  Scenario {scen}: {nch} rings x "
+                     f"{b['mean_mw_biased']:.2f} mW mean = "
+                     f"{nch * b['mean_mw_biased']:.1f} mW static "
+                     f"(worst case {nch * b['max_mw_biased']:.1f} mW).")
+        L += ["",
+              "  The heater must be SIZED for the max and will typically",
+              "  DRAW the mean. Both are quoted because they answer different",
+              "  questions: what to build, and what it costs to run.",
+              "",
+              "  Note what this rewards: the figure of merit is how tightly the",
+              "  lambda_res errors CLUSTER once wrapped into one FSR, not the",
+              "  RMS error. A large but consistent offset is absorbed by the",
+              "  design bias and costs nothing; scatter is what costs power.",
+              "",
+              "  The requirement is capped at one FSR by construction: a ring",
+              "  that is further off than that is tuned onto the next",
+              "  resonance instead. So no model, however poor at placing",
+              f"  lambda_res, can demand more than ~{float(np.nanmax(fsr_nm))/np.mean(sens):.0f} K here."]
+    txt = "\n".join(L)
+    print("\n" + txt)
+    open(os.path.join(resdir, "trim_budget.txt"), "w").write(txt + "\n")
+    json.dump(store, open(os.path.join(resdir, "trim_budget.json"), "w"),
+              indent=1)
+    print(f"\n[trim] wrote {resdir}/trim_budget.txt")
 
 
 def run_bentmode():
@@ -6433,6 +6840,14 @@ def main():
 
     if "--floorconv" in sys.argv:
         run_floorconv()
+        return
+
+    if "--trimbudget" in sys.argv:
+        run_trimbudget()
+        return
+
+    if "--thermal" in sys.argv:
+        run_thermal()
         return
 
     if "--matcheck" in sys.argv:
