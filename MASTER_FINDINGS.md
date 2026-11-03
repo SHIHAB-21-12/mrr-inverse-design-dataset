@@ -220,10 +220,10 @@ nearest responses and compute RMS-RGE against truth. This is the error of a
 **The asymmetry governs what can be concluded.** An upper bound *below* a
 threshold proves the true bound is below it; *above*, it proves nothing.
 
-Since 14.626% < 15%: **O3's threshold lies above the information content of
-four scalar targets. O3 is reachable in principle; the shortfall is a
-model-and-data result, not a fundamental limit.** At least **0.879 pp** of
-headroom remains.
+Since 14.626% < 15%: **we have no evidence that O3's threshold is unreachable.**
+We do not claim it is reachable: k was chosen on the same 173 test targets, a
+second run (k=5) gives 14.669%, the k-curve is not smooth, and no sampling
+interval was computed.
 
 **Not converged:** best k drifts 25→7 and the descent accelerates from 0.096
 to 0.530 pp per e-fold. A shifting optimum means the estimator's own
@@ -606,19 +606,22 @@ Best fully-evaluated model: rf_raw. Heater spans 121.4 K (40.5 mW at
 3 K/mW, a literature device parameter that scales power only); mean draw
 18.2 mW. Scenario A (4 ch) 72.8 mW static, Scenario B (8 ch) 145.7 mW.
 
-**Trimming is affordable.** The paper's negative result on resonance
-placement prices the approach rather than invalidating it.
+**Trimming is feasible under the stated assumptions** (one heater per ring,
+3 K/mW). Affordability against a CPO power budget was NOT assessed, and the
+paper makes no such claim.
 
 ### The result worth emphasising
 
-Under a biased design the figure of merit is how tightly the lambda_res
-errors CLUSTER once wrapped into one FSR -- NOT their RMS. xgb_norm has the
-lowest RMS of the three fully-evaluated models and the HIGHEST trimming
-demand; rf_raw is worse on RMS and cheaper to trim. A systematic offset is
-absorbed by the design bias for free; scatter is paid for in heater range
-and static power. For any system that will be trimmed -- i.e. every deployed
-microring link -- consistency beats accuracy, and inverse models should be
-selected on spread.
+RETRACTED (2026-11-03): the earlier claim that clustering, not RMS, sets the
+heater demand, and that inverse models should be selected on spread, is NOT
+supported once circular spread is computed. Over the twenty targets the naive
+network has the smallest circular spread (6.898 nm) but a maximum biased dT of
+125.0 K; RF (raw) has a larger spread (7.873 nm) but the smallest maximum dT
+(121.4 K); XGBoost (norm) lies between (7.114 nm, 131.9 K). Spread does not
+rank the three models in the same order as heater demand, and the three are
+within 10.5 K of each other on maximum dT. What the data support: the
+requirement is capped at one FSR by construction (about 227 K) and the three
+models need 121-132 K at worst under a biased design.
 
 ---
 

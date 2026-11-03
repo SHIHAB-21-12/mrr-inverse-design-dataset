@@ -93,7 +93,7 @@ N_FREQ_POINTS = 20001
 MESH_SWEEP_NM = [32.0, 24.0, 20.0, 16.0, 12.0, 8.0]
 CONVERGENCE_GRADIENT = 1e-4          # Phase 1.6 sub-study 2 pass criterion
 CALIBRATE_SIM_TIME = 600e-12         # --calibrate: long window to measure
-                                     # the true linewidth (auto-shutoff ends it)
+# the true linewidth (auto-shutoff ends it)
 
 # --- coupler-only sub-study (dual-fidelity path, Section 7) ----------------
 # The coupler is NOT a resonator: light transits once, so there is no ringdown
@@ -202,7 +202,7 @@ DATASET_CSV = "mrr_dataset.csv"
 
 # --- Phase 2: preprocessing ------------------------------------------------
 SPLIT_SEED = 42                 # Phase 2.4
-SPLIT_FRAC = (0.70, 0.15, 0.15) # train / val / test, Phase 2.4
+SPLIT_FRAC = (0.70, 0.15, 0.15)  # train / val / test, Phase 2.4
 TARGETS = ["lambda_res_nm", "FSR_nm", "Q_L", "IL_dB"]
 INPUTS = ["R_um", "w_nm", "g_nm", "Lc_um"]
 # Phase 2.2 step 3: supplementary LHS batch aimed at an under-sampled region.
@@ -210,7 +210,8 @@ INPUTS = ["R_um", "w_nm", "g_nm", "Lc_um"]
 # 2*pi*R + 2*Lc <= 34.85 -- a thin corner that plain LHS barely reaches.
 SUPP_N = 150
 SUPP_SEED = 202                 # distinct from the main LHS seed
-SUPP_BOX = dict(R=(5.0, 5.6), w=(400.0, 500.0), g=(150.0, 290.0), Lc=(0.0, 1.6))
+SUPP_BOX = dict(R=(5.0, 5.6), w=(400.0, 500.0),
+                g=(150.0, 290.0), Lc=(0.0, 1.6))
 SUPP_L_MAX_UM = 34.85
 
 # --- Phase 3: forward model ------------------------------------------------
@@ -464,7 +465,8 @@ def _candidate_lumapi_paths():
     if env:
         found.append(env)
     for pat in pats:
-        found.extend(sorted(glob.glob(pat), reverse=True))  # newest version first
+        # newest version first
+        found.extend(sorted(glob.glob(pat), reverse=True))
     return found
 
 
@@ -528,9 +530,12 @@ def build_mrr(fdtd,
     # ---- cladding (lower mesh priority than the core) --------------------
     fdtd.addrect()
     fdtd.set("name", "cladding")
-    fdtd.set("x", 0.0); fdtd.set("x span", lay.sim_x_span + 4e-6)
-    fdtd.set("y", 0.0); fdtd.set("y span", lay.sim_y_span + 4e-6)
-    fdtd.set("z", z_core); fdtd.set("z span", lay.sim_z_span + 4e-6)
+    fdtd.set("x", 0.0)
+    fdtd.set("x span", lay.sim_x_span + 4e-6)
+    fdtd.set("y", 0.0)
+    fdtd.set("y span", lay.sim_y_span + 4e-6)
+    fdtd.set("z", z_core)
+    fdtd.set("z span", lay.sim_z_span + 4e-6)
     fdtd.set("material", MAT_CLAD)
     fdtd.set("override mesh order from material database", True)
     fdtd.set("mesh order", 3)
@@ -538,9 +543,12 @@ def build_mrr(fdtd,
     def _core_rect(name, x, xspan, y, yspan):
         fdtd.addrect()
         fdtd.set("name", name)
-        fdtd.set("x", x); fdtd.set("x span", xspan)
-        fdtd.set("y", y); fdtd.set("y span", yspan)
-        fdtd.set("z", z_core); fdtd.set("z span", H_CORE)
+        fdtd.set("x", x)
+        fdtd.set("x span", xspan)
+        fdtd.set("y", y)
+        fdtd.set("y span", yspan)
+        fdtd.set("z", z_core)
+        fdtd.set("z span", H_CORE)
         fdtd.set("material", MAT_CORE)
         fdtd.set("override mesh order from material database", True)
         fdtd.set("mesh order", 2)
@@ -548,8 +556,10 @@ def build_mrr(fdtd,
     def _core_bend(name, xc, theta_start, theta_stop):
         fdtd.addring()
         fdtd.set("name", name)
-        fdtd.set("x", xc); fdtd.set("y", 0.0)
-        fdtd.set("z", z_core); fdtd.set("z span", H_CORE)
+        fdtd.set("x", xc)
+        fdtd.set("y", 0.0)
+        fdtd.set("z", z_core)
+        fdtd.set("z span", H_CORE)
         fdtd.set("inner radius", p.R - p.w / 2.0)
         fdtd.set("outer radius", p.R + p.w / 2.0)
         fdtd.set("theta start", theta_start)
@@ -569,9 +579,12 @@ def build_mrr(fdtd,
     for name, ysign in (("bus_input_through", -1.0), ("bus_drop_add", +1.0)):
         fdtd.addrect()
         fdtd.set("name", name)
-        fdtd.set("x min", bus_x_min); fdtd.set("x max", bus_x_max)
-        fdtd.set("y", ysign * lay.bus_y); fdtd.set("y span", p.w)
-        fdtd.set("z", z_core); fdtd.set("z span", H_CORE)
+        fdtd.set("x min", bus_x_min)
+        fdtd.set("x max", bus_x_max)
+        fdtd.set("y", ysign * lay.bus_y)
+        fdtd.set("y span", p.w)
+        fdtd.set("z", z_core)
+        fdtd.set("z span", H_CORE)
         fdtd.set("material", MAT_CORE)
         fdtd.set("override mesh order from material database", True)
         fdtd.set("mesh order", 2)
@@ -580,9 +593,12 @@ def build_mrr(fdtd,
     two_d = dom.dimension.upper().startswith("2")
     fdtd.addfdtd()
     fdtd.set("dimension", "2D" if two_d else "3D")
-    fdtd.set("x", 0.0); fdtd.set("x span", lay.sim_x_span)
-    fdtd.set("y", 0.0); fdtd.set("y span", lay.sim_y_span)
-    fdtd.set("z", z_core); fdtd.set("z span", lay.sim_z_span)
+    fdtd.set("x", 0.0)
+    fdtd.set("x span", lay.sim_x_span)
+    fdtd.set("y", 0.0)
+    fdtd.set("y span", lay.sim_y_span)
+    fdtd.set("z", z_core)
+    fdtd.set("z span", lay.sim_z_span)
     fdtd.set("mesh accuracy", mesh.mesh_accuracy)
     fdtd.set("simulation time", dom.sim_time)
     fdtd.set("auto shutoff min", dom.auto_shutoff_min)
@@ -621,9 +637,12 @@ def build_mrr(fdtd,
         fdtd.set("y span", gap_span_y)
         fdtd.set("z", z_core)
         fdtd.set("z span", H_CORE + 2.0 * dom.coupler_pad_y)
-        fdtd.set("override x mesh", True); fdtd.set("dx", mesh.override_dx)
-        fdtd.set("override y mesh", True); fdtd.set("dy", mesh.override_dy)
-        fdtd.set("override z mesh", True); fdtd.set("dz", mesh.override_dz)
+        fdtd.set("override x mesh", True)
+        fdtd.set("dx", mesh.override_dx)
+        fdtd.set("override y mesh", True)
+        fdtd.set("dy", mesh.override_dy)
+        fdtd.set("override z mesh", True)
+        fdtd.set("dz", mesh.override_dz)
 
     # ---- source: fundamental TE, broadband 1500-1600 nm ------------------
     fdtd.addmode()
@@ -631,7 +650,8 @@ def build_mrr(fdtd,
     fdtd.set("injection axis", "x-axis")
     fdtd.set("direction", "Forward")
     fdtd.set("x", lay.x_src)
-    fdtd.set("y", -lay.bus_y); fdtd.set("y span", dom.monitor_y_span)
+    fdtd.set("y", -lay.bus_y)
+    fdtd.set("y span", dom.monitor_y_span)
     fdtd.set("z", z_core)
     if not two_d:
         fdtd.set("z span", dom.monitor_z_span)
@@ -653,7 +673,8 @@ def build_mrr(fdtd,
         fdtd.set("name", name)
         fdtd.set("monitor type", "Linear Y" if two_d else "2D X-normal")
         fdtd.set("x", x)
-        fdtd.set("y", y); fdtd.set("y span", dom.monitor_y_span)
+        fdtd.set("y", y)
+        fdtd.set("y span", dom.monitor_y_span)
         fdtd.set("z", z_core)
         if not two_d:
             fdtd.set("z span", dom.monitor_z_span)
@@ -669,8 +690,10 @@ def build_mrr(fdtd,
     fdtd.addindex()
     fdtd.set("name", "index_xy")
     fdtd.set("monitor type", "2D Z-normal")
-    fdtd.set("x", 0.0); fdtd.set("x span", lay.sim_x_span)
-    fdtd.set("y", 0.0); fdtd.set("y span", lay.sim_y_span)
+    fdtd.set("x", 0.0)
+    fdtd.set("x span", lay.sim_x_span)
+    fdtd.set("y", 0.0)
+    fdtd.set("y span", lay.sim_y_span)
     fdtd.set("z", z_core)
 
     # ---- field-animation monitor (on unless movie=False) -----------------
@@ -678,8 +701,10 @@ def build_mrr(fdtd,
         fdtd.addmovie()
         fdtd.set("name", "movie_xy")
         fdtd.set("monitor type", "2D Z-normal")
-        fdtd.set("x", 0.0); fdtd.set("x span", lay.sim_x_span)
-        fdtd.set("y", 0.0); fdtd.set("y span", lay.sim_y_span)
+        fdtd.set("x", 0.0)
+        fdtd.set("x span", lay.sim_x_span)
+        fdtd.set("y", 0.0)
+        fdtd.set("y span", lay.sim_y_span)
         fdtd.set("z", z_core)
         fdtd.set("horizontal resolution", MOVIE_H_RES)
         fdtd.set("lock aspect ratio", True)
@@ -790,18 +815,26 @@ def build_coupler(fdtd, p, mesh=None, dom=None):
     fdtd.deleteall()
 
     def _rect(name, xmin, xmax, y, yspan, mat=MAT_CORE, order=2):
-        fdtd.addrect(); fdtd.set("name", name)
-        fdtd.set("x min", xmin); fdtd.set("x max", xmax)
-        fdtd.set("y", y); fdtd.set("y span", yspan)
-        fdtd.set("z", z_core); fdtd.set("z span", H_CORE)
+        fdtd.addrect()
+        fdtd.set("name", name)
+        fdtd.set("x min", xmin)
+        fdtd.set("x max", xmax)
+        fdtd.set("y", y)
+        fdtd.set("y span", yspan)
+        fdtd.set("z", z_core)
+        fdtd.set("z span", H_CORE)
         fdtd.set("material", mat)
         fdtd.set("override mesh order from material database", True)
         fdtd.set("mesh order", order)
 
-    fdtd.addrect(); fdtd.set("name", "cladding")
-    fdtd.set("x", 0.0); fdtd.set("x span", sim_x_span + 4e-6)
-    fdtd.set("y", y_ctr); fdtd.set("y span", sim_y_span + 4e-6)
-    fdtd.set("z", z_core); fdtd.set("z span", 4e-6)
+    fdtd.addrect()
+    fdtd.set("name", "cladding")
+    fdtd.set("x", 0.0)
+    fdtd.set("x span", sim_x_span + 4e-6)
+    fdtd.set("y", y_ctr)
+    fdtd.set("y span", sim_y_span + 4e-6)
+    fdtd.set("z", z_core)
+    fdtd.set("z span", 4e-6)
     fdtd.set("material", MAT_CLAD)
     fdtd.set("override mesh order from material database", True)
     fdtd.set("mesh order", 3)
@@ -810,22 +843,30 @@ def build_coupler(fdtd, p, mesh=None, dom=None):
         _rect("ring_straight_bottom", -p.Lc / 2.0, p.Lc / 2.0, -p.R, p.w)
     for name, xc, th0, th1 in (("ring_bend_left", -p.Lc / 2.0, 180.0, 270.0),
                                ("ring_bend_right", p.Lc / 2.0, 270.0, 360.0)):
-        fdtd.addring(); fdtd.set("name", name)
-        fdtd.set("x", xc); fdtd.set("y", 0.0)
-        fdtd.set("z", z_core); fdtd.set("z span", H_CORE)
+        fdtd.addring()
+        fdtd.set("name", name)
+        fdtd.set("x", xc)
+        fdtd.set("y", 0.0)
+        fdtd.set("z", z_core)
+        fdtd.set("z span", H_CORE)
         fdtd.set("inner radius", p.R - p.w / 2.0)
         fdtd.set("outer radius", p.R + p.w / 2.0)
-        fdtd.set("theta start", th0); fdtd.set("theta stop", th1)
+        fdtd.set("theta start", th0)
+        fdtd.set("theta stop", th1)
         fdtd.set("material", MAT_CORE)
         fdtd.set("override mesh order from material database", True)
         fdtd.set("mesh order", 2)
 
     # vertical stubs carrying the open ring ends out through the PML
     for name, xc in (("ring_exit_left", -x_cut), ("ring_exit_right", x_cut)):
-        fdtd.addrect(); fdtd.set("name", name)
-        fdtd.set("x", xc); fdtd.set("x span", p.w)
-        fdtd.set("y min", -1e-9); fdtd.set("y max", y_max + 1.0e-6)
-        fdtd.set("z", z_core); fdtd.set("z span", H_CORE)
+        fdtd.addrect()
+        fdtd.set("name", name)
+        fdtd.set("x", xc)
+        fdtd.set("x span", p.w)
+        fdtd.set("y min", -1e-9)
+        fdtd.set("y max", y_max + 1.0e-6)
+        fdtd.set("z", z_core)
+        fdtd.set("z span", H_CORE)
         fdtd.set("material", MAT_CORE)
         fdtd.set("override mesh order from material database", True)
         fdtd.set("mesh order", 2)
@@ -835,8 +876,10 @@ def build_coupler(fdtd, p, mesh=None, dom=None):
 
     fdtd.addfdtd()
     fdtd.set("dimension", "2D" if two_d else "3D")
-    fdtd.set("x", 0.0); fdtd.set("x span", sim_x_span)
-    fdtd.set("y", y_ctr); fdtd.set("y span", sim_y_span)
+    fdtd.set("x", 0.0)
+    fdtd.set("x span", sim_x_span)
+    fdtd.set("y", y_ctr)
+    fdtd.set("y span", sim_y_span)
     fdtd.set("z", z_core)
     if not two_d:
         fdtd.set("z span", 2.0 * (H_CORE / 2.0 + dom.z_margin))
@@ -851,20 +894,29 @@ def build_coupler(fdtd, p, mesh=None, dom=None):
 
     y_ring_edge = -(p.R - p.w / 2.0)
     y_bus_edge = -(bus_y + p.w / 2.0)
-    fdtd.addmesh(); fdtd.set("name", "mesh_coupler")
-    fdtd.set("x", 0.0); fdtd.set("x span", p.Lc + 2.0 * dom.coupler_pad_x)
+    fdtd.addmesh()
+    fdtd.set("name", "mesh_coupler")
+    fdtd.set("x", 0.0)
+    fdtd.set("x span", p.Lc + 2.0 * dom.coupler_pad_x)
     fdtd.set("y", 0.5 * (y_ring_edge + y_bus_edge))
     fdtd.set("y span", 2.0 * p.w + p.g + 2.0 * dom.coupler_pad_y)
-    fdtd.set("z", z_core); fdtd.set("z span", H_CORE + 2.0 * dom.coupler_pad_y)
-    fdtd.set("override x mesh", True); fdtd.set("dx", mesh.override_dx)
-    fdtd.set("override y mesh", True); fdtd.set("dy", mesh.override_dy)
-    fdtd.set("override z mesh", True); fdtd.set("dz", mesh.override_dz)
+    fdtd.set("z", z_core)
+    fdtd.set("z span", H_CORE + 2.0 * dom.coupler_pad_y)
+    fdtd.set("override x mesh", True)
+    fdtd.set("dx", mesh.override_dx)
+    fdtd.set("override y mesh", True)
+    fdtd.set("dy", mesh.override_dy)
+    fdtd.set("override z mesh", True)
+    fdtd.set("dz", mesh.override_dz)
 
     x_in = -(sim_x_span / 2.0 - dom.port_inset)
-    fdtd.addmode(); fdtd.set("name", "source_input")
-    fdtd.set("injection axis", "x-axis"); fdtd.set("direction", "Forward")
+    fdtd.addmode()
+    fdtd.set("name", "source_input")
+    fdtd.set("injection axis", "x-axis")
+    fdtd.set("direction", "Forward")
     fdtd.set("x", x_in)
-    fdtd.set("y", -bus_y); fdtd.set("y span", dom.monitor_y_span)
+    fdtd.set("y", -bus_y)
+    fdtd.set("y span", dom.monitor_y_span)
     fdtd.set("z", z_core)
     if not two_d:
         fdtd.set("z span", dom.monitor_z_span)
@@ -879,18 +931,22 @@ def build_coupler(fdtd, p, mesh=None, dom=None):
     fdtd.setglobalmonitor("use wavelength spacing", True)
     fdtd.setglobalmonitor("frequency points", dom.freq_points)
 
-    fdtd.addpower(); fdtd.set("name", "monitor_through")
+    fdtd.addpower()
+    fdtd.set("name", "monitor_through")
     fdtd.set("monitor type", "Linear Y" if two_d else "2D X-normal")
     fdtd.set("x", sim_x_span / 2.0 - dom.port_inset)
-    fdtd.set("y", -bus_y); fdtd.set("y span", dom.monitor_y_span)
+    fdtd.set("y", -bus_y)
+    fdtd.set("y span", dom.monitor_y_span)
     fdtd.set("z", z_core)
     if not two_d:
         fdtd.set("z span", dom.monitor_z_span)
 
-    fdtd.addpower(); fdtd.set("name", "monitor_cross")
+    fdtd.addpower()
+    fdtd.set("name", "monitor_cross")
     fdtd.set("monitor type", "Linear X" if two_d else "2D Y-normal")
     fdtd.set("y", y_max - dom.port_inset)
-    fdtd.set("x", x_cut); fdtd.set("x span", dom.monitor_y_span)
+    fdtd.set("x", x_cut)
+    fdtd.set("x span", dom.monitor_y_span)
     fdtd.set("z", z_core)
     if not two_d:
         fdtd.set("z span", dom.monitor_z_span)
@@ -947,7 +1003,8 @@ def run_substudy2_coupler(dimension="2D"):
         k2 = _at_target(lam_c, Tc)
         row = dict(d_nm=d_nm, cells_across_gap=round(p.g / (d_nm * 1e-9), 3),
                    kappa2=k2, t2=t2, sum_k2_t2=k2 + t2,
-                   t_coeff=float(np.sqrt(t2)) if t2 == t2 and t2 >= 0 else float("nan"),
+                   t_coeff=float(
+                       np.sqrt(t2)) if t2 == t2 and t2 >= 0 else float("nan"),
                    runtime_s=round(dt, 1))
         with open(csv_path, "a", newline="") as fh:
             wr = csv.DictWriter(fh, fieldnames=_S2C_FIELDS)
@@ -970,7 +1027,8 @@ def run_substudy2_coupler(dimension="2D"):
     verdict = None
     for d in ds:
         r = done[d]
-        k2 = float(r["kappa2"]); N = float(r["cells_across_gap"])
+        k2 = float(r["kappa2"])
+        N = float(r["cells_across_gap"])
         g = ""
         if prev is not None:
             dN = abs(N - prev[1])
@@ -982,7 +1040,8 @@ def run_substudy2_coupler(dimension="2D"):
               f"{float(r['sum_k2_t2']):9.4f}{g:>12}{float(r['runtime_s']):9.1f}s")
         prev = (k2, N)
     print("-" * 78)
-    print(f"Criterion: |d(kappa^2)/d(cells across gap)| < {CONVERGENCE_GRADIENT:g}")
+    print(
+        f"Criterion: |d(kappa^2)/d(cells across gap)| < {CONVERGENCE_GRADIENT:g}")
     if verdict is None:
         print("VERDICT: not converged across the swept range -- extend "
               "MESH_SWEEP_NM finer.")
@@ -1012,46 +1071,65 @@ def build_bend(fdtd, R, w, mesh, dom):
     y_lo = -(outer + dom.y_margin)
     y_hi = BEND_STUB + dom.y_margin
 
-    fdtd.switchtolayout(); fdtd.deleteall()
+    fdtd.switchtolayout()
+    fdtd.deleteall()
 
-    fdtd.addrect(); fdtd.set("name", "cladding")
-    fdtd.set("x", 0.5 * (x_lo + x_hi)); fdtd.set("x span", (x_hi - x_lo) + 4e-6)
-    fdtd.set("y", 0.5 * (y_lo + y_hi)); fdtd.set("y span", (y_hi - y_lo) + 4e-6)
-    fdtd.set("z", z); fdtd.set("z span", 4e-6)
+    fdtd.addrect()
+    fdtd.set("name", "cladding")
+    fdtd.set("x", 0.5 * (x_lo + x_hi))
+    fdtd.set("x span", (x_hi - x_lo) + 4e-6)
+    fdtd.set("y", 0.5 * (y_lo + y_hi))
+    fdtd.set("y span", (y_hi - y_lo) + 4e-6)
+    fdtd.set("z", z)
+    fdtd.set("z span", 4e-6)
     fdtd.set("material", MAT_CLAD)
     fdtd.set("override mesh order from material database", True)
     fdtd.set("mesh order", 3)
 
-    fdtd.addring(); fdtd.set("name", "bend")
-    fdtd.set("x", 0.0); fdtd.set("y", 0.0)
-    fdtd.set("z", z); fdtd.set("z span", H_CORE)
+    fdtd.addring()
+    fdtd.set("name", "bend")
+    fdtd.set("x", 0.0)
+    fdtd.set("y", 0.0)
+    fdtd.set("z", z)
+    fdtd.set("z span", H_CORE)
     fdtd.set("inner radius", R - w / 2.0)
     fdtd.set("outer radius", R + w / 2.0)
-    fdtd.set("theta start", 180.0); fdtd.set("theta stop", 270.0)
+    fdtd.set("theta start", 180.0)
+    fdtd.set("theta stop", 270.0)
     fdtd.set("material", MAT_CORE)
     fdtd.set("override mesh order from material database", True)
     fdtd.set("mesh order", 2)
 
-    fdtd.addrect(); fdtd.set("name", "stub_in")      # vertical, at x = -R
-    fdtd.set("x", -R); fdtd.set("x span", w)
-    fdtd.set("y min", -1e-9); fdtd.set("y max", y_hi + 1e-6)
-    fdtd.set("z", z); fdtd.set("z span", H_CORE)
+    fdtd.addrect()
+    fdtd.set("name", "stub_in")      # vertical, at x = -R
+    fdtd.set("x", -R)
+    fdtd.set("x span", w)
+    fdtd.set("y min", -1e-9)
+    fdtd.set("y max", y_hi + 1e-6)
+    fdtd.set("z", z)
+    fdtd.set("z span", H_CORE)
     fdtd.set("material", MAT_CORE)
     fdtd.set("override mesh order from material database", True)
     fdtd.set("mesh order", 2)
 
-    fdtd.addrect(); fdtd.set("name", "stub_out")     # horizontal, at y = -R
-    fdtd.set("y", -R); fdtd.set("y span", w)
-    fdtd.set("x min", -1e-9); fdtd.set("x max", x_hi + 1e-6)
-    fdtd.set("z", z); fdtd.set("z span", H_CORE)
+    fdtd.addrect()
+    fdtd.set("name", "stub_out")     # horizontal, at y = -R
+    fdtd.set("y", -R)
+    fdtd.set("y span", w)
+    fdtd.set("x min", -1e-9)
+    fdtd.set("x max", x_hi + 1e-6)
+    fdtd.set("z", z)
+    fdtd.set("z span", H_CORE)
     fdtd.set("material", MAT_CORE)
     fdtd.set("override mesh order from material database", True)
     fdtd.set("mesh order", 2)
 
     fdtd.addfdtd()
     fdtd.set("dimension", "2D" if two_d else "3D")
-    fdtd.set("x", 0.5 * (x_lo + x_hi)); fdtd.set("x span", x_hi - x_lo)
-    fdtd.set("y", 0.5 * (y_lo + y_hi)); fdtd.set("y span", y_hi - y_lo)
+    fdtd.set("x", 0.5 * (x_lo + x_hi))
+    fdtd.set("x span", x_hi - x_lo)
+    fdtd.set("y", 0.5 * (y_lo + y_hi))
+    fdtd.set("y span", y_hi - y_lo)
     fdtd.set("z", z)
     if not two_d:
         fdtd.set("z span", 2.0 * (H_CORE / 2.0 + dom.z_margin))
@@ -1065,13 +1143,20 @@ def build_bend(fdtd, R, w, mesh, dom):
         fdtd.set(bc, "PML")
 
     # fine mesh over the whole bend, where radiation happens
-    fdtd.addmesh(); fdtd.set("name", "mesh_bend")
-    fdtd.set("x", -0.5 * outer); fdtd.set("x span", outer + 2 * w)
-    fdtd.set("y", -0.5 * outer); fdtd.set("y span", outer + 2 * w)
-    fdtd.set("z", z); fdtd.set("z span", H_CORE + 2 * dom.coupler_pad_y)
-    fdtd.set("override x mesh", True); fdtd.set("dx", mesh.override_dx)
-    fdtd.set("override y mesh", True); fdtd.set("dy", mesh.override_dy)
-    fdtd.set("override z mesh", True); fdtd.set("dz", mesh.override_dz)
+    fdtd.addmesh()
+    fdtd.set("name", "mesh_bend")
+    fdtd.set("x", -0.5 * outer)
+    fdtd.set("x span", outer + 2 * w)
+    fdtd.set("y", -0.5 * outer)
+    fdtd.set("y span", outer + 2 * w)
+    fdtd.set("z", z)
+    fdtd.set("z span", H_CORE + 2 * dom.coupler_pad_y)
+    fdtd.set("override x mesh", True)
+    fdtd.set("dx", mesh.override_dx)
+    fdtd.set("override y mesh", True)
+    fdtd.set("dy", mesh.override_dy)
+    fdtd.set("override z mesh", True)
+    fdtd.set("dz", mesh.override_dz)
 
     fdtd.setglobalsource("set wavelength", True)
     fdtd.setglobalsource("wavelength start", LAMBDA_MIN)
@@ -1080,10 +1165,13 @@ def build_bend(fdtd, R, w, mesh, dom):
     fdtd.setglobalmonitor("use wavelength spacing", True)
     fdtd.setglobalmonitor("frequency points", dom.freq_points)
 
-    fdtd.addmode(); fdtd.set("name", "source_input")
-    fdtd.set("injection axis", "y-axis"); fdtd.set("direction", "Backward")
+    fdtd.addmode()
+    fdtd.set("name", "source_input")
+    fdtd.set("injection axis", "y-axis")
+    fdtd.set("direction", "Backward")
     fdtd.set("y", BEND_STUB - 0.5e-6)
-    fdtd.set("x", -R); fdtd.set("x span", dom.monitor_y_span)
+    fdtd.set("x", -R)
+    fdtd.set("x span", dom.monitor_y_span)
     fdtd.set("z", z)
     if not two_d:
         fdtd.set("z span", dom.monitor_z_span)
@@ -1091,14 +1179,15 @@ def build_bend(fdtd, R, w, mesh, dom):
     fdtd.set("number of trial modes", N_TRIAL_MODES)
     fdtd.set("override global source settings", False)
 
-    fdtd.addpower(); fdtd.set("name", "monitor_out")
+    fdtd.addpower()
+    fdtd.set("name", "monitor_out")
     fdtd.set("monitor type", "Linear Y" if two_d else "2D X-normal")
     fdtd.set("x", BEND_STUB - 0.5e-6)
-    fdtd.set("y", -R); fdtd.set("y span", dom.monitor_y_span)
+    fdtd.set("y", -R)
+    fdtd.set("y span", dom.monitor_y_span)
     fdtd.set("z", z)
     if not two_d:
         fdtd.set("z span", dom.monitor_z_span)
-
 
 
 def _dump_fde_state(m, tag):
@@ -1131,18 +1220,27 @@ def _fde_mode(m, R_um, w_nm, lam_nm, probe=False):
     guide, which is the control: it must reproduce the existing straight
     mode sweep, and if it does not, nothing else here can be trusted.
     """
-    m.switchtolayout(); m.deleteall()
-    m.addrect(); m.set("name", "cladding")
-    m.set("x", 0.0); m.set("x span", 6e-6)
-    m.set("y", 0.0); m.set("y span", 6e-6)
-    m.set("z", 0.0); m.set("z span", 6e-6)
+    m.switchtolayout()
+    m.deleteall()
+    m.addrect()
+    m.set("name", "cladding")
+    m.set("x", 0.0)
+    m.set("x span", 6e-6)
+    m.set("y", 0.0)
+    m.set("y span", 6e-6)
+    m.set("z", 0.0)
+    m.set("z span", 6e-6)
     m.set("material", MAT_CLAD)
     m.set("override mesh order from material database", True)
     m.set("mesh order", 3)
-    m.addrect(); m.set("name", "wg")
-    m.set("x", 0.0); m.set("x span", 6e-6)
-    m.set("y", 0.0); m.set("y span", w_nm * 1e-9)
-    m.set("z", 0.0); m.set("z span", H_CORE)
+    m.addrect()
+    m.set("name", "wg")
+    m.set("x", 0.0)
+    m.set("x span", 6e-6)
+    m.set("y", 0.0)
+    m.set("y span", w_nm * 1e-9)
+    m.set("z", 0.0)
+    m.set("z span", H_CORE)
     m.set("material", MAT_CORE)
     m.set("override mesh order from material database", True)
     m.set("mesh order", 2)
@@ -1165,12 +1263,18 @@ def _fde_mode(m, R_um, w_nm, lam_nm, probe=False):
         m.addfde()
         m.set("solver type", "2D X normal")
         m.set("x", 0.0)
-        m.set("y", 0.0); m.set("y span", 3.0e-6 * scale)
-        m.set("z", 0.0); m.set("z span", 2.5e-6 * scale)
-        m.set("define y mesh by", "maximum mesh step"); m.set("dy", d)
-        m.set("define z mesh by", "maximum mesh step"); m.set("dz", d)
-        m.set("y min bc", "PML"); m.set("y max bc", "PML")
-        m.set("z min bc", "PML"); m.set("z max bc", "PML")
+        m.set("y", 0.0)
+        m.set("y span", 3.0e-6 * scale)
+        m.set("z", 0.0)
+        m.set("z span", 2.5e-6 * scale)
+        m.set("define y mesh by", "maximum mesh step")
+        m.set("dy", d)
+        m.set("define z mesh by", "maximum mesh step")
+        m.set("dz", d)
+        m.set("y min bc", "PML")
+        m.set("y max bc", "PML")
+        m.set("z min bc", "PML")
+        m.set("z max bc", "PML")
         m.setanalysis("wavelength", lam_nm * 1e-9)
         m.setanalysis("number of trial modes", ntrial)
         # No near-n search and no "calculate group index": each of those, on
@@ -1242,7 +1346,8 @@ def _fde_mode(m, R_um, w_nm, lam_nm, probe=False):
                   f"(window x{nxt[0]:.2f}, {nxt[1]:.0f} trial modes)")
             m.switchtolayout()
             try:
-                m.select("FDE"); m.delete()
+                m.select("FDE")
+                m.delete()
             except Exception:                           # noqa: BLE001
                 pass
     if probe:
@@ -1336,21 +1441,29 @@ def _bent_loss_db_per_cm(neff_imag, lam_nm):
     return float(10.0 * np.log10(np.e) * 2.0 * k0 * abs(neff_imag) / 100.0)
 
 
-
 def _diag_build(m, cfg):
     """Build structures + FDE for one diagnostic configuration."""
-    m.switchtolayout(); m.deleteall()
-    m.addrect(); m.set("name", "cladding")
-    m.set("x", 0.0); m.set("x span", 6e-6)
-    m.set("y", 0.0); m.set("y span", 6e-6)
-    m.set("z", 0.0); m.set("z span", 6e-6)
+    m.switchtolayout()
+    m.deleteall()
+    m.addrect()
+    m.set("name", "cladding")
+    m.set("x", 0.0)
+    m.set("x span", 6e-6)
+    m.set("y", 0.0)
+    m.set("y span", 6e-6)
+    m.set("z", 0.0)
+    m.set("z span", 6e-6)
     m.set("material", MAT_CLAD)
     m.set("override mesh order from material database", True)
     m.set("mesh order", 3)
-    m.addrect(); m.set("name", "wg")
-    m.set("x", 0.0); m.set("x span", 6e-6)
-    m.set("y", 0.0); m.set("y span", 400e-9)
-    m.set("z", 0.0); m.set("z span", H_CORE)
+    m.addrect()
+    m.set("name", "wg")
+    m.set("x", 0.0)
+    m.set("x span", 6e-6)
+    m.set("y", 0.0)
+    m.set("y span", 400e-9)
+    m.set("z", 0.0)
+    m.set("z span", H_CORE)
     m.set("material", MAT_CORE)
     m.set("override mesh order from material database", True)
     m.set("mesh order", 2)
@@ -1359,21 +1472,29 @@ def _diag_build(m, cfg):
         m.addfde()
         m.set("solver type", "2D X normal")
         m.set("x", 0.0)
-        m.set("y", 0.0); m.set("y span", 3.0e-6)
-        m.set("z", 0.0); m.set("z span", 2.5e-6)
+        m.set("y", 0.0)
+        m.set("y span", 3.0e-6)
+        m.set("z", 0.0)
+        m.set("z span", 2.5e-6)
         if cfg["mesh"]:
             d = BENTMODE_MESH_NM * 1e-9
-            m.set("define y mesh by", "maximum mesh step"); m.set("dy", d)
-            m.set("define z mesh by", "maximum mesh step"); m.set("dz", d)
+            m.set("define y mesh by", "maximum mesh step")
+            m.set("dy", d)
+            m.set("define z mesh by", "maximum mesh step")
+            m.set("dz", d)
         if cfg["pml"]:
-            m.set("y min bc", "PML"); m.set("y max bc", "PML")
-            m.set("z min bc", "PML"); m.set("z max bc", "PML")
+            m.set("y min bc", "PML")
+            m.set("y max bc", "PML")
+            m.set("z min bc", "PML")
+            m.set("z max bc", "PML")
 
     _fde()
     if cfg["recreate"]:
         # Mimic the GUI sequence that worked: delete the solver and add it
         # again before solving.
-        m.switchtolayout(); m.select("FDE"); m.delete()
+        m.switchtolayout()
+        m.select("FDE")
+        m.delete()
         _fde()
 
     m.setanalysis("wavelength", 1500.0e-9)
@@ -1471,7 +1592,6 @@ def run_modediag():
     print("\n[modediag] done -- send the whole output")
 
 
-
 def run_fsrcheck():
     """
     Attribute the ring-validation FSR bias. Computes FSR four ways for each
@@ -1496,7 +1616,8 @@ def run_fsrcheck():
     nc = json.load(open(_find("model_fits.json")))["neff"]
 
     def ng_poly(lam, w):
-        x = (lam - 1550.0) / 50.0; y = (w - 450.0) / 50.0
+        x = (lam - 1550.0) / 50.0
+        y = (w - 450.0) / 50.0
         B = [1.0, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3]
         dB = [0.0, 1.0, 0.0, 2*x, y, 0.0, 2*x*y, y*y, 0.0]
         neff = sum(c*b for c, b in zip(nc, B))
@@ -1549,7 +1670,8 @@ def run_fsrcheck():
         d = np.load(hits[-1])
         lam = np.asarray(d["lam"]).ravel() * 1e9          # nm
         T = np.asarray(d["T"]).ravel()
-        o = np.argsort(lam); lam, T = lam[o], T[o]
+        o = np.argsort(lam)
+        lam, T = lam[o], T[o]
         thr = T.min() + 0.25 * (T.max() - T.min())
         pk = [i for i in range(1, len(T) - 1)
               if T[i] > T[i-1] and T[i] >= T[i+1] and T[i] > thr]
@@ -1679,12 +1801,93 @@ def run_fsrcheck():
           "  by peak finding. If it disagrees with column 4, the extraction",
           "  itself is in question; if it agrees, the residual is physical or",
           "  lies in the coupled-mode assembly."]
+    # ---- MATCHED-WAVELENGTH GROUP INDEX (the figure quoted in the paper) ---
+    # FSR varies ~4 % across 1500-1600 nm, so compare group indices at
+    # matched wavelengths: n_g = l1*l2 / (L*(l2-l1)) per adjacent resonance
+    # pair, against the FDE n_g interpolated at the pair midpoint.
+    L += ["", "  MATCHED-WAVELENGTH GROUP INDEX",
+          "  pairs with midpoint in 1520-1570 nm", "",
+          f"  {'geometry':>10s} {'lam mid':>9s} {'ring n_g':>9s} "
+          f"{'FDE n_g':>9s} {'diff':>8s}", "  " + "-" * 50]
+    ngd = []
+    for (g, lam0, npk, nstored, grid, tmin, tmax, thr, pos, sp,
+         f4, f4b, f4m, fn, mnm, nfp, gnm, qq) in best_row.values():
+        Lnm = (2.0 * np.pi * g["R"] + 2.0 * g["Lc"]) * 1e3
+        for a_, b_ in zip(pos[:-1], pos[1:]):
+            mid = 0.5 * (a_ + b_)
+            if not (1520.0 <= mid <= 1570.0):
+                continue
+            ng_r = a_ * b_ / (Lnm * (b_ - a_))
+            ng_f = ng_fde(g["R"], g["w"], mid)
+            d_ = 100.0 * (ng_r - ng_f) / ng_f
+            ngd.append(d_)
+            L.append(f"  {'Lc=%.2f' % g['Lc']:>10s} {mid:9.1f} {ng_r:9.4f} "
+                     f"{ng_f:9.4f} {d_:+7.2f}%")
+    if ngd:
+        ngd = np.array(ngd)
+        L += ["", f"  mean {ngd.mean():+.2f} %   sd {ngd.std(ddof=1):.2f} % "
+              f"(ddof=1)   n = {len(ngd)}"]
+    # ---- SMOOTH FDE REFERENCE: n_g from a polynomial fit of n_eff(lambda) ----
+    # ng_solver is not smooth in wavelength (HANDOVER section 4, item 4);
+    # n_eff is. n_g = n_eff - lambda * d(n_eff)/d(lambda) from a low-order fit
+    # of n_eff over the 5 solved wavelengths, then linear in R between the
+    # solved radii at the same width.
+
+    def ng_fde_smooth(R, w, lam, order):
+        pts = []
+        with open(_find(BENTMODE_CSV), newline="") as fh:
+            for r in csv.DictReader(fh):
+                if r["R_um"] == "straight":
+                    continue
+                if abs(float(r["w_nm"]) - w) > 1e-6:
+                    continue
+                pts.append((float(r["R_um"]), float(r["lam_nm"]),
+                            float(r["neff_real"])))
+        Rs = sorted({p[0] for p in pts})
+        lo_ = max([x for x in Rs if x <= R], default=Rs[0])
+        hi_ = min([x for x in Rs if x >= R], default=Rs[-1])
+
+        def ng_at(Rv):
+            t = sorted(p for p in pts if p[0] == Rv)
+            la = np.array([p[1] for p in t]) - 1550.0
+            ne = np.array([p[2] for p in t])
+            c = np.polyfit(la, ne, order)
+            x = lam - 1550.0
+            return float(np.polyval(c, x)
+                         - lam * np.polyval(np.polyder(c), x))
+        if hi_ == lo_:
+            return ng_at(lo_)
+        f_ = (R - lo_) / (hi_ - lo_)
+        return (1.0 - f_) * ng_at(lo_) + f_ * ng_at(hi_)
+
+    for order_ in (2, 3):
+        L += ["", f"  SMOOTH REFERENCE: n_g from a degree-{order_} fit of "
+              "n_eff(lambda)", "",
+              f"  {'geometry':>10s} {'lam mid':>9s} {'ring n_g':>9s} "
+              f"{'FDE n_g':>9s} {'diff':>8s}", "  " + "-" * 50]
+        dd = []
+        for (g, lam0, npk, nstored, grid, tmin, tmax, thr, pos, sp,
+             f4, f4b, f4m, fn, mnm, nfp, gnm, qq) in best_row.values():
+            Lnm = (2.0 * np.pi * g["R"] + 2.0 * g["Lc"]) * 1e3
+            for a_, b_ in zip(pos[:-1], pos[1:]):
+                mid = 0.5 * (a_ + b_)
+                if not (1520.0 <= mid <= 1570.0):
+                    continue
+                ng_r = a_ * b_ / (Lnm * (b_ - a_))
+                ng_s = ng_fde_smooth(g["R"], g["w"], mid, order_)
+                d_ = 100.0 * (ng_r - ng_s) / ng_s
+                dd.append(d_)
+                L.append(f"  {'Lc=%.2f' % g['Lc']:>10s} {mid:9.1f} "
+                         f"{ng_r:9.4f} {ng_s:9.4f} {d_:+7.2f}%")
+        if dd:
+            dd = np.array(dd)
+            L += ["", f"  mean {dd.mean():+.2f} %   sd {dd.std(ddof=1):.2f} % "
+                  f"(ddof=1)   n = {len(dd)}"]
     txt = "\n".join(L)
     print("\n" + txt)
     resdir = "results" if os.path.isdir("results") else "."
     open(os.path.join(resdir, "fsr_attribution.txt"), "w").write(txt + "\n")
     print(f"\n[fsrcheck] wrote {resdir}/fsr_attribution.txt")
-
 
 
 def run_matcheck():
@@ -1700,6 +1903,9 @@ def run_matcheck():
     Accessor names differ between installs, so each is tried and the one that
     worked is reported. Nothing is assumed.
     """
+    raise SystemExit("[matcheck] disabled: superseded by --fsrcheck "
+                     "(matched-wavelength and smooth-reference sections).")
+
     lumapi = load_lumapi()
     lam = np.linspace(1500.0, 1600.0, 11)
     f = C_LIGHT / (lam * 1e-9)
@@ -1767,7 +1973,6 @@ def run_matcheck():
     print(f"\n[matcheck] wrote {resdir}/material_check.txt")
 
 
-
 def _fde_fixed_index(m, w_nm, lam_nm, n_core, n_clad):
     """
     One FDE solve with BOTH materials replaced by fixed indices. Used only to
@@ -1777,14 +1982,19 @@ def _fde_fixed_index(m, w_nm, lam_nm, n_core, n_clad):
     d = BENTMODE_MESH_NM * 1e-9
 
     def build():
-        m.switchtolayout(); m.deleteall()
+        m.switchtolayout()
+        m.deleteall()
         for nm_, ys, zs, idx, order in (
                 ("cladding", 6e-6, 6e-6, n_clad, 3),
                 ("wg", w_nm * 1e-9, H_CORE, n_core, 2)):
-            m.addrect(); m.set("name", nm_)
-            m.set("x", 0.0); m.set("x span", 6e-6)
-            m.set("y", 0.0); m.set("y span", ys)
-            m.set("z", 0.0); m.set("z span", zs)
+            m.addrect()
+            m.set("name", nm_)
+            m.set("x", 0.0)
+            m.set("x span", 6e-6)
+            m.set("y", 0.0)
+            m.set("y span", ys)
+            m.set("z", 0.0)
+            m.set("z span", zs)
             m.set("material", "<Object defined dielectric>")
             m.set("index", idx)
             m.set("override mesh order from material database", True)
@@ -1792,12 +2002,18 @@ def _fde_fixed_index(m, w_nm, lam_nm, n_core, n_clad):
         m.addfde()
         m.set("solver type", "2D X normal")
         m.set("x", 0.0)
-        m.set("y", 0.0); m.set("y span", 3.0e-6)
-        m.set("z", 0.0); m.set("z span", 2.5e-6)
-        m.set("define y mesh by", "maximum mesh step"); m.set("dy", d)
-        m.set("define z mesh by", "maximum mesh step"); m.set("dz", d)
-        m.set("y min bc", "PML"); m.set("y max bc", "PML")
-        m.set("z min bc", "PML"); m.set("z max bc", "PML")
+        m.set("y", 0.0)
+        m.set("y span", 3.0e-6)
+        m.set("z", 0.0)
+        m.set("z span", 2.5e-6)
+        m.set("define y mesh by", "maximum mesh step")
+        m.set("dy", d)
+        m.set("define z mesh by", "maximum mesh step")
+        m.set("dz", d)
+        m.set("y min bc", "PML")
+        m.set("y max bc", "PML")
+        m.set("z min bc", "PML")
+        m.set("z max bc", "PML")
         m.setanalysis("wavelength", lam_nm * 1e-9)
         m.setanalysis("number of trial modes", N_TRIAL_MODES)
         return m.findmodes()
@@ -1830,7 +2046,8 @@ def _fde_fixed_index(m, w_nm, lam_nm, n_core, n_clad):
         if attempt < RINGVAL_FDE_ATTEMPTS:
             m.switchtolayout()
             try:
-                m.select("FDE"); m.delete()
+                m.select("FDE")
+                m.delete()
             except Exception:                           # noqa: BLE001
                 pass
     raise RuntimeError(f"no guided mode at w={w_nm} nm with fixed indices "
@@ -1962,7 +2179,6 @@ def run_thermal():
     print(f"\n[thermal] wrote {resdir}/thermal_c1.txt and {THERMAL_JSON}")
 
 
-
 def run_trimbudget():
     """
     Phase C2/C3. How much thermal trimming each inverse-designed ring needs
@@ -1989,7 +2205,8 @@ def run_trimbudget():
         raise SystemExit("[trim] no usable widths in thermal_c1.json")
     tw = np.array([r["w_nm"] for r in good])
     td = np.array([r["dlam_dT_nm_per_K"] for r in good])
-    order = np.argsort(tw); tw, td = tw[order], td[order]
+    order = np.argsort(tw)
+    tw, td = tw[order], td[order]
 
     def dlam_dT(w):
         return float(np.interp(w, tw, td))
@@ -2051,7 +2268,8 @@ def run_trimbudget():
         if not errs:
             L.append(f"  {meth:>10}    --  no usable closed-loop points")
             continue
-        e = np.array(errs); sens = np.array(sl)
+        e = np.array(errs)
+        sens = np.array(sl)
         rms_e = float(np.sqrt(np.mean(e ** 2)))
         # HEAT-ONLY PHYSICS, done properly. A heater moves a resonance red
         # only, AND the resonance comb repeats every FSR, so ring i needs a
@@ -2078,7 +2296,14 @@ def run_trimbudget():
         mw_b = dt_b / HEATER_K_PER_MW
         inA = 100.0 * np.mean(np.abs(e) <= 2.0)
         inB = 100.0 * np.mean(np.abs(e) <= 0.4)
+        # circular spread: smallest arc of the FSR circle containing all
+        # errors = FSR minus the largest gap between sorted wrapped errors
+        _f = float(np.nanmean(fsr_nm))
+        _w = np.sort(np.mod(e, _f))
+        _gaps = np.diff(np.concatenate([_w, [_w[0] + _f]]))
+        circ = float(_f - _gaps.max()) if len(_w) > 1 else 0.0
         store[meth] = dict(n=len(e), rms_err=rms_e,
+                           circ_spread_nm=circ,
                            spread_nm=float(e.max() - e.min()),
                            delta_opt_nm=float(np.mod(
                                delta_opt, float(np.nanmean(fsr_nm)))),
@@ -2095,6 +2320,15 @@ def run_trimbudget():
                  f"{dt_b.max():7.1f}K {mw_b.max():7.2f} "
                  f"{dt_u.mean():7.1f}K {dt_u.max():7.1f}K "
                  f"{inA:5.0f}% {inB:5.0f}%")
+    if store:
+        L += ["", "  CLUSTERING vs HEATER DEMAND (circular spread = smallest arc",
+              "  of one FSR holding all errors)", "",
+              f"  {'model':>10} {'n':>4} {'RMS nm':>8} {'raw spread':>11} "
+              f"{'circ spread':>12} {'max dT K':>9}"]
+        for m_, v_ in store.items():
+            L.append(f"  {m_:>10} {v_['n']:4d} {v_['rms_err']:8.3f} "
+                     f"{v_['spread_nm']:11.3f} {v_['circ_spread_nm']:12.3f} "
+                     f"{v_['max_dt_biased']:9.1f}")
     L += ["", "  'in A' / 'in B' are the fraction of rings already inside the",
           "  window WITHOUT trimming. The dT columns are what the rest need.",
           "",
@@ -2141,10 +2375,10 @@ def run_trimbudget():
               "  DRAW the mean. Both are quoted because they answer different",
               "  questions: what to build, and what it costs to run.",
               "",
-              "  Note what this rewards: the figure of merit is how tightly the",
-              "  lambda_res errors CLUSTER once wrapped into one FSR, not the",
-              "  RMS error. A large but consistent offset is absorbed by the",
-              "  design bias and costs nothing; scatter is what costs power.",
+              "  Note: circular spread alone did not rank the three models the same way",
+              "  as their maximum heater demand (see the CLUSTERING vs HEATER DEMAND",
+              "  table). A consistent offset is absorbed by a design bias; the worst",
+              "  residual error sets the heater range.",
               "",
               "  The requirement is capped at one FSR by construction: a ring",
               "  that is further off than that is tuned onto the next",
@@ -2156,7 +2390,6 @@ def run_trimbudget():
     json.dump(store, open(os.path.join(resdir, "trim_budget.json"), "w"),
               indent=1)
     print(f"\n[trim] wrote {resdir}/trim_budget.txt")
-
 
 
 LABELSENS_SCALES = [0.97, 1.00, 1.03]
@@ -2268,7 +2501,6 @@ def run_labelsens():
     _j.dump(out, open(os.path.join(resdir, "label_sensitivity.json"), "w"),
             indent=1)
     print(f"\n[labelsens] wrote {resdir}/label_sensitivity.txt")
-
 
 
 SEEDCURVE_SEEDS = [42, 43, 44, 45, 46]
@@ -2421,7 +2653,6 @@ def run_seedcurve():
     print("\n" + txt)
     open(os.path.join(resdir, "seedcurve.txt"), "w").write(txt + "\n")
     print(f"\n[seedcurve] wrote {resdir}/seedcurve.txt")
-
 
 
 # Categorical hues for the seed-curve figure, in fixed order. Validated for
@@ -2590,7 +2821,8 @@ def run_bentmode():
                        ng_solver=md.get("ng", float("nan")),
                        te_fraction=md.get("te", float("nan")),
                        wg_te_fraction=md.get("wg_te", float("nan")),
-                       loss_dB_per_cm_solver=md.get("loss", float("nan"))/100.0,
+                       loss_dB_per_cm_solver=md.get(
+                           "loss", float("nan"))/100.0,
                        loss_dB_per_cm=_bent_loss_db_per_cm(nei, l))
             with open(csv_path, "a", newline="") as fh:
                 wr = csv.DictWriter(fh, fieldnames=fields)
@@ -2612,7 +2844,8 @@ def _bentmode_report(csv_path):
     """Bent vs straight n_g, and the wavelength dependence of bend loss."""
     rows = list(csv.DictReader(open(csv_path, newline="")))
     if not rows:
-        print("[bentmode] no rows"); return
+        print("[bentmode] no rows")
+        return
     byk = {}
     for r in rows:
         byk.setdefault((r["R_um"], float(r["w_nm"])), []).append(
@@ -2919,39 +3152,63 @@ def run_couplerext(n=COUPLEREXT_N, dimension="3D"):
 
 def _neff_at(fdtd, w, lam):
     """Build a straight-waveguide cross-section and solve its fundamental TE mode."""
-    fdtd.switchtolayout(); fdtd.deleteall()
-    fdtd.addrect(); fdtd.set("name", "cladding")
-    fdtd.set("x", 0.0); fdtd.set("x span", 6e-6)
-    fdtd.set("y", 0.0); fdtd.set("y span", 6e-6)
-    fdtd.set("z", 0.0); fdtd.set("z span", 6e-6)
+    fdtd.switchtolayout()
+    fdtd.deleteall()
+    fdtd.addrect()
+    fdtd.set("name", "cladding")
+    fdtd.set("x", 0.0)
+    fdtd.set("x span", 6e-6)
+    fdtd.set("y", 0.0)
+    fdtd.set("y span", 6e-6)
+    fdtd.set("z", 0.0)
+    fdtd.set("z span", 6e-6)
     fdtd.set("material", MAT_CLAD)
     fdtd.set("override mesh order from material database", True)
     fdtd.set("mesh order", 3)
-    fdtd.addrect(); fdtd.set("name", "wg")
-    fdtd.set("x", 0.0); fdtd.set("x span", 6e-6)
-    fdtd.set("y", 0.0); fdtd.set("y span", w)
-    fdtd.set("z", 0.0); fdtd.set("z span", H_CORE)
+    fdtd.addrect()
+    fdtd.set("name", "wg")
+    fdtd.set("x", 0.0)
+    fdtd.set("x span", 6e-6)
+    fdtd.set("y", 0.0)
+    fdtd.set("y span", w)
+    fdtd.set("z", 0.0)
+    fdtd.set("z span", H_CORE)
     fdtd.set("material", MAT_CORE)
     fdtd.set("override mesh order from material database", True)
     fdtd.set("mesh order", 2)
-    fdtd.addfdtd(); fdtd.set("dimension", "3D")
-    fdtd.set("x", 0.0); fdtd.set("x span", 1e-6)
-    fdtd.set("y", 0.0); fdtd.set("y span", 3e-6)
-    fdtd.set("z", 0.0); fdtd.set("z span", 2.5e-6)
-    fdtd.set("mesh accuracy", 3)
-    fdtd.addmesh(); fdtd.set("name", "mesh_xsec")
-    fdtd.set("x", 0.0); fdtd.set("x span", 1e-6)
-    fdtd.set("y", 0.0); fdtd.set("y span", w + 0.6e-6)
-    fdtd.set("z", 0.0); fdtd.set("z span", H_CORE + 0.6e-6)
-    d = MODE_MESH_NM * 1e-9
-    fdtd.set("override x mesh", True); fdtd.set("dx", d)
-    fdtd.set("override y mesh", True); fdtd.set("dy", d)
-    fdtd.set("override z mesh", True); fdtd.set("dz", d)
-    fdtd.addmode(); fdtd.set("name", "src")
-    fdtd.set("injection axis", "x-axis"); fdtd.set("direction", "Forward")
+    fdtd.addfdtd()
+    fdtd.set("dimension", "3D")
     fdtd.set("x", 0.0)
-    fdtd.set("y", 0.0); fdtd.set("y span", 2.5e-6)
-    fdtd.set("z", 0.0); fdtd.set("z span", 2.2e-6)
+    fdtd.set("x span", 1e-6)
+    fdtd.set("y", 0.0)
+    fdtd.set("y span", 3e-6)
+    fdtd.set("z", 0.0)
+    fdtd.set("z span", 2.5e-6)
+    fdtd.set("mesh accuracy", 3)
+    fdtd.addmesh()
+    fdtd.set("name", "mesh_xsec")
+    fdtd.set("x", 0.0)
+    fdtd.set("x span", 1e-6)
+    fdtd.set("y", 0.0)
+    fdtd.set("y span", w + 0.6e-6)
+    fdtd.set("z", 0.0)
+    fdtd.set("z span", H_CORE + 0.6e-6)
+    d = MODE_MESH_NM * 1e-9
+    fdtd.set("override x mesh", True)
+    fdtd.set("dx", d)
+    fdtd.set("override y mesh", True)
+    fdtd.set("dy", d)
+    fdtd.set("override z mesh", True)
+    fdtd.set("dz", d)
+    fdtd.addmode()
+    fdtd.set("name", "src")
+    fdtd.set("injection axis", "x-axis")
+    fdtd.set("direction", "Forward")
+    fdtd.set("x", 0.0)
+    fdtd.set("y", 0.0)
+    fdtd.set("y span", 2.5e-6)
+    fdtd.set("z", 0.0)
+    fdtd.set("z span", 2.2e-6)
     fdtd.set("override global source settings", True)
     fdtd.set("center wavelength", lam)
     fdtd.set("wavelength span", 1e-9)
@@ -2991,7 +3248,8 @@ def run_modesweep():
             ne = []
             for lam_nm in MODE_LAM_NM:
                 ne.append(_neff_at(fdtd, w_nm * 1e-9, lam_nm * 1e-9))
-            ne = np.array(ne); lam = np.array(MODE_LAM_NM)
+            ne = np.array(ne)
+            lam = np.array(MODE_LAM_NM)
             ng = ne - lam * np.gradient(ne, lam)        # n_g = n - l*dn/dl
             for l, a, b in zip(lam, ne, ng):
                 rows.append(dict(w_nm=w_nm, lam_nm=l, n_eff=a, n_g=b))
@@ -2999,7 +3257,8 @@ def run_modesweep():
                   f"{ne[2]:.5f}  n_g(1550)={ng[2]:.5f}")
     with open(csv_path, "w", newline="") as fh:
         wr = csv.DictWriter(fh, fieldnames=["w_nm", "lam_nm", "n_eff", "n_g"])
-        wr.writeheader(); wr.writerows(rows)
+        wr.writeheader()
+        wr.writerows(rows)
 
     # ---- SUB-STUDY 3: literature validation against Paper 11 ------------
     ng440 = next(r["n_g"] for r in rows
@@ -3013,7 +3272,8 @@ def run_modesweep():
     print(f"  Device (measured)  : {P11_W_NM:g} x 220 nm SOI TE ring, "
           f"R = {P11_R_UM:g} um")
     print(f"  Measured FSR       : {P11_FSR_NM:.3f} nm")
-    print(f"  Simulated n_g      : {ng440:.5f}  (w = {P11_W_NM:g} nm, 1550 nm)")
+    print(
+        f"  Simulated n_g      : {ng440:.5f}  (w = {P11_W_NM:g} nm, 1550 nm)")
     print(f"  Predicted FSR      : {fsr:.4f} nm   (Eq. 4)")
     print(f"  Relative error     : {err:.2f} %")
     print(f"  Objective O1 target: <= 10 %   ->  "
@@ -3048,8 +3308,11 @@ def _fit_models():
                   for r in csv.DictReader(open(_find("couplerset_3d.csv")))])
     R, w, g, Lc, k2 = C.T
     th = np.arcsin(np.sqrt(k2))
+
     def km(q, R, w, g, Lc):
-        lk0, a1, g0, g1, B = q; dw = w - 450.0; gam = g0 + g1 * dw
+        lk0, a1, g0, g1, B = q
+        dw = w - 450.0
+        gam = g0 + g1 * dw
         return np.exp(lk0 + a1 * dw) * np.exp(-gam * g) * (
             Lc + B * np.sqrt(2 * np.pi * R * 1e3 / gam) * 1e-3)
     kq = least_squares(lambda q: np.log(km(q, R, w, g, Lc)) - np.log(th),
@@ -3057,8 +3320,10 @@ def _fit_models():
     # n_eff(lambda, w) : smooth 9-term polynomial (suppresses the lambda artefact)
     M = np.array([[float(r[k]) for k in ("lam_nm", "w_nm", "n_eff")]
                   for r in csv.DictReader(open(_find("modesweep.csv")))])
-    x = (M[:, 0] - 1550) / 50; y = (M[:, 1] - 450) / 50
-    Bm = np.stack([np.ones_like(x), x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3], 1)
+    x = (M[:, 0] - 1550) / 50
+    y = (M[:, 1] - 450) / 50
+    Bm = np.stack([np.ones_like(x), x, y, x*x, x *
+                  y, y*y, x*x*y, x*y*y, y**3], 1)
     nc = np.linalg.lstsq(Bm, M[:, 2], rcond=None)[0]
     # bend radiation(R) : exponential, the physically correct form
     Bd = np.array([[float(r["R_um"]), float(r["loss_dB_quarter"])]
@@ -3074,36 +3339,53 @@ def _make_responder():
     """Build the analytic response function from the fitted models."""
     from scipy.optimize import brentq
     kq, nc, bp = _fit_models()
-    b = lambda x, y: np.array([1, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3])
-    db = lambda x, y: np.array([0, 1, 0, 2*x, y, 0, 2*x*y, y*y, 0])
-    neff = lambda l, w: float(b((l-1550)/50, (w-450)/50) @ nc)
-    ng = lambda l, w: neff(l, w) - l * float(db((l-1550)/50, (w-450)/50) @ nc) / 50
+    def b(x, y): return np.array([1, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3])
+    def db(x, y): return np.array([0, 1, 0, 2*x, y, 0, 2*x*y, y*y, 0])
+    def neff(l, w): return float(b((l-1550)/50, (w-450)/50) @ nc)
+
+    def ng(l, w): return neff(l, w) - l * \
+        float(db((l-1550)/50, (w-450)/50) @ nc) / 50
 
     def respond(R, w, g, Lc):
-        L = (2*np.pi*R + 2*Lc) * 1e3                                   # Eq. 1, nm
-        f = lambda l, m: neff(l, w) * L / l - m                        # m*lam = n_eff*L
-        lo = int(np.ceil(neff(1600, w)*L/1600)); hi = int(np.floor(neff(1500, w)*L/1500))
-        res = np.sort([brentq(f, 1495, 1605, args=(m,)) for m in range(lo, hi+1)])
-        i = int(np.argmin(abs(res - 1550))); lr = res[i]              # nearest 1550
-        fsr = float(np.min(np.abs(np.delete(res, i) - lr))) if res.size > 1 else np.nan
-        dw = w - 450.0; gam = kq[2] + kq[3]*dw
-        th = np.exp(kq[0] + kq[1]*dw)*np.exp(-gam*g)*(Lc + kq[4]*np.sqrt(2*np.pi*R*1e3/gam)*1e-3)
-        k2 = float(np.sin(min(th, np.pi/2))**2); t2 = 1 - k2
-        bend = 4*np.exp(bp[1] + bp[0]*R); rough = ROUGHNESS_DB_CM*(2*np.pi*R + 2*Lc)*1e-4
-        a = 10**(-(bend + rough)/20); x = t2*a
-        Tpk = (1 - t2)**2 * a / (1 - x)**2                              # Eq. 3, t1 = t2
-        ch = (1 + x*x - 2*(1 - x)**2) / (2*x)                           # exact half max
+        # Eq. 1, nm
+        L = (2*np.pi*R + 2*Lc) * 1e3
+        def f(l, m): return neff(l, w) * L / l - \
+            m                        # m*lam = n_eff*L
+        lo = int(np.ceil(neff(1600, w)*L/1600))
+        hi = int(np.floor(neff(1500, w)*L/1500))
+        res = np.sort([brentq(f, 1495, 1605, args=(m,))
+                      for m in range(lo, hi+1)])
+        i = int(np.argmin(abs(res - 1550)))
+        lr = res[i]              # nearest 1550
+        fsr = float(np.min(np.abs(np.delete(res, i) - lr))
+                    ) if res.size > 1 else np.nan
+        dw = w - 450.0
+        gam = kq[2] + kq[3]*dw
+        th = np.exp(kq[0] + kq[1]*dw)*np.exp(-gam*g) * \
+            (Lc + kq[4]*np.sqrt(2*np.pi*R*1e3/gam)*1e-3)
+        k2 = float(np.sin(min(th, np.pi/2))**2)
+        t2 = 1 - k2
+        bend = 4*np.exp(bp[1] + bp[0]*R)
+        rough = ROUGHNESS_DB_CM*(2*np.pi*R + 2*Lc)*1e-4
+        a = 10**(-(bend + rough)/20)
+        x = t2*a
+        # Eq. 3, t1 = t2
+        Tpk = (1 - t2)**2 * a / (1 - x)**2
+        # exact half max
+        ch = (1 + x*x - 2*(1 - x)**2) / (2*x)
         flag = ""
         if -1 < ch < 1:
             fwhm = 2*np.arccos(ch)*lr**2 / (2*np.pi*ng(lr, w)*L)
         else:
-            fwhm = np.nan; flag = "no_half_max"
+            fwhm = np.nan
+            flag = "no_half_max"
         if Tpk > 1:
             flag = (flag + ";T_drop_gt_1").strip(";")
         return dict(R_um=R, w_nm=w, g_nm=g, Lc_um=Lc, n_eff=neff(lr, w), n_g=ng(lr, w),
                     lambda_res_nm=lr, FSR_nm=fsr, FWHM_nm=fwhm,
                     Q_L=lr/fwhm if fwhm == fwhm else np.nan,               # Eq. 5
-                    IL_dB=-10*np.log10(Tpk),                                # Eq. 7
+                    # Eq. 7
+                    IL_dB=-10*np.log10(Tpk),
                     kappa2=k2, t=np.sqrt(t2), a=a, loss_bend_dB=bend, loss_rough_dB=rough,
                     m_order=int(round(neff(lr, w)*L/lr)), n_res_in_window=int(res.size),
                     origin="dual-fidelity: 3D FDTD coupler/mode/bend + CMT Eqs 2-7",
@@ -3115,19 +3397,25 @@ def _make_responder():
 def run_generate(n=DATASET_N):
     from scipy.stats import qmc
     respond = _make_responder()
-    keys = ("R", "w", "g", "Lc"); sc = (1e6, 1e9, 1e9, 1e6)
+    keys = ("R", "w", "g", "Lc")
+    sc = (1e6, 1e9, 1e9, 1e6)
     lo = np.array([RANGES[k][0]*s for k, s in zip(keys, sc)])
     hi = np.array([RANGES[k][1]*s for k, s in zip(keys, sc)])
     P = lo + qmc.LatinHypercube(d=4, seed=DATASET_SEED).random(n) * (hi - lo)
-    t0 = time.time(); rows = [respond(*p) for p in P]; dt = time.time() - t0
+    t0 = time.time()
+    rows = [respond(*p) for p in P]
+    dt = time.time() - t0
     out_csv = _out("data", DATASET_CSV)
     with open(out_csv, "w", newline="") as fh:
-        wr = csv.DictWriter(fh, fieldnames=list(rows[0])); wr.writeheader(); wr.writerows(rows)
+        wr = csv.DictWriter(fh, fieldnames=list(rows[0]))
+        wr.writeheader()
+        wr.writerows(rows)
 
     flagged = [(i, r["flag"]) for i, r in enumerate(rows) if r["flag"]]
     Q = np.array([r["Q_L"] for r in rows])
     with open(_out("data", "data_quality_log.txt"), "w") as fh:
-        fh.write(f"DATA-QUALITY LOG  (Phase 1.5 step 7)\nN={n}, LHS seed {DATASET_SEED}\n")
+        fh.write(
+            f"DATA-QUALITY LOG  (Phase 1.5 step 7)\nN={n}, LHS seed {DATASET_SEED}\n")
         fh.write(f"generated in {dt:.2f} s\nflagged samples: {len(flagged)}\n")
         for i, fl in flagged:
             fh.write(f"  row {i}: {fl}\n")
@@ -3149,7 +3437,8 @@ def _load_dataset():
     path = _find(DATASET_CSV) if os.path.isfile(DATASET_CSV) else os.path.join(
         "data", DATASET_CSV)
     if not os.path.isfile(path):
-        raise FileNotFoundError(f"{DATASET_CSV} not found; run --generate first")
+        raise FileNotFoundError(
+            f"{DATASET_CSV} not found; run --generate first")
     with open(path, newline="") as fh:
         return list(csv.DictReader(fh)), path
 
@@ -3219,7 +3508,8 @@ def _fit_scaler(rows):
     sc = {}
     for k in INPUTS:
         v = np.array([float(r[k]) for r in rows])
-        sc[k] = dict(min=float(v.min()), max=float(v.max()), transform="minmax")
+        sc[k] = dict(min=float(v.min()), max=float(
+            v.max()), transform="minmax")
     for k in TARGETS:
         v = np.array([float(r[k]) for r in rows])
         if k == "Q_L":                     # Phase 2.3: log10 before scaling
@@ -3275,12 +3565,15 @@ def _coverage_figures(rows, parts, outdir):
         a.set_xlabel("log10(Q_L)" if k == "Q_L" else lbl[k], fontsize=9)
         a.tick_params(labelsize=8)
         if i == 0:
-            a.set_ylabel("count", fontsize=9); a.legend(fontsize=7)
+            a.set_ylabel("count", fontsize=9)
+            a.legend(fontsize=7)
     ax[0][0].figure.suptitle(
         f"Phase 2.2 marginal distributions  (N = {len(rows)})", fontsize=11)
     fig.tight_layout(rect=[0, 0, 1, 0.96])
     f = os.path.join(outdir, "phase2_marginals.png")
-    fig.savefig(f, dpi=150); plt.close(fig); written.append(f)
+    fig.savefig(f, dpi=150)
+    plt.close(fig)
+    written.append(f)
 
     # --- figure 2: pairwise input scatter, coloured by log10(Q_L) --------
     q = np.log10(V["Q_L"])
@@ -3289,12 +3582,15 @@ def _coverage_figures(rows, parts, outdir):
     for i, (a_, b_) in enumerate(pairs):
         a = ax[i // 3][i % 3]
         sc = a.scatter(V[a_], V[b_], c=q, s=7, cmap="viridis")
-        a.set_xlabel(lbl[a_], fontsize=9); a.set_ylabel(lbl[b_], fontsize=9)
+        a.set_xlabel(lbl[a_], fontsize=9)
+        a.set_ylabel(lbl[b_], fontsize=9)
         a.tick_params(labelsize=8)
     fig.colorbar(sc, ax=ax, label="log10(Q_L)", shrink=0.8)
     fig.suptitle("Phase 2.2 pairwise input coverage", fontsize=11)
     f = os.path.join(outdir, "phase2_pairwise_inputs.png")
-    fig.savefig(f, dpi=150); plt.close(fig); written.append(f)
+    fig.savefig(f, dpi=150)
+    plt.close(fig)
+    written.append(f)
 
     # --- figure 3: output space with the two scenario targets ------------
     fig, ax = plt.subplots(1, 2, figsize=(13, 5.2))
@@ -3308,23 +3604,28 @@ def _coverage_figures(rows, parts, outdir):
     a.axhspan(1500, 8000, color="crimson", alpha=0.10)
     a.axvline(6.4, ls="--", c="seagreen", lw=1)
     a.axhline(7750, ls="--", c="seagreen", lw=1)
-    a.set_yscale("log"); a.set_xlabel("FSR (nm)", fontsize=9)
+    a.set_yscale("log")
+    a.set_xlabel("FSR (nm)", fontsize=9)
     a.set_ylabel("Q_L", fontsize=9)
     a.set_title("output space (red = Scenario A, green = Scenario B)",
                 fontsize=10)
-    a.legend(fontsize=8); a.tick_params(labelsize=8)
+    a.legend(fontsize=8)
+    a.tick_params(labelsize=8)
 
     a = ax[1]
     a.scatter(V["Q_L"], V["IL_dB"], s=8, c="#4C72B0")
     a.axhline(1.5, ls="--", c="crimson", lw=1)
     a.axhline(1.0, ls="--", c="seagreen", lw=1)
-    a.set_xscale("log"); a.set_xlabel("Q_L", fontsize=9)
+    a.set_xscale("log")
+    a.set_xlabel("Q_L", fontsize=9)
     a.set_ylabel("IL (dB)", fontsize=9)
     a.set_title("insertion loss vs Q_L", fontsize=10)
     a.tick_params(labelsize=8)
     fig.tight_layout()
     f = os.path.join(outdir, "phase2_output_coverage.png")
-    fig.savefig(f, dpi=150); plt.close(fig); written.append(f)
+    fig.savefig(f, dpi=150)
+    plt.close(fig)
+    written.append(f)
 
     # --- figure 4: split check -- the three splits must overlap ----------
     fig, ax = plt.subplots(1, 4, figsize=(15, 3.6))
@@ -3340,12 +3641,15 @@ def _coverage_figures(rows, parts, outdir):
         a.set_xlabel("log10(Q_L)" if k == "Q_L" else lbl[k], fontsize=9)
         a.tick_params(labelsize=8)
         if i == 0:
-            a.set_ylabel("density", fontsize=9); a.legend(fontsize=8)
+            a.set_ylabel("density", fontsize=9)
+            a.legend(fontsize=8)
     fig.suptitle("Phase 2.4 split check -- target distributions "
                  "(train / val / test should overlap)", fontsize=11)
     fig.tight_layout(rect=[0, 0, 1, 0.92])
     f = os.path.join(outdir, "phase2_split_check.png")
-    fig.savefig(f, dpi=150); plt.close(fig); written.append(f)
+    fig.savefig(f, dpi=150)
+    plt.close(fig)
+    written.append(f)
     return written
 
 
@@ -3373,7 +3677,8 @@ def run_phase2():
                    "generating a targeted supplementary batch")
         added = _supplementary(nA)
         rows += added
-        A = {k: np.array([float(r[k]) for r in rows]) for k in INPUTS + TARGETS}
+        A = {k: np.array([float(r[k]) for r in rows])
+             for k in INPUTS + TARGETS}
         nA2, nB2 = _scenario_counts(A)
         log += [f"  added {len(added)} samples in R {SUPP_BOX['R']} um, "
                 f"g {SUPP_BOX['g']} nm, Lc {SUPP_BOX['Lc']} um",
@@ -3422,7 +3727,8 @@ def run_phase2():
         scaled = _apply_scaler(part, sc)
         with open(os.path.join(outdir, f"{name}.csv"), "w", newline="") as fh:
             wr = csv.DictWriter(fh, fieldnames=list(scaled[0]))
-            wr.writeheader(); wr.writerows(scaled)
+            wr.writeheader()
+            wr.writerows(scaled)
     json.dump(dict(seed=SPLIT_SEED, fractions=SPLIT_FRAC, n_clean=n_clean,
                    fitted_on="train split only", inputs=INPUTS,
                    targets=TARGETS, scaler=sc),
@@ -3487,7 +3793,8 @@ def _build_mlp(torch, depth, width, n_in=4, n_out=4):
     grid varies.
     """
     import torch.nn as nn
-    widths = list(NN_HIDDEN) if (depth == 3 and width == 128) else [width] * depth
+    widths = list(NN_HIDDEN) if (
+        depth == 3 and width == 128) else [width] * depth
     layers, prev = [], n_in
     for h in widths:
         layers += [nn.Linear(prev, h), nn.LeakyReLU(NN_LEAKY)]
@@ -3515,17 +3822,20 @@ def _train_mlp(torch, net, Xtr, Ytr, Xva, Yva, lr, wd,
     best, best_state, bad = float("inf"), None, 0
     tr_curve, va_curve = [], []
     for ep in range(max_epochs):
-        net.train(); tot = 0.0
+        net.train()
+        tot = 0.0
         for xb, yb in dl:
             opt.zero_grad()
             l = lossf(net(xb), yb)
-            l.backward(); opt.step()
+            l.backward()
+            opt.step()
             tot += l.item() * len(xb)
         sch.step()
         net.eval()
         with torch.no_grad():
             v = lossf(net(xva), yva).item()
-        tr_curve.append(tot / len(Xtr)); va_curve.append(v)
+        tr_curve.append(tot / len(Xtr))
+        va_curve.append(v)
         if v < best - 1e-9:
             best, bad = v, 0
             best_state = {k: t.clone() for k, t in net.state_dict().items()}
@@ -3558,7 +3868,8 @@ def _metrics(y_true, y_pred):
 def run_phase3():
     import json
     torch = _torch()
-    torch.manual_seed(NN_SEED); np.random.seed(NN_SEED)
+    torch.manual_seed(NN_SEED)
+    np.random.seed(NN_SEED)
     outdir = "data" if os.path.isdir("data") else "."
     resdir = "results" if os.path.isdir("results") else "."
 
@@ -3595,7 +3906,8 @@ def run_phase3():
         v, _, _, eps = _train_mlp(torch, net, Xtr, Ytr, Xva, Yva, lr, l2,
                                   max_epochs=GRID_SEARCH_EPOCHS)
         done[(d, w, lr, l2)] = v
-        wr.writerow([d, w, lr, l2, f"{v:.8f}", eps]); fh.flush()
+        wr.writerow([d, w, lr, l2, f"{v:.8f}", eps])
+        fh.flush()
         el = time.time() - t0
         print(f"[phase3] {i}/{len(todo)}  depth {d} width {w:3d} "
               f"lr {lr:g} wd {l2:g}  val MSE {v:.6f}  "
@@ -3666,19 +3978,23 @@ def run_phase3():
         fig, ax = plt.subplots(1, 2, figsize=(12, 4.4))
         ax[0].plot(tr_c, label="train", lw=1.3)
         ax[0].plot(va_c, label="validation", lw=1.3)
-        ax[0].set_yscale("log"); ax[0].set_xlabel("epoch")
-        ax[0].set_ylabel("MSE (scaled units)"); ax[0].legend()
+        ax[0].set_yscale("log")
+        ax[0].set_xlabel("epoch")
+        ax[0].set_ylabel("MSE (scaled units)")
+        ax[0].legend()
         ax[0].set_title(f"Phase 3.5 training curves "
                         f"(depth {d}, width {w})", fontsize=10)
         vm = np.array(sorted(done.values()))
         ax[1].plot(vm, ".", ms=4)
-        ax[1].set_yscale("log"); ax[1].set_xlabel("configuration (sorted)")
+        ax[1].set_yscale("log")
+        ax[1].set_xlabel("configuration (sorted)")
         ax[1].set_ylabel("best validation MSE")
         ax[1].set_title(f"Phase 3.4 search over {len(done)} configurations",
                         fontsize=10)
         fig.tight_layout()
         f = os.path.join(resdir, "phase3_loss_curves.png")
-        fig.savefig(f, dpi=150); plt.close(fig)
+        fig.savefig(f, dpi=150)
+        plt.close(fig)
         lines.append(f"loss curves: {f}")
     except ImportError:
         pass
@@ -3745,7 +4061,8 @@ def _train_inverse(torch, g, Xgeo_tr, Yres_tr, Xgeo_va, Yres_va,
     best, best_state, bad = float("inf"), None, 0
     tr_c, va_c = [], []
     for ep in range(NN_MAX_EPOCHS):
-        g.train(); tot = 0.0
+        g.train()
+        tot = 0.0
         for rb, gb in dl:                      # rb = response, gb = geometry
             opt.zero_grad()
             pred_geo = g(rb)
@@ -3753,7 +4070,8 @@ def _train_inverse(torch, g, Xgeo_tr, Yres_tr, Xgeo_va, Yres_va,
                 l = lossf(pred_geo, gb)                    # Eq. 8
             else:
                 l = lossf(forward(pred_geo), rb)           # Eq. 9
-            l.backward(); opt.step()
+            l.backward()
+            opt.step()
             tot += l.item() * len(rb)
         sch.step()
         g.eval()
@@ -3761,7 +4079,8 @@ def _train_inverse(torch, g, Xgeo_tr, Yres_tr, Xgeo_va, Yres_va,
             pv = g(rva)
             v = (lossf(pv, gva) if forward is None
                  else lossf(forward(pv), rva)).item()
-        tr_c.append(tot / len(Yres_tr)); va_c.append(v)
+        tr_c.append(tot / len(Yres_tr))
+        va_c.append(v)
         if v < best - 1e-9:
             best, bad = v, 0
             best_state = {k: t.clone() for k, t in g.state_dict().items()}
@@ -3875,13 +4194,15 @@ def run_phase4():
     gn.eval()
     with torch.no_grad():
         pn = gn(torch.from_numpy(Rte)).numpy()
-    Pn = _geo_physical(pn, sc); Gt = _geo_physical(Gte, sc)
+    Pn = _geo_physical(pn, sc)
+    Gt = _geo_physical(Gte, sc)
     agg_n, per_n, p12_n = _rms_rge(Pn, Gt)
     # forward-consistency of the naive network: what response does its
     # geometry actually produce, according to the frozen forward model?
     with torch.no_grad():
         rn = f(torch.from_numpy(pn)).numpy()
-    Rn = _res_physical(rn, sc); Rt = _res_physical(Rte, sc)
+    Rn = _res_physical(rn, sc)
+    Rt = _res_physical(Rte, sc)
 
     L += ["STEP 1 -- NAIVE INVERSE BASELINE (Eq. 8, parameter-space loss)",
           "-" * 70, f"  trained {epn} epochs, best val loss {vn:.6f}", "",
@@ -3915,7 +4236,8 @@ def run_phase4():
     with torch.no_grad():
         pt = gt(torch.from_numpy(Rte)).numpy()
         rt_ = f(torch.from_numpy(pt)).numpy()
-    Pt = _geo_physical(pt, sc); Rrec = _res_physical(rt_, sc)
+    Pt = _geo_physical(pt, sc)
+    Rrec = _res_physical(rt_, sc)
     agg_t, per_t, p12_t = _rms_rge(Pt, Gt)
 
     L += ["", "STEP 2 -- TANDEM NETWORK (Eq. 9, response-space loss)",
@@ -4034,25 +4356,34 @@ def run_phase4():
         fig, ax = plt.subplots(1, 3, figsize=(16, 4.6))
         ax[0].plot(trn, label="naive train", lw=1.2)
         ax[0].plot(van, label="naive val", lw=1.2)
-        ax[0].set_yscale("log"); ax[0].legend(fontsize=8)
-        ax[0].set_xlabel("epoch"); ax[0].set_ylabel("MSE (geometry space)")
+        ax[0].set_yscale("log")
+        ax[0].legend(fontsize=8)
+        ax[0].set_xlabel("epoch")
+        ax[0].set_ylabel("MSE (geometry space)")
         ax[0].set_title("naive inverse, Eq. 8", fontsize=10)
         ax[1].plot(trt, label="tandem train", lw=1.2, color="#DD8452")
         ax[1].plot(vat, label="tandem val", lw=1.2, color="#55A868")
-        ax[1].set_yscale("log"); ax[1].legend(fontsize=8)
-        ax[1].set_xlabel("epoch"); ax[1].set_ylabel("MSE (response space)")
+        ax[1].set_yscale("log")
+        ax[1].legend(fontsize=8)
+        ax[1].set_xlabel("epoch")
+        ax[1].set_ylabel("MSE (response space)")
         ax[1].set_title("tandem, Eq. 9", fontsize=10)
-        x = np.arange(4); wdt = 0.35
-        ax[2].bar(x - wdt/2, [fwd_mape[k] for k in TARGETS], wdt, label="naive")
+        x = np.arange(4)
+        wdt = 0.35
+        ax[2].bar(x - wdt/2, [fwd_mape[k]
+                  for k in TARGETS], wdt, label="naive")
         ax[2].bar(x + wdt/2, [tand_mape[k] for k in TARGETS], wdt,
                   label="tandem")
-        ax[2].set_xticks(x); ax[2].set_xticklabels(
+        ax[2].set_xticks(x)
+        ax[2].set_xticklabels(
             ["lam_res", "FSR", "Q_L", "IL"], fontsize=8)
-        ax[2].set_ylabel("response MAPE %"); ax[2].legend(fontsize=8)
+        ax[2].set_ylabel("response MAPE %")
+        ax[2].legend(fontsize=8)
         ax[2].set_title("response-space accuracy (O6)", fontsize=10)
         fig.tight_layout()
         fp = os.path.join(resdir, "phase4_curves.png")
-        fig.savefig(fp, dpi=150); plt.close(fig)
+        fig.savefig(fp, dpi=150)
+        plt.close(fig)
         L.append(f"\nfigures: {fp}")
     except ImportError:
         pass
@@ -4337,7 +4668,8 @@ def _dnn_predict(torch, path, X):
         net, _ = _build_mlp(torch, ck["depth"], ck["width"])
     else:
         net = _build_inverse(torch, NN_SEED)
-    net.load_state_dict(ck["state_dict"]); net.eval()
+    net.load_state_dict(ck["state_dict"])
+    net.eval()
     with torch.no_grad():
         return net(torch.from_numpy(X)).numpy(), net
 
@@ -4345,7 +4677,11 @@ def _dnn_predict(torch, path, X):
 def _fit_sized(kind, direction, n, Xtr, Ytr, best, seed=NN_SEED):
     """Refit one tree model on the first n training rows (Phase 6.3)."""
     est, _ = _make_estimator(kind)
-    est.set_params(**{k: v for k, v in best.items()})
+    params = {k: v for k, v in best.items()}
+    # apply the seed unless the caller already put one in `best`
+    _rs = "estimator__random_state" if kind == "xgb" else "random_state"
+    params.setdefault(_rs, int(seed))
+    est.set_params(**params)
     est.fit(Xtr[:n], Ytr[:n])
     return est
 
@@ -4399,7 +4735,8 @@ def run_phase6():
     L.append("  aggregate (mean MAPE across the four targets):")
     agg_fwd = {}
     for name, P in fwd.items():
-        a = float(np.mean([_metrics(Rr_te[:, j], P[:, j])[1] for j in range(4)]))
+        a = float(np.mean([_metrics(Rr_te[:, j], P[:, j])[1]
+                  for j in range(4)]))
         agg_fwd[name] = a
         L.append(f"    {name:24s} {a:8.3f} %")
     bf = min(agg_fwd, key=agg_fwd.get)
@@ -4554,6 +4891,7 @@ def run_phase6():
 
     # --- the mandatory written verdict (Fix 1) ---------------------------
     small = [n for n in sizes if n <= 300]
+
     def _best(keys, ns):
         sc_ = {k: np.mean([curves[str(n)][k] for n in ns]) for k in keys}
         return min(sc_, key=sc_.get), sc_
@@ -4588,23 +4926,28 @@ def run_phase6():
         for k in fwd_keys:
             ax[0].plot(sizes, [curves[str(n)][k] for n in sizes], "o-",
                        label=k, lw=1.6)
-        ax[0].set_xlabel("training-set size"); ax[0].set_yscale("log")
+        ax[0].set_xlabel("training-set size")
+        ax[0].set_yscale("log")
         ax[0].set_ylabel("aggregate test MAPE (%)")
         ax[0].set_title("Phase 6.3 forward direction", fontsize=10)
         ax[0].axvspan(0, 300, color="grey", alpha=0.12)
-        ax[0].legend(fontsize=8); ax[0].grid(alpha=0.3)
+        ax[0].legend(fontsize=8)
+        ax[0].grid(alpha=0.3)
         for k in inv_keys:
             ax[1].plot(sizes, [curves[str(n)][k] for n in sizes], "o-",
                        label=k, lw=1.6)
         ax[1].axhline(15.0, ls="--", c="crimson", lw=1.2, label="O3 threshold")
         ax[1].axvspan(0, 300, color="grey", alpha=0.12)
-        ax[1].set_xlabel("training-set size"); ax[1].set_ylabel("RMS-RGE (%)")
+        ax[1].set_xlabel("training-set size")
+        ax[1].set_ylabel("RMS-RGE (%)")
         ax[1].set_title("Phase 6.3 inverse direction "
                         "(shaded = the <=300-sample regime)", fontsize=10)
-        ax[1].legend(fontsize=8); ax[1].grid(alpha=0.3)
+        ax[1].legend(fontsize=8)
+        ax[1].grid(alpha=0.3)
         fig.tight_layout()
         fp = os.path.join(resdir, "phase6_sample_efficiency.png")
-        fig.savefig(fp, dpi=150); plt.close(fig)
+        fig.savefig(fp, dpi=150)
+        plt.close(fig)
         L.append(f"\n  figure: {fp}")
     except ImportError:
         pass
@@ -4640,24 +4983,26 @@ def _ring_given_kappa2(R, w, g, Lc, k2):
     """
     from scipy.optimize import brentq
     kq, nc, bp = _fit_models()
-    b = lambda x, y: np.array([1, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3])
-    db = lambda x, y: np.array([0, 1, 0, 2*x, y, 0, 2*x*y, y*y, 0])
-    neff = lambda l, ww: float(b((l-1550)/50, (ww-450)/50) @ nc)
-    ng = lambda l, ww: neff(l, ww) - l * float(
+    def b(x, y): return np.array([1, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3])
+    def db(x, y): return np.array([0, 1, 0, 2*x, y, 0, 2*x*y, y*y, 0])
+    def neff(l, ww): return float(b((l-1550)/50, (ww-450)/50) @ nc)
+    def ng(l, ww): return neff(l, ww) - l * float(
         db((l-1550)/50, (ww-450)/50) @ nc) / 50
 
     L = (2*np.pi*R + 2*Lc) * 1e3
-    f = lambda l, m: neff(l, w) * L / l - m
+    def f(l, m): return neff(l, w) * L / l - m
     lo = int(np.ceil(neff(1600, w)*L/1600))
     hi = int(np.floor(neff(1500, w)*L/1500))
     res = np.sort([brentq(f, 1495, 1605, args=(m,)) for m in range(lo, hi+1)])
-    i = int(np.argmin(abs(res - 1550))); lr = res[i]
+    i = int(np.argmin(abs(res - 1550)))
+    lr = res[i]
     fsr = (float(np.min(np.abs(np.delete(res, i) - lr)))
            if res.size > 1 else np.nan)
     t2 = 1.0 - k2
     bend = 4*np.exp(bp[1] + bp[0]*R)
     rough = ROUGHNESS_DB_CM*(2*np.pi*R + 2*Lc)*1e-4
-    a = 10**(-(bend + rough)/20); x = t2*a
+    a = 10**(-(bend + rough)/20)
+    x = t2*a
     Tpk = (1 - t2)**2 * a / (1 - x)**2
     ch = (1 + x*x - 2*(1 - x)**2) / (2*x)
     fwhm = (2*np.arccos(ch)*lr**2 / (2*np.pi*ng(lr, w)*L)
@@ -5297,7 +5642,8 @@ def _train_variant(torch, net, Xtr, Ytr_s, Ytr_p, Xva, Yva_s, Yva_p, sc,
     opt = torch.optim.Adam(net.parameters(), lr=INV_LR, weight_decay=INV_WD)
     sch = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=NN_LR_DECAY)
     mse = nn.MSELoss()
-    xva = torch.from_numpy(Xva); yva_s = torch.from_numpy(Yva_s)
+    xva = torch.from_numpy(Xva)
+    yva_s = torch.from_numpy(Yva_s)
     yva_p = torch.from_numpy(Yva_p)
     best, state, bad = float("inf"), None, 0
     for ep in range(NN_MAX_EPOCHS):
@@ -5307,7 +5653,8 @@ def _train_variant(torch, net, Xtr, Ytr_s, Ytr_p, Xva, Yva_s, Yva_p, sc,
             out = net(xb)
             l = (_rge_loss(torch, out, yp, sc) if metric_loss
                  else mse(out, ys))
-            l.backward(); opt.step()
+            l.backward()
+            opt.step()
         sch.step()
         net.eval()
         with torch.no_grad():
@@ -5471,7 +5818,9 @@ def _calibrate_fsr_L(nc, Gtr, Rtr):
     derived Lc carries a +0.14 um bias, which is 4.7% of the Lc range.
     """
     def ng(lam, w):
-        x = (lam - 1550) / 50; y = (w - 450) / 50; one = np.ones_like(x)
+        x = (lam - 1550) / 50
+        y = (w - 450) / 50
+        one = np.ones_like(x)
         B = [one, x, y, x*x, x*y, y*y, x*x*y, x*y*y, y**3]
         dB = [0*x, one, 0*x, 2*x, y, 0*x, 2*x*y, y*y, 0*x]
         return (sum(c*b for c, b in zip(nc, B))
@@ -5498,7 +5847,8 @@ class _PhysicsInverse:
         R, w, g = cols
         ng = _ng_torch(torch, lam_phys, w, self.nc)
         L = self.cal * lam_phys ** 2 / (ng * fsr_phys) / 1e3     # um
-        Lc = (L - 2 * np.pi * R) / 2.0                           # Eq. 1 inverted
+        # Eq. 1 inverted
+        Lc = (L - 2 * np.pi * R) / 2.0
         return torch.stack([R, w, g, Lc], dim=1)
 
 
@@ -5537,7 +5887,8 @@ def run_physinv():
         net = nn.Sequential(*layers)
         for m in net:
             if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight); nn.init.zeros_(m.bias)
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.zeros_(m.bias)
         model = _PhysicsInverse(torch, net, sc, nc, cal)
 
         from torch.utils.data import TensorDataset, DataLoader
@@ -5571,7 +5922,8 @@ def run_physinv():
             for xb, gb, lb, fb in dl:
                 opt.zero_grad()
                 l = loss_fn(model(xb, lb, fb), gb)
-                l.backward(); opt.step()
+                l.backward()
+                opt.step()
             sch.step()
             net.eval()
             with torch.no_grad():
@@ -5672,7 +6024,8 @@ def run_density():
         extraR.append([r[k] for k in TARGETS])
         if len(extraG) >= need:
             break
-    extraG = np.array(extraG); extraR = np.array(extraR)
+    extraG = np.array(extraG)
+    extraR = np.array(extraR)
 
     def scale(arr, cols):
         out = np.empty_like(arr, dtype=np.float32)
@@ -5683,8 +6036,10 @@ def run_density():
             out[:, j] = (v - p["min"]) / (p["max"] - p["min"])
         return out
 
-    Gx = scale(extraG, INPUTS); Rx = scale(extraR, TARGETS)
-    allGn = np.vstack([Gn_tr, Gx]); allRn = np.vstack([Rn_tr, Rx])
+    Gx = scale(extraG, INPUTS)
+    Rx = scale(extraR, TARGETS)
+    allGn = np.vstack([Gn_tr, Gx])
+    allRn = np.vstack([Rn_tr, Rx])
     allGr = np.vstack([Gr_tr, extraG])
     print(f"[density] pool ready: {len(allGn)} rows "
           f"({len(Gn_tr)} original + {len(Gx)} generated)")
@@ -5846,7 +6201,8 @@ def _ringval_cells(gm, dom, mesh_nm=BEND_MESH_NM):
     authoritative, this only catches the obviously-too-big case.
     """
     half_x = gm["R"] + gm["Lc"] / 2.0 + gm["w"] * 1e-3 / 2.0
-    bus_outer = gm["R"] + gm["w"] * 1e-3 + gm["g"] * 1e-3 + gm["w"] * 1e-3 / 2.0
+    bus_outer = gm["R"] + gm["w"] * 1e-3 + \
+        gm["g"] * 1e-3 + gm["w"] * 1e-3 / 2.0
     sx = 2.0 * (half_x + dom.x_margin * 1e6)
     sy = 2.0 * (bus_outer + dom.y_margin * 1e6)
     sz = 0.22 + 2.0 * dom.z_margin * 1e6
@@ -6054,7 +6410,8 @@ def run_ringvalidate(n=None, movie=True, margins=RINGVAL_MARGINS, extra=(),
         L += [f"  {'R um':>6s} {'window ps':>10s} {'pts/FWHM':>9s} "
               f"{'FWHM/TL':>8s} {'resolved':>9s} {'min':>7s}", "  " + "-"*56]
         for v in rows:
-            pf = v.get("pts_across_fwhm"); ft = v.get("fwhm_over_tl")
+            pf = v.get("pts_across_fwhm")
+            ft = v.get("fwhm_over_tl")
             ok = (pf is not None and ft is not None
                   and pf >= 5.0 and ft >= RINGVAL_MARGIN)
             L.append(f"  {v['geom']['R']:6.2f} {v['window_ps']:10.0f} "
@@ -6067,14 +6424,17 @@ def run_ringvalidate(n=None, movie=True, margins=RINGVAL_MARGINS, extra=(),
         L.append("  " + "-" * 96)
         errs = {t: [] for t in TARGETS}
         for v in rows:
-            pf = v.get("pts_across_fwhm"); ft = v.get("fwhm_over_tl")
+            pf = v.get("pts_across_fwhm")
+            ft = v.get("fwhm_over_tl")
             ok = (pf is not None and ft is not None
                   and pf >= 5.0 and ft >= RINGVAL_MARGIN)
             cells = []
             for t in TARGETS:
-                sv = v["sim"].get(t); av = v["ana"].get(t)
+                sv = v["sim"].get(t)
+                av = v["ana"].get(t)
                 if sv is None or av in (None, 0) or sv != sv:
-                    cells.append(f"{'--':>22s}"); continue
+                    cells.append(f"{'--':>22s}")
+                    continue
                 e = 100.0 * (sv - av) / av
                 # Q_L and IL from an unresolved line are not evidence
                 if ok or t in ("lambda_res_nm", "FSR_nm"):
@@ -6126,7 +6486,8 @@ def run_validate():
     if not sel:
         raise ValueError(f"{f} has no w={P11_W_NM:g} nm, 1550 nm row; "
                          "rerun --modesweep")
-    ng = float(sel[0]["n_g"]); ne = float(sel[0]["n_eff"])
+    ng = float(sel[0]["n_g"])
+    ne = float(sel[0]["n_eff"])
     Lm = 2 * np.pi * P11_R_UM * 1e-6
     fsr = (1550e-9) ** 2 / (ng * Lm) * 1e9
     err = abs(fsr - P11_FSR_NM) / P11_FSR_NM * 100.0
@@ -6216,10 +6577,12 @@ def run_floor(n_bank=FLOOR_N):
         G, Rsp = z["G"], z["R"]
         print(f"[floor] resuming: {len(G)} of {n_bank} already built")
     else:
-        G = np.zeros((0, 4)); Rsp = np.zeros((0, 4))
+        G = np.zeros((0, 4))
+        Rsp = np.zeros((0, 4))
 
     if len(G) > n_bank:
-        G = G[:n_bank]; Rsp = Rsp[:n_bank]
+        G = G[:n_bank]
+        Rsp = Rsp[:n_bank]
         print(f"[floor] using the first {n_bank} of the cached bank")
 
     while len(G) < n_bank:
@@ -6240,7 +6603,8 @@ def run_floor(n_bank=FLOOR_N):
                 if isinstance(v, dict) else np.asarray(v, dtype=float)
             if v.shape != (4,) or not np.all(np.isfinite(v)):
                 continue
-            gs.append(row); rs.append(v)
+            gs.append(row)
+            rs.append(v)
         if gs:
             G = np.vstack([G, np.array(gs)])
             Rsp = np.vstack([Rsp, np.array(rs)])
@@ -6248,7 +6612,8 @@ def run_floor(n_bank=FLOOR_N):
         print(f"[floor] bank {len(G)}/{n_bank}")
 
     # response distance, scaled per target so no one target dominates
-    sd = Rsp.std(axis=0); sd[sd == 0] = 1.0
+    sd = Rsp.std(axis=0)
+    sd[sd == 0] = 1.0
     Bn = Rsp / sd
 
     # THE ESTIMATOR MATTERS. Taking the single nearest bank geometry (k = 1)
@@ -6291,7 +6656,7 @@ def run_floor(n_bank=FLOOR_N):
     except Exception:
         bc = None
 
-    L = ["INFORMATION FLOOR -- LOWER BOUND ON ACHIEVABLE RMS-RGE", "=" * 76,
+    L = ["INFORMATION FLOOR -- UPPER-BOUND ESTIMATE (k-nearest-response predictor)", "=" * 76,
          f"bank: {len(G)} geometries, uniform over the Phase 1.2 design box, "
          f"seed {FLOOR_SEED}.",
          "Each test target is matched to the bank geometry with the nearest",
@@ -6315,24 +6680,25 @@ def run_floor(n_bank=FLOOR_N):
          "the degenerate set;",
          "                        a model learns the centre, not a member)"]
     for k, a_, _p, _q in curve:
-        L.append(f"    {k:5d} {a_:11.3f}" + ("   <-- bound" if k == kbest else ""))
+        L.append(f"    {k:5d} {a_:11.3f}" +
+                 ("   <-- bound" if k == kbest else ""))
     if kbest == curve[-1][0] or kbest == curve[0][0]:
         L += ["", "    WARNING: the minimum sits at the EDGE of the k grid, so "
               "the true",
               "    minimum may lie outside it. Widen the grid before quoting "
               "this."]
     L += ["",
-         "  This is the error of a SPECIFIC estimator (conditional-mean "
-         "lookup over",
-         "  a finite bank), so it is an UPPER BOUND on the true information "
-         "floor.",
-         "  The asymmetry matters: measuring it BELOW a threshold proves the "
-         "floor",
-         "  is below that threshold, but measuring it ABOVE proves nothing. It",
-         "  falls as the bank grows, so the bank size is part of the result and",
-         "  no value from a single bank size should be quoted as 'the floor'."]
+          "  This is the error of a SPECIFIC estimator (conditional-mean "
+          "lookup over",
+          "  a finite bank), so it is an UPPER BOUND on the true information "
+          "floor.",
+          "  The asymmetry matters: measuring it BELOW a threshold proves the "
+          "floor",
+          "  is below that threshold, but measuring it ABOVE proves nothing. It",
+          "  falls as the bank grows, so the bank size is part of the result and",
+          "  no value from a single bank size should be quoted as 'the floor'."]
     if bc:
-        L += ["", f"  learning curve refit with asymptote pinned here:",
+        L += ["", f"  learning curve refit with asymptote pinned here (DIAGNOSTIC ONLY; not identifiable, see floor_convergence.txt):",
               f"    err(n) = {agg:.3f} + {bc[0]:.3f} * n^(-{bc[1]:.4f})"]
     else:
         L += ["", "  learning-curve refit skipped: could not read the naive-"
@@ -6352,7 +6718,8 @@ def _floor_at(G, Rsp, Gr_te, Rr_te,
               ks=(1, 2, 3, 4, 5, 7, 10, 25, 50, 100, 200, 400)):
     """Conditional-mean floor for a given bank; returns (best_k, agg, per, p12,
     curve). Shared by --floor and --floorconv so both use identical logic."""
-    sd = Rsp.std(axis=0); sd[sd == 0] = 1.0
+    sd = Rsp.std(axis=0)
+    sd[sd == 0] = 1.0
     Bn = Rsp / sd
     kmax = min(max(ks), len(G) - 1)
     ks = [k for k in ks if k <= kmax] or [1]
@@ -6384,11 +6751,13 @@ def run_floorconv():
     ck = os.path.join(resdir, "floor_bank.npz")
     if not os.path.isfile(ck):
         raise FileNotFoundError("run --floor first to build the response bank")
-    z = np.load(ck); G0, R0 = z["G"], z["R"]
+    z = np.load(ck)
+    G0, R0 = z["G"], z["R"]
     Gr_te, Rr_te = _load_split_raw("test")
     sizes, n = [], 12500
     while n <= len(G0):
-        sizes.append(n); n *= 2
+        sizes.append(n)
+        n *= 2
     if sizes and sizes[-1] != len(G0):
         sizes.append(len(G0))
     print(f"[floorconv] cached bank {len(G0)}; sizes {sizes}")
@@ -6495,18 +6864,13 @@ def run_floorconv():
               "error of a",
               "    specific predictor, hence an UPPER BOUND on the true floor."]
         if F[-1] <= 15.0:
-            L += [f"    It is BELOW 15 %, and an upper bound below a threshold "
-                  "PROVES the",
-                  "    true floor is below that threshold. So O3's geometric bar "
-                  "is above",
-                  "    the information floor: O3 is REACHABLE IN PRINCIPLE, and "
-                  "the",
-                  "    shortfall is a model-and-data result, not a fundamental "
-                  "limit."]
+            L += ["    It is BELOW 15 %. We therefore have NO EVIDENCE that the bar is",
+                  "    unreachable. We do NOT claim it is reachable: k was chosen on the",
+                  "    same test targets, a second run (k=5) differs slightly, the",
+                  "    k-curve is not smooth, and no sampling interval has been computed."]
             if ach is not None:
-                L += ["", f"    best achieved RMS-RGE: {ach:.3f} % -> at least "
-                      f"{ach-F[-1]:.3f} pp of headroom",
-                      "    remains between the best model and the bound."]
+                L += ["", f"    best achieved RMS-RGE: {ach:.3f} % vs estimate {F[-1]:.3f} % "
+                      f"(difference {ach-F[-1]:.3f} pp; an estimate, not guaranteed headroom)."]
         else:
             L += [f"    It is ABOVE 15 %, which proves NOTHING either way: an "
                   "upper bound",
@@ -6718,7 +7082,8 @@ def run_seedcheck(seeds=(42, 43, 44, 45, 46)):
 
     rows = {k: {"r2": [], "mape": []} for k in TARGETS}
     for sd in seeds:
-        torch.manual_seed(sd); np.random.seed(sd)
+        torch.manual_seed(sd)
+        np.random.seed(sd)
         net, _ = _build_mlp(torch, ck["depth"], ck["width"])
         _train_mlp(torch, net, Xtr, Ytr, Xva, Yva, ck["lr"], ck["wd"])
         net.eval()
@@ -6729,7 +7094,8 @@ def run_seedcheck(seeds=(42, 43, 44, 45, 46)):
             yt = _unscale(Yte[:, j].astype(np.float64), sc[k])
             yp = _unscale(P[:, j].astype(np.float64), sc[k])
             r2, mp, _ = _metrics(yt, yp)
-            rows[k]["r2"].append(r2); rows[k]["mape"].append(mp)
+            rows[k]["r2"].append(r2)
+            rows[k]["mape"].append(mp)
             line.append(f"{k.split('_')[0]} {mp:.3f}")
         print(f"[seedcheck] seed {sd}: " + "  ".join(line))
 
@@ -6742,7 +7108,8 @@ def run_seedcheck(seeds=(42, 43, 44, 45, 46)):
          "  " + "-" * 64]
     npass = 0
     for k in TARGETS:
-        r2 = np.array(rows[k]["r2"]); mp = np.array(rows[k]["mape"])
+        r2 = np.array(rows[k]["r2"])
+        mp = np.array(rows[k]["mape"])
         ok = int(np.sum((r2 >= 0.90) & (mp <= 10.0)))
         npass += 1 if ok > len(seeds) / 2 else 0
         L.append(f"  {k:16s} {r2.mean():9.4f} +/-{r2.std():6.4f} "
@@ -6855,25 +7222,30 @@ def run_kappafit(folds=8):
         ax[0].plot([lo, hi], [lo, hi], color="#888888", lw=1.0, zorder=1)
         ax[0].scatter(k2, pred, s=14, color="#0072B2", alpha=0.75,
                       edgecolor="white", linewidth=0.4, zorder=2)
-        ax[0].set_xscale("log"); ax[0].set_yscale("log")
-        ax[0].set_xlim(lo, hi); ax[0].set_ylim(lo, hi)
+        ax[0].set_xscale("log")
+        ax[0].set_yscale("log")
+        ax[0].set_xlim(lo, hi)
+        ax[0].set_ylim(lo, hi)
         ax[0].set_xlabel("FDTD $\\kappa^2$")
         ax[0].set_ylabel("model $\\kappa^2$ (held out)")
-        ax[0].set_title(f"(a) parity, {folds}-fold CV", loc="left", fontsize=8.5)
+        ax[0].set_title(
+            f"(a) parity, {folds}-fold CV", loc="left", fontsize=8.5)
         ax[0].grid(alpha=0.25, lw=0.5)
         ax[1].scatter(k2, err, s=14, color="#0072B2", alpha=0.75,
                       edgecolor="white", linewidth=0.4)
         ax[1].axhline(0, color="#888888", lw=1.0)
         for v in (10, -10):
             ax[1].axhline(v, color="#D55E00", lw=0.9, ls=(0, (4, 2)))
-        ax[1].set_xscale("log"); ax[1].set_xlabel("FDTD $\\kappa^2$")
+        ax[1].set_xscale("log")
+        ax[1].set_xlabel("FDTD $\\kappa^2$")
         ax[1].set_ylabel("relative error (%)")
         ax[1].set_title(f"(b) residuals, MAPE {mape:.2f}%", loc="left",
                         fontsize=8.5)
         ax[1].grid(alpha=0.25, lw=0.5)
         fig.tight_layout()
         f = os.path.join(resdir, "kappa2_parity.png")
-        fig.savefig(f, dpi=300); fig.savefig(f.replace(".png", ".pdf"))
+        fig.savefig(f, dpi=300)
+        fig.savefig(f.replace(".png", ".pdf"))
         plt.close(fig)
         L.append(f"\n  parity plot: {f}")
     except ImportError:
@@ -7001,7 +7373,8 @@ def _s2_report(done):
     verdict_d = None
     for d in ds:
         r = done[d]
-        T = float(r["T_peak"]); N = float(r["cells_across_gap"])
+        T = float(r["T_peak"])
+        N = float(r["cells_across_gap"])
         grad = ""
         if prev is not None:
             dN = abs(N - prev[1])
@@ -7014,7 +7387,8 @@ def _s2_report(done):
               f"{grad:>10} {float(r['runtime_s']):8.1f}s")
         prev = (T, N)
     print("-" * 86)
-    print(f"Criterion: |dT_peak/d(cells across gap)| < {CONVERGENCE_GRADIENT:g}")
+    print(
+        f"Criterion: |dT_peak/d(cells across gap)| < {CONVERGENCE_GRADIENT:g}")
     if verdict_d is None:
         print("VERDICT: not yet converged across the swept range. Extend "
               "MESH_SWEEP_NM to finer d before fixing the mesh.")
@@ -7048,7 +7422,8 @@ def run_calibration(dimension="2D", d_nm=32.0):
     t0 = time.time()
     with lumapi.FDTD(hide=True) as fdtd:
         build_mrr(fdtd, p, mesh, dom)
-        fdtd.save(os.path.abspath(f"calibrate_{dimension.lower()}_d{d_nm:g}nm.fsp"))
+        fdtd.save(os.path.abspath(
+            f"calibrate_{dimension.lower()}_d{d_nm:g}nm.fsp"))
         fdtd.run()
         lam, T = get_spectrum(fdtd, "monitor_drop")
         res = analyse_drop(lam, T)
@@ -7118,9 +7493,11 @@ def run_substudy2(dimension="3D"):
                 f"substudy2_{dimension.lower()}_d{d_nm:g}nm.fsp"))
             fdtd.run()
             lam, T = get_spectrum(fdtd, "monitor_drop")
-            res = analyse_drop(lam, T, target=track if track else LAMBDA_TARGET)
+            res = analyse_drop(
+                lam, T, target=track if track else LAMBDA_TARGET)
         if track is None and not np.isnan(res["lambda_res"]):
-            track = res["lambda_res"]        # lock every later point to this mode
+            # lock every later point to this mode
+            track = res["lambda_res"]
             print(f"[substudy2] tracking the resonance at "
                   f"{track*1e9:.4f} nm for all remaining points")
         dt = time.time() - t0

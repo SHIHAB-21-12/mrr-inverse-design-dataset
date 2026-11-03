@@ -1,0 +1,12 @@
+E1 -- tandem variants, seeds [42, 43, 44, 45, 46]
+================================================================================================
+variant                   RMS-RGE %     theta MAPE %    buildable %    resp MAPE % (mean of 4)  lam_res MAPE
+baseline             30.029 +/- 6.476    7.360 +/- 3.880           37.3            4.342 +/- 0.079          0.16
+bounded              19.458 +/- 0.326    2.616 +/- 0.072          100.0            4.530 +/- 0.047          0.16
+weighted             31.353 +/- 8.654    8.395 +/- 5.539           30.6            3.307 +/- 0.045          0.16
+bounded+weighted     19.757 +/- 0.350    1.918 +/- 0.126          100.0            3.612 +/- 0.027          0.16
+
+Reference points from the paper: naive inverse RMS-RGE 15.500 +/- 0.069 (5 seeds);
+tandem (seed 43) RMS-RGE 29.461, buildable 33.5 %, closed-loop error 5.936 % on buildable designs.
+Check: 'baseline' at seed 43 should print RMS-RGE 29.461 (it is the same network and seed as Phase 4).
+(--quick mode trains 5 epochs only, so its numbers mean nothing; it only tests that the script runs.)

@@ -38,10 +38,10 @@ unreachable in principle is supportable.
   AGAINST O3's 15 % RMS-RGE BAR -- WHAT THE DATA SUPPORTS
     The estimate is 14.626 % at N=1000000. It is the error of a
     specific predictor, hence an UPPER BOUND on the true floor.
-    It is BELOW 15 %, and an upper bound below a threshold PROVES the
-    true floor is below that threshold. So O3's geometric bar is above
-    the information floor: O3 is REACHABLE IN PRINCIPLE, and the
-    shortfall is a model-and-data result, not a fundamental limit.
+    It is BELOW 15 %. We therefore have NO EVIDENCE that the bar is
+    unreachable. We do NOT claim it is reachable: k was chosen on the same
+    173 test targets, a second run (k=5) gives 14.669 %, the k-curve is not
+    smooth, and no sampling interval has been computed.
 
-    best achieved RMS-RGE: 15.506 % -> at least 0.879 pp of headroom
-    remains between the best model and the bound.
+    best achieved RMS-RGE: 15.506 % vs estimate 14.626 % (difference
+    0.879 pp; an estimate, not guaranteed headroom).

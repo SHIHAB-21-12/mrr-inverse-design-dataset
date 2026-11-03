@@ -34,22 +34,17 @@ Deep-learning inverse design of photonic components rests on an unresolved
 disagreement. Liu \emph{et al.}\ [3] showed that a naive, non-tandem inverse
 network can fail to converge when the design space is redundant; Chen and
 Jiang [7] and Adibnia \emph{et al.}\ [9] reported naive inverse networks
-converging acceptably in their own design spaces. This work resolves the
-disagreement for a four-parameter, bus-coupled add-drop silicon microring
-resonator by measuring both sides of it on one dataset with one set of
-metrics. We build a dual-fidelity dataset of 1{,}150 labelled geometries over
+converging acceptably in their own design spaces. This work shows that the two reports are consistent with each other for a four-parameter, bus-coupled add-drop silicon microring resonator, by measuring both sides on one dataset with one set of metrics. We build a dual-fidelity dataset of 1{,}150 labelled geometries over
 ring radius, waveguide width, coupling gap and coupling length, with the
 coupling coefficient obtained from 200 three-dimensional FDTD simulations of
 the coupler alone and the ring response computed analytically, and we validate
 the construction against a published, experimentally characterised device,
-against 68 further independent FDTD runs, and against nine full 3-D
-simulations of the complete ring.
+against 68 further independent FDTD coupler runs, and against nine full 3-D simulations of the complete ring (three geometries at three mesh or sampling settings, all at $R = \SI{5.2}{\micro\metre}$).
 
 The naive inverse network \emph{fails} the geometry-space criterion
 ($R^2 \ge 0.80$ on only one of four parameters) and \emph{passes} the
 response-space criterion (closed-loop re-simulated error $3.669\%$, all
-twenty test designs physically realisable). Both prior reports are therefore
-correct, and were measuring different things. We explain why by counting
+twenty test designs physically realisable). Both prior reports are therefore consistent with these results, and were measuring different things. We explain why by counting
 constraints: of four target quantities, resonance wavelength carries almost no
 geometric information ($R^2 = 0.0078 \pm 0.0011$ across five seeds), free
 spectral range fixes the round-trip length, and loaded $Q$ and insertion loss
@@ -63,15 +58,10 @@ $1.20$, while the same ratio formed with $\rge$ varies by a factor $4.00$.
 Second, physical realisability is architecture-dependent and is invisible to
 both metrics --- Random Forest emits buildable geometries in $100\%$ of cases,
 provably so by convexity, against $95.4\%$ for a plain network and $33.5\%$
-for a tandem network. Third, a reproducible information bound computed from a
-$10^6$-geometry response bank places the achievable $\rge$ at or below
-$14.626\%$, which establishes that the $15\%$ objective threshold lies above
-the information content of four scalar targets and that the measured shortfall
-to $15.506\%$ is a model-and-data result rather than a fundamental limit.
-Translating the designs into two co-packaged-optics scenarios, no method meets
-any scenario's full specification; eleven of twelve failures involve resonance
+for a tandem network ($11.6$--$83.8\%$ over five initialisations, and $100\%$ once its outputs are bounded). Third, a reproducible information-bound estimate computed from a $10^6$-geometry response bank gives $\rge = 14.626\%$. This point estimate lies below the $15\%$ objective threshold, so we find no evidence that the threshold is unreachable; the margin ($0.37$\,pp) is smaller than the sampling uncertainty expected for 173 test targets, and no interval has yet been computed.
+Translating the designs into two co-packaged-optics scenarios, no method meets any scenario's full specification within the uncertainty of the analytic ring model (one marginal case is undecided); eleven of twelve failures involve resonance
 placement, whose closed-loop error of $4.32$\,nm RMS exceeds a $\pm 2.0$\,nm
-channel tolerance by a factor of two and a $\pm 0.4$\,nm tolerance by eleven.
+channel tolerance by a factor of two and a $\pm 0.4$\,nm tolerance by eleven, and is no better than always predicting the dataset's mean resonance wavelength ($2.66$\,nm RMS on the same twenty targets, $3.11$\,nm over the dataset).
 Absolute resonance placement in this design space is beyond inverse design and
 requires post-fabrication trimming.
 \end{abstract}
@@ -102,9 +92,7 @@ studies work in different design spaces and, critically, judge success by
 different criteria: [3] reports geometric accuracy, while [7] and [9] report
 how closely a re-simulated design reproduces the requested response.
 
-No prior study resolves this for a microring resonator. Pal \emph{et al.}\ [6]
-is the only work applying classical tree-based machine learning to microring
-inverse design, on 462 finite-element samples, but their design space contains
+No prior study we are aware of tests this for a bus-coupled add-drop microring resonator. Pal \emph{et al.}\ [6] apply classical tree-based machine learning to microring inverse design on 462 finite-element samples, and recent work benchmarks classical regressors on microring dispersion-to-geometry mapping \textbf{[[15: Simsek et al., Nanophotonics 2026, arXiv 2601.19669 --- fill after reading the full paper]]} and tree-based models on FDTD microring data \textbf{[[16: arXiv 2510.03651 --- fill after reading the full paper]]}. The design space of [6] contains
 no bus-coupling parameter at all and so cannot predict insertion loss or any
 other coupling-dependent quantity --- the specifications that decide whether a
 filter is usable in a co-packaged-optics (CPO) link. Torabi \emph{et al.}\
@@ -117,17 +105,16 @@ preprint and is cited as such throughout. Valencia-Garz\'on \emph{et al.}\
 This paper contributes the following.
 
 \begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
-\item \textbf{A resolution of the disagreement}, measured on one dataset with
+\item \textbf{A test of the disagreement}, measured on one dataset with
 one protocol: the naive inverse network fails in geometry space and succeeds
-in response space, so both camps are right. We give a closed-form reason, by
+in response space, so the two reports are consistent. We give a closed-form reason, by
 counting how many independent constraints four scalar targets actually impose.
 \item \textbf{Evidence that geometry-space error is the wrong metric}, and a
 physically motivated replacement that predicts response-space error across
 architectures.
 \item \textbf{A measurement of physical realisability as a first-class
 result}, with a proof that one model family cannot violate the design box.
-\item \textbf{A reproducible information bound} on inverse-design accuracy for
-this design space, which separates model limitations from information limits.
+\item \textbf{A reproducible information-bound estimate} for this design space, intended to separate model limitations from information limits; at the bank size reached it does not yet carry an interval.
 \item \textbf{A controlled four-way comparison} of Random Forest, XGBoost, a
 plain deep network and a tandem network on an identical split with identical
 metrics, including a sample-efficiency characterisation --- the comparison
@@ -223,6 +210,7 @@ $\kappa^2$ tests are the coupler simulations performed during closed-loop
 re-verification (Section~\ref{sec:metric}); they were not available to the fit.}
 \label{tab:valid}
 \small
+\setlength{\tabcolsep}{4pt}
 \begin{tabular}{@{}llll@{}}
 \toprule
 Test & Quantity & Result & Criterion \\
@@ -325,10 +313,7 @@ evaluated at $\lres$ and a measured spacing whose resonance pair is centred
 \SI{8}{nm} away are not the same quantity. We therefore compare group
 indices at matched wavelengths. Each adjacent resonance pair gives
 $n_g = \lambda_1\lambda_2 / [L(\lambda_2-\lambda_1)]$, which we compare with
-the FDE value interpolated at that pair's midpoint. Over ten pairs spanning
-the three geometries, \textbf{the ring's group index is $2.91\%$ below the
-mode solver's}, with a standard deviation of $0.26\%$ and a mild wavelength
-trend ($-2.4\%$ at \SI{1520}{nm} to $-3.2\%$ at \SI{1567}{nm}).
+the FDE value interpolated at that pair's midpoint. Over ten pairs spanning the three geometries, \textbf{the ring's group index is $2.8$--$3.0\%$ below the mode solver's}: $-2.83\%$ (s.d.\ $0.24\%$) when the solver's $n_{\mathrm{eff}}(\lambda)$ is fitted with a quadratic and $-3.03\%$ (s.d.\ $0.31\%$) with a cubic (ddof $=1$; the pairs come from three geometries and are not independent). The deficit has a mild wavelength trend (about $-2.4\%$ at \SI{1520}{nm} to $-3.2\%$ at \SI{1567}{nm}). We do not use the solver's reported $n_g$ column as the reference because it is not smooth in wavelength (below); it gives $-2.73\%$ with s.d.\ $0.72\%$.
 
 Four candidate explanations are excluded by measurement. \emph{Round-trip
 length:} the straight fraction $2L_c/L$ is $3.5\%$, $5.8\%$ and $10.9\%$ for
@@ -342,7 +327,7 @@ numerical dispersion at this mesh or a limitation of the coupled-mode
 assembly itself; refining the mesh from \SI{40}{nm} to \SI{32}{nm} moves FSR
 \emph{away} from the model rather than toward it, which argues against a
 simple convergence artefact, and distinguishing the two would require a ring
-simulation at a substantially finer mesh than was affordable here.
+simulation at a substantially finer mesh than was affordable here. We note, without claiming it, that the mode-solver $n_g$ agrees with the measured device of [11] ($4.344$ against $4.345$ implied), so an error on the FDTD side is among the candidates.
 
 Two caveats attach to the sweep itself. The FDE solver intermittently returns
 a degenerate result from an identical call sequence, so each solve is
@@ -364,7 +349,7 @@ over hundreds of round trips. For the two lower-$\QL$ geometries, refinement
 moves the simulation \emph{toward} the analytic prediction and a second-order
 extrapolation to zero mesh recovers it to $1.2\%$ and $1.9\%$
 (Table~\ref{tab:ringval}). A discrepancy of 4--6\% at the production mesh is
-therefore numerical, not physical.
+therefore attributed to numerical error for these two geometries; with only two geometries and two mesh sizes this is an inference, not a convergence proof.
 
 \textbf{At the highest $\QL$ the discrepancy is real and unexplained.} For the
 third geometry, refinement moves the simulation \emph{away} from the model.
@@ -387,12 +372,11 @@ spectrum is comparable to the value itself.
 
 \textbf{What this does and does not affect.} Every model compared in
 Section~3 was trained and scored on identical labels, so a bias shared by all
-of them cancels from every model-to-model comparison: the resolution of O6,
+of them cancels from every model-to-model comparison: the assessment of O6,
 the metric result of Section~\ref{sec:metric}, the realisability result and
 the sample-efficiency comparison are unaffected. What must be qualified is the
 absolute accuracy of $\QL$ above $\QL \approx 4300$, the absolute accuracy of
-IL anywhere, and the scenario verdicts, which are judged against $\QL$
-specifications.
+IL anywhere, and the scenario verdicts, which are judged against $\QL$ specifications. Of the 1{,}150 labels, $84.7\%$ have $\QL$ above 4300 and $76.3\%$ above 6351 (the analytic $\QL$ of the highest-$\QL$ geometry simulated), so most absolute $\QL$ and IL labels lie outside the range this validation supports.
 
 \subsection{Models and protocol}
 
@@ -428,14 +412,15 @@ model that produced the labels.
 
 Table~\ref{tab:score} summarises the outcome against the seven objectives
 fixed before any modelling began. Three are met, three are not, and the
-central one is resolved in the direction that the methodology document
-anticipated as publishable. The objectives that are not met are reported as
-measured, with the reason in each case identified rather than asserted.
+central one is consistent with both prior reports, in the direction that the
+methodology document anticipated as publishable. The objectives that are not
+met are reported as measured, with the reason in each case tested rather than
+asserted.
 
 \begin{table}[t]
 \centering
 \caption{Objective outcomes. O6 is the central contribution; O1--O5 and O7
-exist to make its resolution credible rather than to stand as independent
+exist to support its assessment rather than to stand as independent
 results of equal weight.}
 \label{tab:score}
 \small
@@ -450,18 +435,19 @@ O2 forward surrogate & \textbf{not met} & 2 of 4 targets; IL MAPE
 $11.331 \pm 1.101\%$ against $\le 10\%$ over five seeds. Cause: small
 denominators on a sub-decibel target, at $0.072$\,dB RMSE \\
 O3 inverse accuracy & \textbf{not met} & $\rge = 15.506\%$ against
-$\le 15\%$; closed-loop half met at $3.669\%$. Reachable in principle:
-information bound $\le 14.626\%$ \\
+$\le 15\%$; closed-loop half met at $3.669\%$. Information-bound estimate
+$14.626\%$ ($<15\%$): no evidence the threshold is unreachable \\
 O4 four-way comparison & met & all four families, identical split, every
 metric, no omissions \\
 O5 sample efficiency & met & XGBoost forward below 300 samples; network at
-full size; naive network inverse at both \\
-O6 one-to-many & \textbf{resolved} & geometry-space criterion fails (1 of 4
+full size; naive network inverse at both (ordering holds across seeds; at full
+size the paired test-row interval against RF includes zero) \\
+O6 one-to-many & \textbf{consistent} & geometry-space criterion fails (1 of 4
 parameters at $R^2 \ge 0.80$), response-space criterion passes
-($3.669\%$) --- both prior reports correct \\
-O7 CPO translation & \textbf{not met} & 0 of 12 candidates, FDTD-verified;
-11 of 12 failures involve resonance placement, which is physically out of
-reach \\
+($3.669\%$) --- both prior reports consistent with these data \\
+O7 CPO translation & \textbf{not met} & 0 of 12 candidates, re-simulated
+(coupler in 3-D FDTD, ring analytic); 11 of 12 failures involve resonance
+placement, which the models do not predict better than the dataset mean \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -539,7 +525,7 @@ $1.5\times10^4$ of the range. The consequence propagates: $\lres$ accounts for
 almost all of the forward model's residual loss, so the 144-configuration grid
 search was in effect ranking configurations on noise.
 
-\subsection{The one-to-many question, resolved}
+\subsection{The one-to-many question}
 \label{sec:o6}
 
 \begin{figure}[t]
@@ -593,10 +579,7 @@ root-mean-square closed-loop response error of $3.669\%$, against a $20\%$
 requirement, with all twenty predictions physically realisable. Per target:
 $\lres$ $0.203\%$, FSR $0.980\%$, $\QL$ $4.037\%$, IL $3.594\%$.
 
-This is the outcome in which the two literatures are simultaneously correct.
-Liu \emph{et al.}\ [3] are right that the naive network does not recover the
-geometry; Chen and Jiang [7] and Adibnia \emph{et al.}\ [9] are right that it
-reproduces the requested response. The disagreement was never empirical.
+This is the outcome in which the two literatures are simultaneously consistent with the data. The reports differ in the criterion they apply; for this device the disagreement is one of criterion, not of measured result.
 
 \paragraph{Why: counting constraints.} The structure of the problem explains
 the split exactly. Of the four targets, $\lres$ carries essentially no
@@ -620,7 +603,7 @@ set. It is not failing; it is landing on the right level set and being scored
 on its position along it.
 
 Because this verdict rests on labels produced by the coupled-mode assembly,
-and Section~2.4 measured that assembly's group index to sit $2.91\%$ below
+and Section~2.4 measured that assembly's group index to sit about $3\%$ below
 full 3-D FDTD, it is fair to ask whether a label error of that size could
 manufacture or conceal the degeneracy. We tested it directly. The inverse
 model is trained on FSR labels rescaled by $\pm 3\%$ and then asked for
@@ -660,7 +643,7 @@ factor $4.00$.}
 \centering
 \caption{Closed-loop re-verification, four models, twenty targets each. All
 clear the $20\%$ response-error bar. $\theta$ error is evaluated on buildable
-predictions, matching the designs over which closed-loop error is measured.}
+predictions, matching the designs over which closed-loop error is measured. The $\lres$ column is a percentage of about \SI{1550}{nm}; because the targets lie within $\pm 0.5\%$ of \SI{1550}{nm} it is not informative on its own (see Section~3.7 for the value in nm and a no-skill baseline).}
 \label{tab:cl}
 \small
 \begin{tabular}{@{}lrrrrrrr@{}}
@@ -684,11 +667,9 @@ about which models work, and by how much.
 
 The naive network and XGBoost (normalised) differ by $1.04$ percentage points
 in $\rge$ --- $15.506\%$ against $16.546\%$, a difference a reader would
-reasonably call negligible. In closed loop they differ by a factor of
-$3.6$: $3.669\%$ against $13.329\%$. Had only $\rge$ been measured, these two
+reasonably call negligible. In closed loop they differ by a factor of $3.6$ ($3.669\%$ against $13.329\%$; bootstrap 95\% interval for the ratio $2.3$--$6.3$ over the twenty targets). Had only $\rge$ been measured, these two
 models would have been called equivalent, and the conclusion would have been
-wrong by nearly a factor of four on the quantity that determines whether a
-design works.
+wrong by nearly a factor of four on the quantity that determines whether a design works. Closed-loop error is computed from twenty test targets spaced evenly through the test set; bootstrap 95\% intervals on the RMS are $2.4$--$5.1\%$ (naive DNN), $3.4$--$5.7\%$ (RF raw), $9.1$--$17.1\%$ (XGBoost norm) and $2.3$--$8.7\%$ (tandem, 8 targets).
 
 The degeneracy suggests why, and $\theta$ makes it measurable. An error that
 moves along a $\theta$ level set yields a different valid design; one that
@@ -696,7 +677,7 @@ moves across it yields a wrong response. Figure~\ref{fig:metric} tests this
 on the four models whose predictions were re-simulated. Closed-loop error is
 proportional to $\theta$ error, with the four ratios spanning
 $1.87$--$2.24$, a factor of $1.20$. The same ratios formed with $\rge$ are
-$0.20$--$0.81$, a factor of $4.00$.
+$0.20$--$0.81$, a factor of $4.00$. Part of this is expected: because $\kappa^2 = \sin^2\theta$, a small relative error in $\theta$ produces roughly twice that relative error in $\kappa^2$, and hence in $\QL$ and IL. The measured ratios (about $2.1$) are consistent with that. The result rests on four models and is a consistency check on the constraint-counting argument, not an independent statistical test.
 
 Two features of that comparison matter for its strength. The first is that
 model family is controlled: Random Forest (raw) is an ensemble method with
@@ -725,8 +706,7 @@ fabricated, and the differences between architectures here are large.
 
 The tandem network produced unbuildable geometries for twelve of the twenty
 closed-loop targets: eleven with negative coupling length, down to
-\SI{-0.881}{\micro\metre}, and one with a width of \SI{397.8}{nm}. Over the
-full test set its buildable fraction is $33.5\%$. The mechanism is visible in
+\SI{-0.881}{\micro\metre}, and one with a width of \SI{397.8}{nm}. Over the full test set its buildable fraction is $33.5\%$ at the reported initialisation, and $11.6$--$83.8\%$ over five initialisations (Section~\ref{sec:methodcmp}). The mechanism is visible in
 its loss: the tandem network is penalised only through the frozen forward
 surrogate, which will evaluate $L_c = \SI{-0.88}{\micro\metre}$ and return a
 plausible response. Nothing in the objective encodes that the design space has
@@ -749,6 +729,7 @@ $2.654\%$. Judged on those numbers alone it looks like a competitive model.
 Sixty per cent of its designs cannot be made.
 
 \subsection{Method comparison and sample efficiency}
+\label{sec:methodcmp}
 
 \begin{figure}[t]
 \centering
@@ -757,7 +738,7 @@ Sixty per cent of its designs cannot be made.
 (42--46). Left: forward direction --- the apparent XGBoost advantage below
 300 samples is inside the seed spread and is not claimed, while the network's
 advantage at the full pool is outside it. Centre: inverse direction, where
-the naive network's margin over the random forest is reproducible. Right: the
+the naive network's margin over the random forest is reproducible across seeds, though not separated over test rows at full size (text). Right: the
 tandem network on its own scale, spanning $29$--$118\%$ and non-monotonic in
 training size; plotted on the centre panel's axis it would flatten the
 differences that panel exists to show.}
@@ -766,7 +747,7 @@ differences that panel exists to show.}
 
 Because a curve read at a single random seed cannot distinguish an ordering
 from initialisation noise, the whole sweep was repeated over five seeds
-(42--46) and is reported as mean $\pm$ standard deviation. Two methods are
+(42--46) and is reported as mean $\pm$ standard deviation (divisor $n$; with divisor $n-1$ every spread in this section would be $11.8\%$ larger). Two methods are
 taken to be separated only when the gap between them exceeds the pooled seed
 spread.
 
@@ -780,13 +761,7 @@ The two are comparable in that regime and we do not claim a winner. A
 single-seed reading of the same sweep shows XGBoost ahead by $4.4$ points and
 would support the opposite, stronger statement; it does not survive repetition.
 
-In the inverse direction the naive network is lowest at both ends and the
-margin does survive: $16.475\%$ against the random forest's $16.875\%$ below
-300 samples (gap $0.40$, pooled spread $0.14$), and $15.500 \pm 0.069\%$
-against $15.853 \pm 0.016\%$ at full size (gap $0.35$, pooled spread $0.07$).
-The full-size figure also sharpens O3: $15.500 \pm 0.069\%$ sits seven
-standard deviations above the $15\%$ threshold, so the objective is missed
-reproducibly rather than narrowly.
+In the inverse direction the naive network is lowest at the smallest and the largest training sizes ($16.475\%$ against the random forest's $16.875\%$ below 300 samples; $15.500 \pm 0.069\%$ against $15.853 \pm 0.016\%$ at full size), separated over seeds by the pooled-spread rule. Two cautions apply. The random forest's own curve is not monotone ($15.473\%$ at $n = 600$, $15.853\%$ at $n = 805$, a change of $0.38$ percentage points), which is as large as the margins above, so the ordering is established across initialisations but not across draws of the data. And test-set sampling uncertainty is larger than seed spread: 95\% bootstrap intervals over the 173 test rows are about $\pm 1.0$ to $1.2$ percentage points for every model (naive DNN $15.51\%$, interval $14.47$--$16.52\%$; RF (raw) $16.04\%$, $14.96$--$17.12\%$). Paired over the same resampled rows, the naive network's advantage at full size is $-0.53$ points against RF (raw) (interval $-1.23$ to $+0.14$), $-0.33$ against RF (norm) ($-1.12$ to $+0.45$), $-0.95$ against XGBoost (raw) ($-1.94$ to $+0.06$) and $-1.04$ against XGBoost (norm) ($-2.04$ to $-0.03$). Only the last interval excludes zero, and only just, so at full size the naive network is not shown to be more accurate than the random forest on this test set; it is clearly more accurate than the tandem network ($-13.96$ points, interval $-15.72$ to $-12.04$). The O3 shortfall ($15.5\%$ against $15\%$) lies inside the naive network's own interval (bootstrap probability that its $\rge$ is at most $15\%$: $0.17$), so we report it as ``not met at the point estimate'', not as missed by a fixed number of standard deviations.
 
 The tandem network's inverse curve is not a learning curve at all:
 $34.6 \pm 8.6$, $39.5 \pm 7.0$, $87.1 \pm 19.3$, $117.5 \pm 38.0$ and
@@ -796,8 +771,28 @@ consistent with the box-escape mechanism of Section~\ref{sec:build}; with
 nothing anchoring predictions inside the design space, where the network
 wanders is largely a function of initialisation and data. The tandem
 architecture is the standard remedy for one-to-many ambiguity in this
-literature, and on this problem it is not merely worse than the naive network
-but unusable.
+literature, and, as implemented here --- unbounded outputs, and a loss in which $\lres$ contributes $99.3\%$ of the response-space gradient --- it is worse than the naive network and its error is erratic across seeds. Whether this reflects the architecture or this implementation of it was tested directly. Four tandem variants were trained over the same five seeds (42--46) through the same frozen forward model (Table~\ref{tab:tandemfix}): the baseline above; a variant with a sigmoid output, so that every prediction lies inside the design box; a variant in which each target's squared error is divided by the forward model's own validation error on that target, which has no free parameter and lowers the weight of $\lres$ to $0.003$ of the mean; and both together.
+
+\begin{table}[t]
+\centering
+\caption{Tandem variants, mean $\pm$ standard deviation (divisor $n$) over five seeds. Response MAPE is the mean over the four targets of the error between the requested response and the frozen forward model's response to the predicted geometry. The naive row gives $\rge$ over five seeds; its other columns are from the headline run (seed 42) over the same 173 test rows.}
+\label{tab:tandemfix}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Variant & $\rge$ (\%) & $\theta$ MAPE (\%) & buildable (\%) & response MAPE (\%) \\
+\midrule
+naive DNN                  & $15.500 \pm 0.069$ & $1.82$ & $95.4$ & $3.81$ \\
+\midrule
+tandem, baseline           & $30.03 \pm 5.79$ & $7.36 \pm 3.47$ & $37.3$ ($11.6$--$83.8$) & $4.34 \pm 0.07$ \\
+tandem, bounded            & $19.46 \pm 0.29$ & $2.62 \pm 0.06$ & $100$ & $4.53 \pm 0.04$ \\
+tandem, weighted           & $31.35 \pm 7.74$ & $8.40 \pm 4.95$ & $30.6$ & $3.31 \pm 0.04$ \\
+tandem, bounded + weighted & $19.76 \pm 0.31$ & $1.92 \pm 0.11$ & $100$ & $3.61 \pm 0.02$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Bounding the output removes both faults of the baseline: every design is buildable, and the seed-to-seed spread of $\rge$ falls from $5.79$ to $0.29$ percentage points. It does not close the gap in geometry space: the bounded tandem network stays $3.96$ points above the naive network, against a pooled seed spread of $0.21$. Weighting alone leaves the geometry unchanged ($31.35 \pm 7.74\%$, $30.6\%$ buildable) but improves the reconstructed response, from $4.34\%$ to $3.31\%$, mostly through $\QL$. With both changes, the coupling-phase error ($1.92 \pm 0.11\%$) and the reconstructed-response error ($3.61\%$) are comparable to the naive network's ($1.82\%$ and $3.81\%$, single run), while $\rge$ remains about four points higher. A bounded, weighted tandem network is therefore not worse than the naive network in response space or in $\theta$; it is worse only in geometry space, which is the distinction this paper is about. These runs are not the sweep of Figure~\ref{fig:sample}: that sweep retrains the forward network for every seed and initialises the tandem network at seeds 43--47, so its full-size tandem spread ($29.1 \pm 6.7\%$) is a different experiment, with one run in common ($29.461\%$). These variants were not re-simulated in closed loop, so no closed-loop claim is made for them.
 
 A final observation on metric dependence. Ranking parameter difficulty by mean
 $R^2$ gives $L_c > w > g > R$, hardest first; ranking by mean $\rge$
@@ -816,8 +811,7 @@ for radius.
 neighbourhood size $k$ annotated. The estimate is an upper bound on the true
 bound, and falls as the bank grows. At $N = 10^6$ it lies below the $15\%$
 objective threshold. Right: per-parameter error of the best model against the
-bound estimator's per-parameter error; these are not individual bounds, since
-the estimator minimises the aggregate.}
+bound estimator's per-parameter error; these are not individual bounds, since the estimator minimises the aggregate. The headline estimate is from the convergence run ($k = 7$); the per-parameter values on the right are from a separate run at $k = 5$ ($14.669\%$).}
 \label{fig:floor}
 \end{figure}
 
@@ -843,11 +837,7 @@ $16.063\%$ at $N = 12\,500$ to $14.626\%$ at $N = 10^6$. Since
 $14.626\% < 15\%$:
 
 \begin{quote}
-\textbf{O3's geometric threshold lies above the information content of the
-four chosen targets' inverse problem. The objective is reachable in
-principle, and the measured shortfall is a model-and-data result, not a
-fundamental limit.} At least $0.879$ percentage points of headroom separate the
-best model from the bound.
+\textbf{At $N = 10^6$ the estimate is $14.626\%$, below the $15\%$ threshold; we therefore have no evidence that the threshold is unreachable.} We do not claim it is reachable: the neighbourhood size $k$ was chosen on the same 173 test targets, a second run ($k = 5$) gives $14.669\%$, the $k$-curve is not smooth ($14.67\%$ at $k = 5$, $14.93\%$ at $k = 10$), and no sampling interval has been computed.
 \end{quote}
 
 Two honest qualifications. The estimate is not converged: the optimal
@@ -874,7 +864,7 @@ declined.
 \centering
 \caption{Re-simulated scenario verdicts. Each candidate geometry was
 re-simulated with a fresh 3-D FDTD coupler run. Tolerance on $\lres$ is half
-the channel spacing: $\pm \SI{2.0}{nm}$ in A, $\pm \SI{0.4}{nm}$ in B.}
+the channel spacing: $\pm \SI{2.0}{nm}$ in A, $\pm \SI{0.4}{nm}$ in B. If the ring FDTD is taken as the reference, the analytic FSR is about $2.4\%$ low: RF (raw) in Scenario A would then pass FSR (about \SI{16.3}{nm}), and its $\lres$ of \SI{1548.06}{nm} lies inside the $\pm\SI{2}{nm}$ window by \SI{0.06}{nm}, less than the \SIrange{0.8}{1.1}{nm} $\lres$ error of the analytic model, so its verdict is undecided. $\QL$ above about 4300 (all Scenario B candidates) is not validated.}
 \label{tab:cpo}
 \small
 \begin{tabular}{@{}lrrrrl@{}}
@@ -901,9 +891,7 @@ XGB (norm) & 1552.793 & 6.424 & 5816 & 0.141 & fail: $\lres$ $+2.79$, $\QL$ $-19
 \end{table}
 
 Objective O7 asked which methods meet a CPO scenario's specification within
-its stated tolerance. Table~\ref{tab:cpo} answers: \textbf{none, in either
-scenario}. The verdicts rest on fresh FDTD re-simulation of each candidate
-rather than on the analytic model.
+its stated tolerance. Table~\ref{tab:cpo} answers: \textbf{none, in either scenario, within the uncertainty of the ring model}. Each candidate's coupler was re-simulated in 3-D FDTD; the ring response was then assembled analytically, so the verdicts inherit the biases of Section~\ref{sec:ringval}.
 
 Eleven of the twelve failures involve resonance placement. The single
 exception is Random Forest (raw) in Scenario A, which placed the resonance at
@@ -913,7 +901,7 @@ XGBoost undershoots $\QL$ in Scenario B.
 
 This failure is physical, not algorithmic, and the numbers say so without
 interpretation. The naive network's closed-loop $\lres$ error is
-\SI{3.15}{nm} MAPE, \SI{4.32}{nm} RMS and \SI{10.9}{nm} at worst. Scenario A
+\SI{3.15}{nm} MAPE, \SI{4.32}{nm} RMS and \SI{10.9}{nm} at worst. For reference, always predicting the dataset's mean resonance wavelength gives \SI{2.66}{nm} RMS on the same twenty targets, and a randomly chosen geometry about \SI{4.4}{nm}; the models (\SIrange{3.35}{4.33}{nm} RMS) therefore place the resonance no better than predicting the mean. Scenario A
 allows \SI{2.0}{nm} and Scenario B \SI{0.4}{nm}, so the best model misses by
 factors of two and eleven respectively. Working back through
 $\mathrm{d}\lres/\mathrm{d}R \approx 0.15$\,nm/nm, hitting Scenario A would
@@ -921,9 +909,7 @@ require the radius controlled to about \SI{13}{nm} and Scenario B to about
 \SI{3}{nm} --- below realistic lithographic tolerance, let alone
 inverse-model precision.
 
-Three independent measurements agree on this: the sensitivity analysis of
-Section~3.1, the closed-loop re-simulation of Section~\ref{sec:metric}, and
-the scenario translation here. Inverse design delivers the \emph{shape} of the
+Three views of one effect agree: the sensitivity analysis of Section~3.1, the closed-loop re-simulation of Section~\ref{sec:metric}, and the scenario translation here. All reflect that the resonance is the nearest one to \SI{1550}{nm}, so it wraps every FSR. Inverse design delivers the \emph{shape} of the
 response --- free spectral range, loaded $Q$, insertion loss --- and cannot
 deliver absolute resonance position. A CPO deployment must place channels by
 post-fabrication thermal or carrier trimming.
@@ -931,8 +917,8 @@ post-fabrication thermal or carrier trimming.
 \subsection{What the trimming costs}
 \label{sec:trim}
 
-That conclusion is only useful if the trimming it demands is affordable, so
-we quantify it. The thermo-optic sensitivity is solved for rather than
+That conclusion is only useful if the trimming it demands is practical, so
+we quantify the demand. The thermo-optic sensitivity is solved for rather than
 assumed: each material index is perturbed in turn and the mode re-solved,
 giving $\Gamma_i = \partial n_{\mathrm{eff}} / \partial n_i$ directly.
 Perturbing both materials together reproduces the sum of the separate
@@ -970,25 +956,27 @@ poorly a model places $\lres$.
 \emph{Biased} assumes the optimal design offset; \emph{unbiased} assumes
 none. Power uses a thermal resistance of \SI{3}{K/mW}, a device parameter
 that scales the power columns linearly and the temperature columns not at
-all.}
+all. Circular spread is the smallest arc of one FSR containing all errors;
+the mean FSR is \SI{9.74}{nm}.}
 \label{tab:trim}
-\begin{tabular}{@{}lrrrrrr@{}}
+\small
+\begin{tabular}{@{}lrrrrrrr@{}}
 \toprule
- & & \multicolumn{3}{c}{biased} & \multicolumn{2}{c}{unbiased} \\
-\cmidrule(lr){3-5}\cmidrule(lr){6-7}
-Method & RMS $\lres$ & spread & max $\Delta T$ & max & mean $\Delta T$
+ & & \multicolumn{4}{c}{biased} & \multicolumn{2}{c}{unbiased} \\
+\cmidrule(lr){3-6}\cmidrule(lr){7-8}
+Method & RMS $\lres$ & spread & circ.\ spread & max $\Delta T$ & max & mean $\Delta T$
 & max $\Delta T$ \\
- & (nm) & (nm) & (K) & (mW) & (K) & (K) \\
+ & (nm) & (nm) & (nm) & (K) & (mW) & (K) & (K) \\
 \midrule
-Naive DNN   & 4.332 & 18.940 & 125.0 & 41.7 &  80.1 & 227.5 \\
-RF (raw)    & 4.015 & 16.433 & \textbf{121.4} & 40.5 &  70.1 & 190.4 \\
-XGBoost (norm) & 3.346 & 12.371 & 131.9 & 44.0 &  56.7 & 204.9 \\
+Naive DNN   & 4.332 & 18.940 & 6.898 & 125.0 & 41.7 &  80.1 & 227.5 \\
+RF (raw)    & 4.015 & 16.433 & 7.873 & \textbf{121.4} & 40.5 &  70.1 & 190.4 \\
+XGBoost (norm) & 3.346 & 12.371 & 7.114 & 131.9 & 44.0 &  56.7 & 204.9 \\
 \midrule
-\multicolumn{7}{@{}l}{\itshape Tandem realises only 8 of 20 predictions and is
+\multicolumn{8}{@{}l}{\itshape Tandem realises only 8 of 20 predictions and is
 excluded from the ranking: scoring it on} \\
-\multicolumn{7}{@{}l}{\itshape the subset it happened to realise is selection
+\multicolumn{8}{@{}l}{\itshape the subset it happened to realise is selection
 after the fact.} \\
-Tandem ($n=8$) & 3.638 & 9.082 & 76.0 & 25.3 & 58.0 & 104.1 \\
+Tandem ($n=8$) & 3.638 & 9.082 & 5.822 & 76.0 & 25.3 & 58.0 & 104.1 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -996,20 +984,9 @@ Tandem ($n=8$) & 3.638 & 9.082 & 76.0 & 25.3 & 58.0 & 104.1 \\
 Table~\ref{tab:trim} gives the result. The best fully-evaluated model needs a
 heater spanning \SI{121}{K}, drawing \SI{18.2}{mW} on average across rings
 and \SI{40.5}{mW} at worst --- \SI{73}{mW} static for a four-channel link and
-\SI{146}{mW} for eight channels, at typical draw. Trimming is therefore
-affordable, and the paper's central negative result about resonance placement
-does not invalidate the approach so much as price it.
+\SI{146}{mW} for eight channels, at typical draw. Under the stated assumptions (one heater per ring, \SI{3}{K/mW}) trimming is feasible; we do not compare \SI{18}{mW} per ring with a CPO power budget, so we make no claim that it is affordable.
 
-One consequence deserves emphasis because it inverts the usual figure of
-merit. Under a biased design the cost is set by how tightly the $\lres$
-errors \emph{cluster} once wrapped into one FSR, not by their RMS. XGBoost
-has the lowest RMS error of the three fully-evaluated models and the
-\emph{highest} trimming demand; the random forest is worse on RMS and cheaper
-to trim. A systematic offset is absorbed by the design bias at no cost, while
-scatter is paid for in heater range and static power. For a system that will
-be trimmed anyway --- which is every deployed microring link --- consistency
-is worth more than accuracy, and inverse-design models should be selected
-accordingly.
+The errors of every model fill most of one FSR: the circular spread is $71$--$81\%$ of the \SI{9.74}{nm} mean FSR, so every model needs a heater range of \SIrange{121}{132}{K} at the optimal design bias. Demand differs by $8\%$ between the three fully evaluated models, from twenty targets and one trained model each, which does not separate them. The ranking depends on the statistic: the random forest has the smallest maximum biased temperature rise (\SI{121.4}{K}), XGBoost the smallest mean (\SI{52.8}{K} biased, \SI{56.7}{K} unbiased). We therefore draw no conclusion about which model is cheapest to trim, and note that at the present placement accuracy the demand of every model is close to the range needed to tune across one mean FSR (about \SI{135}{K}).
 
 \section{Discussion}
 
@@ -1037,10 +1014,9 @@ also puts a specific cost on the tandem architecture. The tandem network was
 introduced [3] precisely to handle degeneracy, and in response space it does:
 its closed-loop error on buildable designs, $5.936\%$, is better than
 XGBoost's. But measuring the loss only through a surrogate removes the sole
-pressure keeping predictions inside the manufacturable domain, and two thirds
-of its designs leave it. A tandem network for a bounded design space needs an
+pressure keeping predictions inside the manufacturable domain, and two thirds of its designs leave it in this implementation. A tandem network for a bounded design space needs an
 explicit constraint, and reporting realisable fraction would have made this
-visible in earlier work.
+visible in earlier work. A sigmoid-bounded variant confirms it: $100\%$ of its designs are buildable over five seeds, and its $\rge$ spread falls from $5.79$ to $0.29$ points (Section~\ref{sec:methodcmp}).
 
 The information bound changes how a missed threshold should be read. $\rge$
 targets in this literature are quoted without reference to how much geometric
@@ -1069,8 +1045,7 @@ about \SI{36}{GB}, so the radius range could not be spanned. Small radius is
 where bend loss is largest and the loss model most stressed, but the
 validation does not establish accuracy at large radius.
 \item \textbf{$\QL$ accuracy is established only below $\QL \approx 4300$},
-to within 2\%. Above it the model over-predicts by 17--27\% and the cause is
-not established. \textbf{IL is not validated at all.}
+to within 2\%. Above it the simulated $\QL$ is $17$--$27\%$ below the analytic value at the \SI{32}{nm} and \SI{40}{nm} meshes (the analytic value is $21$--$38\%$ above the simulation) and the cause is not established. $84.7\%$ of the labels lie above $\QL = 4300$. \textbf{IL is not validated at all.}
 \item \textbf{The external validation covers FSR only.} It tests the mode
 solver and the length convention. The coupling model, the bend-loss model,
 $\QL$ and IL are not externally validated against measurement.
@@ -1093,7 +1068,7 @@ percentage point.
 resonance-placement conclusion in particular predicts that trimming is
 required; it does not demonstrate a trimmed device.
 \item \textbf{Five seeds is a small sample for a spread.} The separation test
-of Section~4.6 uses the standard deviation over five seeds, which is itself
+of Section~3.5 uses the standard deviation over five seeds, which is itself
 uncertain; a borderline comparison could be decided either way by a larger
 repetition. Only the clearly separated and clearly unseparated cases are
 treated as results.
@@ -1102,7 +1077,7 @@ $\pm 3\%$ perturbation of Section~3.2 leaves the O6 verdict unchanged, but a
 uniform rescaling is the simplest form the measured discrepancy could take;
 a geometry-dependent label error was not tested and would require
 regenerating the dataset from full 3-D simulation.
-\item \textbf{The ring's group index is $2.91\%$ below the mode solver's,
+\item \textbf{The ring's group index is about $3\%$ below the mode solver's,
 and the cause is not established.} Round-trip length, bend effects, FSR
 extraction and the $n_g$ polynomial are each excluded by measurement
 (Section~2.4). The residual is a quantified, reproducible disagreement
@@ -1117,14 +1092,20 @@ model therefore stands uncorrected, and a wavelength-resolved replacement
 would require 3-D FDTD of a bend section.
 \item \textbf{No independent expert review of the physical methods} was
 obtained prior to this draft.
+\item \textbf{The ring response in the closed-loop and scenario evaluations
+is analytic;} only the coupler is re-simulated.
+\item \textbf{Test-set sampling uncertainty is not covered by the five-seed
+spreads} (173 targets for geometric error, 20 for closed-loop error);
+bootstrap intervals are given where computed.
+\item \textbf{The headline tandem baseline has unbounded outputs and an unweighted
+loss dominated by $\lres$.} Bounded and weighted variants were evaluated for geometry accuracy, $\theta$ error and buildable fraction (Section~\ref{sec:methodcmp}) but not in closed loop; the closed-loop figures in Table~\ref{tab:cl} are for the baseline at a single initialisation.
 \end{enumerate}
 
 \section{Conclusion}
 
 For a four-parameter add-drop silicon microring resonator, a naive inverse
 neural network fails the geometry-space convergence criterion and passes the
-response-space one. Both findings reported in the prior literature are
-therefore correct, and the apparent disagreement between them was a difference
+response-space one. Both findings reported in the prior literature are therefore consistent with these results, and the apparent disagreement between them was a difference
 of metric rather than of result. The reason is a two-dimensional degeneracy
 that follows from counting constraints: four scalar targets impose two
 effective conditions, one on round-trip length and one on a single coupling
@@ -1136,13 +1117,12 @@ $\rge$ differ by a factor of $3.6$ in closed loop, while error in the coupling
 phase predicts closed-loop error to within a factor $1.20$ across three
 architecture families. Physical realisability is a separate and
 architecture-dependent property that neither metric detects, ranging from a
-provable $100\%$ for Random Forest to $33.5\%$ for a tandem network. And an
+provable $100\%$ for Random Forest to $33.5\%$ for a tandem network at the reported initialisation (and $100\%$ once its outputs are bounded). And an
 information bound computed per design space is what makes an accuracy target
-interpretable; here it shows a missed $15\%$ threshold to be addressable
-rather than fundamental.
+interpretable; here the point estimate gives no evidence that the missed $15\%$ threshold is fundamental.
 
 For co-packaged optics specifically, the useful conclusion is a negative one
-established three independent ways: inverse design can deliver free spectral
+seen three ways: inverse design can deliver free spectral
 range, loaded $Q$ and insertion loss, and cannot place an absolute resonance
 wavelength to channel-grid accuracy. Channel assignment must be achieved by
 post-fabrication trimming, and an inverse-design flow for CPO filters should

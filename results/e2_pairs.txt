@@ -1,0 +1,20 @@
+E2 -- bootstrap over 173 test rows, B = 10000, seed 20261103, percentile intervals
+==========================================================================
+model             RMS-RGE %  95% CI low     high
+naive DNN            15.506      14.471   16.517
+tandem               29.461      27.486   31.393
+RF (raw)             16.039      14.959   17.123
+RF (norm)            15.835      14.728   16.914
+XGBoost (raw)        16.451      15.175   17.728
+XGBoost (norm)       16.546      15.271   17.802
+
+Paired differences (same resampled rows); negative = first model better
+comparison                        diff pp  95% CI low     high  P(diff<0)
+naive DNN - RF (raw)               -0.534      -1.230    0.141      0.938
+naive DNN - RF (norm)              -0.329      -1.122    0.446      0.800
+naive DNN - XGBoost (raw)          -0.946      -1.942    0.063      0.967
+naive DNN - XGBoost (norm)         -1.041      -2.038   -0.026      0.978
+RF (raw) - XGBoost (norm)          -0.507      -1.161    0.158      0.934
+naive DNN - tandem                -13.955     -15.718  -12.037      1.000
+
+naive DNN against the 15 % O3 threshold: point 15.506 %, CI [14.471, 16.517], bootstrap P(RMS-RGE <= 15 %) = 0.173

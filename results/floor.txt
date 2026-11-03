@@ -1,4 +1,4 @@
-INFORMATION FLOOR -- LOWER BOUND ON ACHIEVABLE RMS-RGE
+INFORMATION FLOOR -- UPPER-BOUND ESTIMATE (k=5 run, seed 7; the headline 14.626 % at k=7 is in floor_convergence.txt)
 ============================================================================
 bank: 1000000 geometries, uniform over the Phase 1.2 design box, seed 7.
 Each test target is matched to the bank geometry with the nearest
@@ -30,5 +30,5 @@ from the response alone.
   targets, NOT of any model. It falls slowly as the bank grows, so
   the bank size above is part of the result.
 
-  learning curve refit with asymptote pinned here:
+  learning curve refit with asymptote pinned here (DIAGNOSTIC ONLY; the asymptote is not identifiable, see floor_convergence.txt):
     err(n) = 14.669 + 9.760 * n^(-0.3450)

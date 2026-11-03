@@ -24,6 +24,15 @@ costs to fix that with a heater instead of with a better model.
       tandem    8    3.638n    9.082n    31.3K    76.0K   25.33    58.0K   104.1K    38%    12%
     xgb_norm   20    3.346n   12.371n    52.8K   131.9K   43.96    56.7K   204.9K    60%    20%
 
+  CLUSTERING vs HEATER DEMAND (circular spread = smallest arc
+  of one FSR holding all errors)
+
+       model    n   RMS nm  raw spread  circ spread  max dT K
+       naive   20    4.332      18.940        6.898     125.0
+      rf_raw   20    4.015      16.433        7.873     121.4
+      tandem    8    3.638       9.082        5.822      76.0
+    xgb_norm   20    3.346      12.371        7.114     131.9
+
   'in A' / 'in B' are the fraction of rings already inside the
   window WITHOUT trimming. The dT columns are what the rest need.
 
@@ -49,10 +58,10 @@ costs to fix that with a heater instead of with a better model.
   DRAW the mean. Both are quoted because they answer different
   questions: what to build, and what it costs to run.
 
-  Note what this rewards: the figure of merit is how tightly the
-  lambda_res errors CLUSTER once wrapped into one FSR, not the
-  RMS error. A large but consistent offset is absorbed by the
-  design bias and costs nothing; scatter is what costs power.
+  Note: circular spread alone did not rank the three models the same way
+  as their maximum heater demand (see the CLUSTERING vs HEATER DEMAND
+  table). A consistent offset is absorbed by a design bias; the worst
+  residual error sets the heater range.
 
   The requirement is capped at one FSR by construction: a ring
   that is further off than that is tuned onto the next
