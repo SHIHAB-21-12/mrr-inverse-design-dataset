@@ -92,7 +92,7 @@ studies work in different design spaces and, critically, judge success by
 different criteria: [3] reports geometric accuracy, while [7] and [9] report
 how closely a re-simulated design reproduces the requested response.
 
-No prior study we are aware of tests this for a bus-coupled add-drop microring resonator. Pal \emph{et al.}\ [6] apply classical tree-based machine learning to microring inverse design on 462 finite-element samples, and recent work benchmarks classical regressors on microring dispersion-to-geometry mapping \textbf{[[15: Simsek et al., Nanophotonics 2026, arXiv 2601.19669 --- fill after reading the full paper]]} and tree-based models on FDTD microring data \textbf{[[16: arXiv 2510.03651 --- fill after reading the full paper]]}. The design space of [6] contains
+No prior study we are aware of tests this for a bus-coupled add-drop microring resonator. Pal \emph{et al.}\ [6] apply classical tree-based machine learning to microring inverse design on 462 finite-element samples, and two recent preprints apply machine learning to microrings with different aims. Simsek \emph{et al.}\ [15] use neural networks to recover the width and height of a silicon-nitride ring from its measured dispersion, a characterisation problem with no coupling section. Hasani \emph{et al.}\ [16] combine a generative network with gradient boosting on FDTD data for a silicon ring parameterised by radius, gap and width, and report RMSE together with one FDTD-checked high-$Q$ design. The design space of [6] contains
 no bus-coupling parameter at all and so cannot predict insertion loss or any
 other coupling-dependent quantity --- the specifications that decide whether a
 filter is usable in a co-packaged-optics (CPO) link. Torabi \emph{et al.}\
@@ -1193,6 +1193,13 @@ no.~1, pp.~47--73, 2012.
 \item B. E. Little, S. T. Chu, H. A. Haus, J. Foresi, and J.-P. Laine,
 ``Microring resonator channel dropping filters,'' \emph{Journal of Lightwave
 Technology}, vol.~15, no.~6, pp.~998--1005, 1997.
+\item E. Simsek, S.-C. Ou, G. Moille, and K. Srinivasan, ``Microring resonator
+dispersion metrology with neural networks,'' arXiv preprint arXiv:2601.19669
+[physics.optics], Jan.\ 2026. (Unrefereed preprint.)
+\item M. Hasani, A. Shircharandabi, M. Rabiei, M. Motaharifar, M. Ghasemi,
+Y. M. Banad, and S. Sharif, ``XG-Attention-WGAN PIC: Utilizing
+XGboost-Attention-WGAN for photonics integrated circuit design,'' arXiv
+preprint arXiv:2510.03651, Oct.\ 2025. (Unrefereed preprint.)
 \end{enumerate}
 \endgroup
 
