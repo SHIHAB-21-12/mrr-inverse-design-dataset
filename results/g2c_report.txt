@@ -1,0 +1,17 @@
+G2c: straight guide with a dispersive silicon fit in FDTD
+==================================================================
+dispersive mode solver: n_eff 2.35314  n_g 4.32912
+making dispersive material fits:
+      method A failed: 'copymaterial can have at most 1 argument'
+      Si_disp_B: fitted n_g 1.90468 (raw 3.64213)
+      Si_disp_C: fitted n_g 3.62620 (raw 3.64213)
+      method A failed: 'copymaterial can have at most 1 argument'
+      SiO2_disp_B: fitted n_g 1.20968 (raw 1.46388)
+      SiO2_disp_C: fitted n_g 1.46383 (raw 1.46388)
+using silicon = Si_disp_C, silica = SiO2_disp_C
+FDTD   40 nm: n_eff 2.36554  n_g 4.38993  (n_g vs dispersive FDE +1.40 %, 4.3 min)
+FDTD   25 nm: n_eff 2.35968  n_g 4.34897  (n_g vs dispersive FDE +0.46 %, 17.7 min)
+FDTD   20 nm: n_eff 2.36116  n_g 4.34074  (n_g vs dispersive FDE +0.27 %, 37.3 min)
+
+Earlier, with the flat default fit: -2.5, -3.4, -3.6 % at 40, 25, 20 nm.
+Expected if the explanation is right: the gap shrinks to well under 1 %.
