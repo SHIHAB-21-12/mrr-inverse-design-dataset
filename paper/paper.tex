@@ -43,8 +43,8 @@ against 68 further independent FDTD coupler runs, and against nine full 3-D simu
 
 The naive inverse network \emph{fails} the geometry-space criterion
 ($R^2 \ge 0.80$ on only one of four parameters) and \emph{passes} the
-response-space criterion (closed-loop re-simulated error $3.669\%$ on twenty test designs, all physically realisable, and $3.989\%$ on a hundred, of which $96$ were
-realisable). Both prior reports are therefore consistent with these results, and were measuring different things. We explain why by counting
+response-space criterion (closed-loop re-simulated error $3.669\%$ on twenty test designs, all
+physically realisable, and $3.989\%$ on a hundred, of which $96$ were realisable). Both prior reports are therefore consistent with these results, and were measuring different things. We explain why by counting
 constraints: of four target quantities, resonance wavelength carries almost no
 geometric information ($R^2 = 0.0078 \pm 0.0011$ across five seeds), free
 spectral range fixes the round-trip length, and loaded $Q$ and insertion loss
@@ -322,12 +322,7 @@ for all three, whereas a length error or a straight/bend mixing error would
 scale with it. \emph{Bend effects:} $0.08\%$, above. \emph{FSR extraction:}
 an independent re-extraction from the saved spectra agrees with the
 production analysis to $0.03\%$, $0.005\%$ and $0.014\%$. \emph{The $n_g$
-polynomial:} $0.26\%$ at these geometries. What remains is either FDTD
-numerical dispersion at this mesh or a limitation of the coupled-mode
-assembly itself; refining the mesh from \SI{40}{nm} to \SI{32}{nm} moves FSR
-\emph{away} from the model rather than toward it, which argues against a
-simple convergence artefact, and distinguishing the two would require a ring
-simulation at a substantially finer mesh than was affordable here. We note, without claiming it, that the mode-solver $n_g$ agrees with the measured device of [11] ($4.344$ against $4.345$ implied), so an error on the FDTD side is among the candidates.
+polynomial:} $0.26\%$ at these geometries. What remains was traced to the FDTD material model. FDTD represents each database material by a fit over the source band, and for silicon (Palik) over \SIrange{1500}{1600}{nm} that fit has \emph{no} dispersion: its group index equals its phase index ($3.4766$ for both), against $3.642$ for the raw data, and the same holds for silica ($1.4440$). We tested the consequence on a plain straight \SI{450}{nm}$\times$\SI{220}{nm} guide, with no ring and no bend, in 3-D FDTD at four mesh sizes. The mode-solver group index is $4.329$. FDTD gives $4.219$, $4.221$, $4.182$ and $4.174$ at 40, 32, 25 and \SI{20}{nm}, which is $-2.5$ to $-3.6\%$, the size of the ring's deficit, and the gap widens as the mesh is refined, so it is not numerical dispersion. Replacing both materials by fixed indices changes the FDTD result by less than $2\times10^{-5}$, confirming that the engine already behaves as if the materials were dispersionless, while the mode solver with the same fixed indices gives $4.147$; the FDTD values lie $+1.8$, $+0.9$ and $+0.7\%$ above that at 40, 25 and \SI{20}{nm}, converging toward it. The difference of $0.18$ between the dispersive and fixed-index solver values is the material contribution to the guide's group index, which the FDTD engine omits. We therefore attribute the ring's deficit to this omission and not to the coupled-mode assembly. Two limits apply. The ring itself was not re-simulated with a dispersive silicon model, so the cause is established for the straight guide and inferred for the ring from the agreement in size. And the $\kappa^2$ values from coupler FDTD used the same material fit; we expect the effect to be small at \SI{1550}{nm}, where the index is correct, but did not measure it. The mode-solver $n_g$ agrees with the measured device of [11] ($4.344$ against $4.345$ implied), so the dataset labels, which use the mode solver, are not affected.
 
 Two caveats attach to the sweep itself. The FDE solver intermittently returns
 a degenerate result from an identical call sequence, so each solve is
@@ -402,7 +397,8 @@ is undefined. Per-parameter terms and the pure [12]-convention value over
 $\{R,w,g\}$ are reported alongside every aggregate.
 
 Closed-loop response error is measured by taking a model's predicted geometry
-for each of twenty representative test targets (a hundred for the naive network, Section~3.2), re-simulating the coupler in
+for each of twenty representative test targets (a hundred for the naive
+network, Section~3.2), re-simulating the coupler in
 3-D FDTD, reassembling the ring response, and comparing to the response
 originally requested. The FDTD step is what makes this independent: feeding
 predictions back through the fitted $\kappa^2$ model would merely replay the
@@ -577,7 +573,25 @@ and no method recovers the other three.
 its predicted geometries for twenty representative targets gives a
 root-mean-square closed-loop response error of $3.669\%$, against a $20\%$
 requirement, with all twenty predictions physically realisable. Per target:
-$\lres$ $0.203\%$, FSR $0.980\%$, $\QL$ $4.037\%$, IL $3.594\%$. Twenty targets is a small sample, so we extended the check for the naive network to a hundred test targets spaced evenly through the test set (twelve of them are among the original twenty). The result holds, with one correction. The root-mean-square closed-loop error over the $96$ realisable predictions is $3.989\%$ (bootstrap 95\% interval $3.36$--$4.62\%$, $B = 10\,000$), and every target of every realisable design is within $20\%$ of the request, the worst single error being $17.98\%$. Per target (mean absolute error): $\lres$ $0.212\%$, FSR $0.879\%$, $\QL$ $3.936\%$, IL $4.452\%$. The correction is that \emph{not all designs are buildable}: four of the hundred predictions fall just outside the design box (radius $4.87$--$4.99$\,\si{\micro\metre} against a lower limit of $5$\,\si{\micro\metre}), so the buildable fraction is $96\%$ (Wilson 95\% interval $90.2$--$98.4\%$). This agrees with the $95.4\%$ of Table~\ref{tab:inv} and shows that the ``all twenty realisable'' result above was a feature of the small sample. The $96$ coupler simulations of this run were also not in the $\kappa^2$ fit; the fitted model sits above them by $3.32\%$ on average (MAPE $4.10\%$, maximum $8.72\%$, all within $10\%$), consistent with the positive bias of a few per cent noted in Section~2.3. The other models were not extended and are compared at twenty targets in Section~3.3.
+$\lres$ $0.203\%$, FSR $0.980\%$, $\QL$ $4.037\%$, IL $3.594\%$.
+
+Twenty targets is a small sample, so we extended the check for the naive network
+to a hundred test targets spaced evenly through the test set (twelve of them are
+among the original twenty). The result holds, with one correction. The
+root-mean-square closed-loop error over the $96$ realisable predictions is
+$3.989\%$ (bootstrap 95\% interval $3.36$--$4.62\%$, $B = 10\,000$), and every
+target of every realisable design is within $20\%$ of the request, the worst
+single error being $17.98\%$. Per target (mean absolute error): $\lres$
+$0.212\%$, FSR $0.879\%$, $\QL$ $3.936\%$, IL $4.452\%$. The correction is that
+\emph{not all designs are buildable}: four of the hundred predictions fall just
+outside the design box (radius $4.87$--$4.99$\,\si{\micro\metre} against a lower
+limit of $5$\,\si{\micro\metre}), so the buildable fraction is $96\%$ (Wilson 95\%
+interval $90.2$--$98.4\%$). This agrees with the $95.4\%$ of Table~\ref{tab:inv}
+and shows that the ``all twenty realisable'' result above was a feature of the small sample.
+The $96$ coupler simulations of this run were also not in the $\kappa^2$ fit; the fitted model
+sits above them by $3.32\%$ on average (MAPE $4.10\%$, maximum $8.72\%$, all within
+$10\%$), consistent with the positive bias of a few per cent noted in Section~2.3.
+The other models were not extended and are compared at twenty targets in Section~3.3.
 
 This is the outcome in which the two literatures are simultaneously consistent with the data. The reports differ in the criterion they apply; for this device the disagreement is one of criterion, not of measured result.
 
@@ -603,6 +617,7 @@ set. It is not failing; it is landing on the right level set and being scored
 on its position along it.
 
 \paragraph{A systematic search for degenerate pairs.} The four-geometry example above was found by inspection, so we also searched for such cases systematically. Among all pairs of the $1000$ primary-design rows we kept those whose targets are practically indistinguishable: FSR within $1\%$, $\QL$ within $5\%$, IL within $5\%$ and $\lres$ within $0.5$\,nm. These tolerances are our choice, not derived from a measurement uncertainty. Nineteen pairs qualify. Measured with the $\rge$ convention, the geometric difference between the two members has a median of $19.4\%$, a 90th percentile of $31.4\%$ and a maximum of $45.8\%$; it exceeds $15\%$, the aggregate error of the naive network, in $13$ of the $19$ pairs and exceeds $30\%$ in three. The most different pair has coupling lengths of $2.63$ and $0.18\,\si{\micro\metre}$ and gaps of $293$ and $207$\,nm, yet FSR of $6.786$ and $6.844$\,nm, $\QL$ of $11\,185$ and $11\,550$, and IL of $0.292$ and $0.291$\,dB. A model that sees only the targets must return the same geometry for both members of a pair, so by the triangle inequality at least one of them is missed by roughly half the pair difference (approximately, because each relative error is normalised by its own true value). For the pair above that is about $23\%$, more than the naive network's total error. Pairs are rare because $1000$ points are sparse in a four-dimensional space, so the count shows that degeneracy exists and says nothing about how common it is.
+
 Because this verdict rests on labels produced by the coupled-mode assembly,
 and Section~2.4 measured that assembly's group index to sit about $3\%$ below
 full 3-D FDTD, it is fair to ask whether a label error of that size could
@@ -1062,7 +1077,8 @@ FSR for geometry recovery; a systematic study was not performed.
 \item \textbf{Both couplers share a gap and coupling length.} Asymmetric
 couplers are a valid extension and would change the degeneracy structure.
 \item \textbf{Closed-loop verification uses twenty targets per model}, the
-stated minimum, and four of six models; only the naive network was extended to a hundred targets. The two unmeasured models are ones for
+stated minimum, and four of six models; only the naive network was extended to a
+hundred targets. The two unmeasured models are ones for
 which the two candidate metrics make predictions differing by less than one
 percentage point.
 \item \textbf{No fabrication.} Every result is simulation-based. The
@@ -1078,13 +1094,16 @@ $\pm 3\%$ perturbation of Section~3.2 leaves the O6 verdict unchanged, but a
 uniform rescaling is the simplest form the measured discrepancy could take;
 a geometry-dependent label error was not tested and would require
 regenerating the dataset from full 3-D simulation.
-\item \textbf{The ring's group index is about $3\%$ below the mode solver's,
-and the cause is not established.} Round-trip length, bend effects, FSR
-extraction and the $n_g$ polynomial are each excluded by measurement
-(Section~2.4). The residual is a quantified, reproducible disagreement
-between the coupled-mode assembly and full 3-D FDTD, stable across three
-geometries. Every FSR-derived quantity, including the $L_c$ recovered from
-the FSR constraint, inherits it.
+\item \textbf{The ring's group index is about $3\%$ below the mode solver's;
+the cause was found on a straight guide, not on the ring.} Round-trip length,
+bend effects, FSR extraction and the $n_g$ polynomial are each excluded by
+measurement (Section~2.4), and a straight-guide test traces the deficit to the
+FDTD engine's dispersionless material fit. The ring was not re-simulated with
+a dispersive silicon model, so for the ring this is an inference from the
+agreement in size. The dataset labels use the mode solver, which agrees with the
+published device, but every FSR-derived quantity checked against ring FDTD
+inherits the discrepancy, and the coupler $\kappa^2$ values were obtained with
+the same material fit.
 \item \textbf{Bend loss is not resolvable by the eigenmode route.} The
 imaginary part of $n_{\mathrm{eff}}$ returned by the FDE solve at these radii
 is negative at every grid point and of magnitude \SIrange{e-12}{e-5}{dB/cm},

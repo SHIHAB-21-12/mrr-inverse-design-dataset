@@ -1,0 +1,15 @@
+G2b: material fit and fixed-index comparison
+==================================================================
+(1) index of each material: raw Palik vs the FDTD fit (1500-1600 nm)
+    material                    n raw    n fit   ng raw   ng fit  max|fit-raw|
+    Si (Silicon) - Palik      3.47641  3.47656  3.64213  3.47656      5.56e-03
+    SiO2 (Glass) - Palik      1.44400  1.44402  1.46388  1.44402      6.46e-04
+
+(2) both materials replaced by fixed indices (n_Si 3.47656, n_SiO2 1.44402)
+    mode solver:  n_eff 2.35307   n_g 4.14665
+    FDTD   40 nm: n_eff 2.36570  n_g 4.21944  (n_g vs FDE +1.76 %, 0.5 min)
+    FDTD   25 nm: n_eff 2.35986  n_g 4.18204  (n_g vs FDE +0.85 %, 2.4 min)
+    FDTD   20 nm: n_eff 2.36134  n_g 4.17379  (n_g vs FDE +0.65 %, 4.1 min)
+
+Reading: if the fixed-index FDTD and FDE agree to <0.5 %, the earlier gap is the
+material model; if the gap persists, it is FDTD numerics or the n_g extraction.

@@ -1,0 +1,10 @@
+G2: straight 450 x 220 nm waveguide, FDTD vs mode solver
+==================================================================
+FDE reference (same solver path as the paper): n_eff 2.35314, n_g 4.32912
+ mesh nm     n_eff       n_g  n_g vs FDE %
+      40   2.36570   4.21944         -2.53
+      32   2.36920   4.22066         -2.51
+      25   2.35986   4.18203         -3.40
+      20   2.36134   4.17378         -3.59
+extrapolation to zero mesh (n_g = a + b*d^2, least squares): 4.16133  (-3.88 % vs FDE)
+assumes second-order convergence, which four points can only suggest
