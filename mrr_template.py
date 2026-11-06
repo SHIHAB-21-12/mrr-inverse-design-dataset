@@ -5156,8 +5156,9 @@ def run_closedloop(method="naive", n=CLOSEDLOOP_N):
          "pipeline",
          "that produced the dataset, so the FDTD step is an independent "
          "check.", ""]
-    ok = [k for k, v in done.items() if v["status"] == "ok"]
-    un = [k for k, v in done.items() if v["status"] == "unrealisable"]
+    _req = set(str(int(i)) for i in idx)       # only the rows this run asked for
+    ok = [k for k, v in done.items() if v["status"] == "ok" and k in _req]
+    un = [k for k, v in done.items() if v["status"] == "unrealisable" and k in _req]
     L += [f"  simulated successfully : {len(ok)}",
           f"  physically unrealisable: {len(un)}"]
     for k in un:

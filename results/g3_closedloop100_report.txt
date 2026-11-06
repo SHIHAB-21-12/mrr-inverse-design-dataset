@@ -1,0 +1,18 @@
+CLOSED-LOOP, naive: clean report over the requested rows only
+======================================================================
+test rows in file: 173;  requested evenly spaced rows: 100 (100 distinct)
+records in json: 108;  of these NOT in the requested set (ignored): 8 ['108', '117', '153', '162', '18', '54', '63', '9']
+requested rows still missing (never simulated): 0 []
+simulated successfully: 96;  unrealisable: 4  -> total accounted for 100 of 100
+
+per-target error (re-simulated vs requested), realisable rows
+  target           MAPE %    RMS %    max %
+  lambda_res_nm     0.212    0.271    0.873
+  FSR_nm            0.879    1.135    3.008
+  Q_L               3.936    5.139   15.721
+  IL_dB             4.452    5.990   17.982
+
+RMS closed-loop response error = 3.989 %   95% bootstrap CI [3.36, 4.62]  (B=10000, seed 20261103, over 96 realisable rows)
+buildable fraction = 96/100 = 96.0 %   95% Wilson CI [90.2, 98.4]
+share of realisable rows with every target within 20 %: 100.0 %
+worst single-target error over all rows: 17.98 %

@@ -43,8 +43,8 @@ against 68 further independent FDTD coupler runs, and against nine full 3-D simu
 
 The naive inverse network \emph{fails} the geometry-space criterion
 ($R^2 \ge 0.80$ on only one of four parameters) and \emph{passes} the
-response-space criterion (closed-loop re-simulated error $3.669\%$, all
-twenty test designs physically realisable). Both prior reports are therefore consistent with these results, and were measuring different things. We explain why by counting
+response-space criterion (closed-loop re-simulated error $3.669\%$ on twenty test designs, all physically realisable, and $3.989\%$ on a hundred, of which $96$ were
+realisable). Both prior reports are therefore consistent with these results, and were measuring different things. We explain why by counting
 constraints: of four target quantities, resonance wavelength carries almost no
 geometric information ($R^2 = 0.0078 \pm 0.0011$ across five seeds), free
 spectral range fixes the round-trip length, and loaded $Q$ and insertion loss
@@ -402,7 +402,7 @@ is undefined. Per-parameter terms and the pure [12]-convention value over
 $\{R,w,g\}$ are reported alongside every aggregate.
 
 Closed-loop response error is measured by taking a model's predicted geometry
-for each of twenty representative test targets, re-simulating the coupler in
+for each of twenty representative test targets (a hundred for the naive network, Section~3.2), re-simulating the coupler in
 3-D FDTD, reassembling the ring response, and comparing to the response
 originally requested. The FDTD step is what makes this independent: feeding
 predictions back through the fitted $\kappa^2$ model would merely replay the
@@ -435,7 +435,7 @@ O2 forward surrogate & \textbf{not met} & 2 of 4 targets; IL MAPE
 $11.331 \pm 1.101\%$ against $\le 10\%$ over five seeds. Cause: small
 denominators on a sub-decibel target, at $0.072$\,dB RMSE \\
 O3 inverse accuracy & \textbf{not met} & $\rge = 15.506\%$ against
-$\le 15\%$; closed-loop half met at $3.669\%$. Information-bound estimate
+$\le 15\%$; closed-loop half met at $3.669\%$ ($3.989\%$ over a hundred targets). Information-bound estimate
 $14.626\%$ ($<15\%$): no evidence the threshold is unreachable \\
 O4 four-way comparison & met & all four families, identical split, every
 metric, no omissions \\
@@ -577,7 +577,7 @@ and no method recovers the other three.
 its predicted geometries for twenty representative targets gives a
 root-mean-square closed-loop response error of $3.669\%$, against a $20\%$
 requirement, with all twenty predictions physically realisable. Per target:
-$\lres$ $0.203\%$, FSR $0.980\%$, $\QL$ $4.037\%$, IL $3.594\%$.
+$\lres$ $0.203\%$, FSR $0.980\%$, $\QL$ $4.037\%$, IL $3.594\%$. Twenty targets is a small sample, so we extended the check for the naive network to a hundred test targets spaced evenly through the test set (twelve of them are among the original twenty). The result holds, with one correction. The root-mean-square closed-loop error over the $96$ realisable predictions is $3.989\%$ (bootstrap 95\% interval $3.36$--$4.62\%$, $B = 10\,000$), and every target of every realisable design is within $20\%$ of the request, the worst single error being $17.98\%$. Per target (mean absolute error): $\lres$ $0.212\%$, FSR $0.879\%$, $\QL$ $3.936\%$, IL $4.452\%$. The correction is that \emph{not all designs are buildable}: four of the hundred predictions fall just outside the design box (radius $4.87$--$4.99$\,\si{\micro\metre} against a lower limit of $5$\,\si{\micro\metre}), so the buildable fraction is $96\%$ (Wilson 95\% interval $90.2$--$98.4\%$). This agrees with the $95.4\%$ of Table~\ref{tab:inv} and shows that the ``all twenty realisable'' result above was a feature of the small sample. The $96$ coupler simulations of this run were also not in the $\kappa^2$ fit; the fitted model sits above them by $3.32\%$ on average (MAPE $4.10\%$, maximum $8.72\%$, all within $10\%$), consistent with the positive bias of a few per cent noted in Section~2.3. The other models were not extended and are compared at twenty targets in Section~3.3.
 
 This is the outcome in which the two literatures are simultaneously consistent with the data. The reports differ in the criterion they apply; for this device the disagreement is one of criterion, not of measured result.
 
@@ -1062,7 +1062,7 @@ FSR for geometry recovery; a systematic study was not performed.
 \item \textbf{Both couplers share a gap and coupling length.} Asymmetric
 couplers are a valid extension and would change the degeneracy structure.
 \item \textbf{Closed-loop verification uses twenty targets per model}, the
-stated minimum, and four of six models. The two unmeasured models are ones for
+stated minimum, and four of six models; only the naive network was extended to a hundred targets. The two unmeasured models are ones for
 which the two candidate metrics make predictions differing by less than one
 percentage point.
 \item \textbf{No fabrication.} Every result is simulation-based. The
