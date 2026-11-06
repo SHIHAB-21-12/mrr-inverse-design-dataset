@@ -30,40 +30,30 @@ Khulna University of Engineering \& Technology (KUET), Khulna, Bangladesh}
 
 \begin{abstract}
 \noindent
-Deep-learning inverse design of photonic components rests on an unresolved
-disagreement. Liu \emph{et al.}\ [3] showed that a naive, non-tandem inverse
-network can fail to converge when the design space is redundant; Chen and
-Jiang [7] and Adibnia \emph{et al.}\ [9] reported naive inverse networks
-converging acceptably in their own design spaces. This work shows that the two reports are consistent with each other for a four-parameter, bus-coupled add-drop silicon microring resonator, by measuring both sides on one dataset with one set of metrics. We build a dual-fidelity dataset of 1{,}150 labelled geometries over
-ring radius, waveguide width, coupling gap and coupling length, with the
-coupling coefficient obtained from 200 three-dimensional FDTD simulations of
-the coupler alone and the ring response computed analytically, and we validate
-the construction against a published, experimentally characterised device,
-against 68 further independent FDTD coupler runs, and against nine full 3-D simulations of the complete ring (three geometries at three mesh or sampling settings, all at $R = \SI{5.2}{\micro\metre}$).
-
-The naive inverse network \emph{fails} the geometry-space criterion
-($R^2 \ge 0.80$ on only one of four parameters) and \emph{passes} the
-response-space criterion (closed-loop re-simulated error $3.669\%$ on twenty test designs, all
-physically realisable, and $3.989\%$ on a hundred, of which $96$ were realisable). Both prior reports are therefore consistent with these results, and were measuring different things. We explain why by counting
-constraints: of four target quantities, resonance wavelength carries almost no
-geometric information ($R^2 = 0.0078 \pm 0.0011$ across five seeds), free
-spectral range fixes the round-trip length, and loaded $Q$ and insertion loss
-both act through a single coupling phase $\theta$ --- two effective
-constraints for four unknowns, leaving a two-dimensional degenerate family.
-
-Three further results follow. First, geometry-space error does not predict
-response-space error: across four models and three architecture families,
-closed-loop error is proportional to $\theta$ error to within a factor
-$1.20$, while the same ratio formed with $\rge$ varies by a factor $4.00$.
-Second, physical realisability is architecture-dependent and is invisible to
-both metrics --- Random Forest emits buildable geometries in $100\%$ of cases,
-provably so by convexity, against $95.4\%$ for a plain network and $33.5\%$
-for a tandem network ($11.6$--$83.8\%$ over five initialisations, and $100\%$ once its outputs are bounded). Third, a reproducible information-bound estimate computed from a $10^6$-geometry response bank gives $\rge = 14.626\%$. This point estimate lies below the $15\%$ objective threshold, so we find no evidence that the threshold is unreachable; the margin ($0.37$\,pp) is smaller than the sampling uncertainty expected for 173 test targets, and no interval has yet been computed.
-Translating the designs into two co-packaged-optics scenarios, no method meets any scenario's full specification within the uncertainty of the analytic ring model (one marginal case is undecided); eleven of twelve failures involve resonance
-placement, whose closed-loop error of $4.32$\,nm RMS exceeds a $\pm 2.0$\,nm
-channel tolerance by a factor of two and a $\pm 0.4$\,nm tolerance by eleven, and is no better than always predicting the dataset's mean resonance wavelength ($2.66$\,nm RMS on the same twenty targets, $3.11$\,nm over the dataset).
-Absolute resonance placement in this design space is beyond inverse design and
-requires post-fabrication trimming.
+Whether a naive inverse network can design photonic devices is disputed: Liu
+\emph{et al.}\ [3] showed it can fail when the design space is redundant, while
+Chen and Jiang [7] and Adibnia \emph{et al.}\ [9] reported it working. We show
+that both are right, because they judge success differently. On a dataset of
+1{,}150 labelled geometries of a bus-coupled add-drop silicon microring (coupler
+from 200 three-dimensional FDTD simulations, ring from coupled-mode theory,
+validated against a published device and further full-ring simulations), a plain
+inverse network \emph{fails} in geometry space (RMS-RGE $15.5\%$; $R^2 \ge 0.80$ on
+one of four parameters) yet \emph{passes} in response space: re-simulating its
+designs in FDTD reproduces the requested response to $3.99\%$ RMS (95\% interval
+$3.36$--$4.62\%$) over a hundred test targets, with $96$ of the hundred buildable.
+The reason is a constraint count: four targets impose only two independent
+constraints, leaving a two-dimensional family of equivalent designs. The data show
+it directly: $19$ pairs of geometries with indistinguishable targets differ by a
+median of $19.4\%$ and up to $45.8\%$. Consequently geometry error does not predict
+response error (a factor $4.00$ spread against $1.20$ for a physically motivated
+metric), and realisability depends on architecture ($100\%$ for Random Forest,
+$95.4\%$ plain network, $33.5\%$ tandem, $11.6$--$83.8\%$ across initialisations).
+No method meets a co-packaged-optics specification within the ring model's
+uncertainty: resonance placement, at $4.32$\,nm RMS error against $2.66$\,nm for
+always guessing the mean, causes eleven of twelve failures and calls for
+post-fabrication trimming. The results hold for one design space and one
+analytic ring model, whose group index sits $2.5$--$3.6\%$ below FDTD, a gap traced
+to the FDTD engine's dispersionless material fit.
 \end{abstract}
 
 \section{Introduction}
@@ -108,7 +98,9 @@ This paper contributes the following.
 \item \textbf{A test of the disagreement}, measured on one dataset with
 one protocol: the naive inverse network fails in geometry space and succeeds
 in response space, so the two reports are consistent. We give a closed-form reason, by
-counting how many independent constraints four scalar targets actually impose.
+counting how many independent constraints four scalar targets actually impose, and
+show the resulting degeneracy directly in the data: pairs of geometries with
+indistinguishable targets that differ by up to $45.8\%$.
 \item \textbf{Evidence that geometry-space error is the wrong metric}, and a
 physically motivated replacement that predicts response-space error across
 architectures.
@@ -119,6 +111,11 @@ result}, with a proof that one model family cannot violate the design box.
 plain deep network and a tandem network on an identical split with identical
 metrics, including a sample-efficiency characterisation --- the comparison
 absent from [4,6,7,9,12].
+\item \textbf{A validation that reports its own gaps}: the closed-loop check
+is extended to a hundred targets and its buildability failures are counted, and
+a $2.5$--$3.6\%$ group-index disagreement between the analytic ring and
+full 3-D FDTD is traced, with a straight-guide test, to the FDTD engine's
+dispersionless material fit.
 \end{enumerate}
 
 \section{Device, design space and methods}
