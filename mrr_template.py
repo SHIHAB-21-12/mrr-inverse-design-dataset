@@ -6586,6 +6586,10 @@ def run_floor(n_bank=FLOOR_N):
         Rsp = Rsp[:n_bank]
         print(f"[floor] using the first {n_bank} of the cached bank")
 
+    if len(G) > 0:      # resumed build: do NOT replay the seed's first draws
+        rng = np.random.default_rng([FLOOR_SEED, len(G)])
+    if len(G) > 0:      # resumed build: do NOT replay the seed's first draws
+        rng = np.random.default_rng([FLOOR_SEED, len(G)])
     while len(G) < n_bank:
         k = min(FLOOR_CHUNK, n_bank - len(G))
         cand = lo + (hi - lo) * rng.random((k, 4))
