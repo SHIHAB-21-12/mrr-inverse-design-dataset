@@ -12,36 +12,35 @@ unreachable in principle is supportable.
       50000     15.612       25
      100000     15.596       25
      200000     15.479       50
-     400000     15.479      100
-     800000     15.005        5
-    1000000     14.626        7
+     400000     15.184       50
+     800000     14.442        4
+    1000000     14.323        5
 
-  measured descent, N=200000 -> N=1000000: 0.853 pp over 0.70 decades
-  that is 0.5302 pp per e-fold of bank size.
+  measured descent, N=200000 -> N=1000000: 1.156 pp over 0.70 decades
+  that is 0.7184 pp per e-fold of bank size.
 
-  floor estimate at the largest bank tested: 14.626 % (an UPPER bound)
+  floor estimate at the largest bank tested: 14.323 % (an UPPER bound)
 
   ASYMPTOTE IDENTIFIABILITY
     NOT IDENTIFIABLE. A 3-parameter fit floor_inf + a*N^(-b)
-    drives floor_inf to 6.626 %, which is the edge of the search
+    drives floor_inf to 6.323 %, which is the edge of the search
     range -- the fit wants to go lower still. These points do not
     constrain the asymptote, so NO extrapolated floor is reported.
     Enlarge the bank (--floor --nbank=N) to constrain it.
 
   ESTIMATOR CONVERGENCE WARNING
-    the best k drifts from 25 to 7 across the sweep. A shifting
+    the best k drifts from 25 to 5 across the sweep. A shifting
     optimum means the finite-sample bias of the estimator is still
     unwinding, so the descent rate above is a property of the ESTIMATOR,
     not of the floor. Treat it as not yet converged and do not quote a
     rate or extrapolate from it.
 
   AGAINST O3's 15 % RMS-RGE BAR -- WHAT THE DATA SUPPORTS
-    The estimate is 14.626 % at N=1000000. It is the error of a
+    The estimate is 14.323 % at N=1000000. It is the error of a
     specific predictor, hence an UPPER BOUND on the true floor.
     It is BELOW 15 %. We therefore have NO EVIDENCE that the bar is
-    unreachable. We do NOT claim it is reachable: k was chosen on the same
-    173 test targets, a second run (k=5) gives 14.669 %, the k-curve is not
-    smooth, and no sampling interval has been computed.
+    unreachable. We do NOT claim it is reachable: k was chosen on the
+    same test targets, a second run (k=5) differs slightly, the
+    k-curve is not smooth, and no sampling interval has been computed.
 
-    best achieved RMS-RGE: 15.506 % vs estimate 14.626 % (difference
-    0.879 pp; an estimate, not guaranteed headroom).
+    best achieved RMS-RGE: 15.506 % vs estimate 14.323 % (difference 1.182 pp; an estimate, not guaranteed headroom).

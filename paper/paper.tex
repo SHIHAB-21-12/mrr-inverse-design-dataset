@@ -106,7 +106,7 @@ physically motivated replacement that predicts response-space error across
 architectures.
 \item \textbf{A measurement of physical realisability as a first-class
 result}, with a proof that one model family cannot violate the design box.
-\item \textbf{A reproducible information-bound estimate} for this design space, intended to separate model limitations from information limits; at the bank size reached it does not yet carry an interval.
+\item \textbf{A reproducible information-bound estimate} for this design space, intended to separate model limitations from information limits; its bootstrap interval over the test targets contains the $15\%$ threshold, so it supports no claim of reachability.
 \item \textbf{A controlled four-way comparison} of Random Forest, XGBoost, a
 plain deep network and a tandem network on an identical split with identical
 metrics, including a sample-efficiency characterisation --- the comparison
@@ -429,7 +429,7 @@ $11.331 \pm 1.101\%$ against $\le 10\%$ over five seeds. Cause: small
 denominators on a sub-decibel target, at $0.072$\,dB RMSE \\
 O3 inverse accuracy & \textbf{not met} & $\rge = 15.506\%$ against
 $\le 15\%$; closed-loop half met at $3.669\%$ ($3.989\%$ over a hundred targets). Information-bound estimate
-$14.626\%$ ($<15\%$): no evidence the threshold is unreachable \\
+$14.323\%$ (95\% interval $13.18$--$15.42\%$): no evidence the threshold is unreachable \\
 O4 four-way comparison & met & all four families, identical split, every
 metric, no omissions \\
 O5 sample efficiency & met & XGBoost forward below 300 samples; network at
@@ -824,7 +824,7 @@ for radius.
 neighbourhood size $k$ annotated. The estimate is an upper bound on the true
 bound, and falls as the bank grows. At $N = 10^6$ it lies below the $15\%$
 objective threshold. Right: per-parameter error of the best model against the
-bound estimator's per-parameter error; these are not individual bounds, since the estimator minimises the aggregate. The headline estimate is from the convergence run ($k = 7$); the per-parameter values on the right are from a separate run at $k = 5$ ($14.669\%$).}
+bound estimator's per-parameter error; these are not individual bounds, since the estimator minimises the aggregate. Both panels use the same bank and $k = 5$ ($14.323\%$).}
 \label{fig:floor}
 \end{figure}
 
@@ -836,7 +836,7 @@ $15.506\%$. \textbf{O3 is therefore not met}, by $0.506$ percentage points.
 Whether that shortfall reflects the models or the problem is a separate
 question, and answering it requires knowing how much geometric information
 four scalar targets contain. We measure this directly. A bank of $10^6$
-geometries is drawn over the design box and labelled with the same analytic
+distinct geometries is drawn over the design box and labelled with the same analytic
 responder that produced the dataset, subject to the same quality gate. For
 each test target, the $k$ bank geometries whose responses are closest are
 averaged, and the $\rge$ of that average against the true geometry is
@@ -846,16 +846,16 @@ computed. Because this is the error of one specific predictor, it is an
 The asymmetry of that bound governs what can be concluded. An upper bound
 measured below a threshold proves the true bound is below it; measured above,
 it proves nothing. Figure~\ref{fig:floor} shows the estimate falling from
-$16.063\%$ at $N = 12\,500$ to $14.626\%$ at $N = 10^6$. Since
-$14.626\% < 15\%$:
+$16.063\%$ at $N = 12\,500$ to $14.323\%$ at $N = 10^6$. Since
+$14.323\% < 15\%$:
 
 \begin{quote}
-\textbf{At $N = 10^6$ the estimate is $14.626\%$, below the $15\%$ threshold; we therefore have no evidence that the threshold is unreachable.} We do not claim it is reachable: the neighbourhood size $k$ was chosen on the same 173 test targets, a second run ($k = 5$) gives $14.669\%$, the $k$-curve is not smooth ($14.67\%$ at $k = 5$, $14.93\%$ at $k = 10$), and no sampling interval has been computed.
+\textbf{At $N = 10^6$ the estimate is $14.323\%$, below the $15\%$ threshold; we therefore have no evidence that the threshold is unreachable.} We do not claim it is reachable. The neighbourhood size $k$ was chosen on the same 173 test targets; the $k$-curve is not smooth ($14.32\%$ at $k = 5$, $14.62\%$ at $k = 7$, $14.73\%$ at $k = 10$); and the 95\% bootstrap interval over the test targets, $[13.18, 15.42]\%$ at $k = 5$ ($[13.05, 15.32]\%$ when $k$ is re-chosen in every resample), contains the threshold: the estimate falls below $15\%$ in $89\%$ of resamples. The interval covers variation over the test targets only, not a different draw of the bank.
 \end{quote}
 
 Two honest qualifications. The estimate is not converged: the optimal
-neighbourhood size drifts from $k = 25$ to $k = 7$ across the sweep, and the
-descent accelerates from $0.096$ to $0.530$ percentage points per e-fold of
+neighbourhood size drifts from $k = 25$ to $k = 5$ across the sweep, and the
+descent accelerates from $0.096$ to $0.718$ percentage points per e-fold of
 bank size. A shifting optimum means the estimator's own finite-sample bias is
 still unwinding, so no rate from this sweep describes the true bound, and a
 three-parameter asymptotic fit to these points is not identifiable. And the

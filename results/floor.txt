@@ -1,4 +1,4 @@
-INFORMATION FLOOR -- UPPER-BOUND ESTIMATE (k=5 run, seed 7; the headline 14.626 % at k=7 is in floor_convergence.txt)
+INFORMATION FLOOR -- UPPER-BOUND ESTIMATE (k-nearest-response predictor)
 ============================================================================
 bank: 1000000 geometries, uniform over the Phase 1.2 design box, seed 7.
 Each test target is matched to the bank geometry with the nearest
@@ -6,29 +6,36 @@ response (per-target standard-deviation scaling). The geometric
 distance to the TRUE geometry bounds what any inverse model can do
 from the response alone.
 
-  aggregate RMS-RGE floor        14.669 %
-  R floor                         2.439 %
-  w floor                         6.054 %
-  g floor                        14.682 %
-  Lc floor (range-normalised)    24.547 %
-  R,w,g only (Paper 12 conv.)     9.276 %
+  aggregate RMS-RGE bound        14.323 %   <-- the bounded quantity
+
+  per-parameter errors OF THIS ESTIMATOR (not per-parameter bounds:
+  the estimator minimises the AGGREGATE, so a model that trades one
+  parameter against another may legitimately beat any single row):
+    R                             2.326 %
+    w                             5.982 %
+    g                            14.379 %
+    Lc (range-normalised)        23.930 %
+    R,w,g only (Paper 12 conv.)    9.091 %
 
   estimator: conditional mean over the k = 5 nearest responses.
 
         k   RMS-RGE %   (k=1 is one arbitrary member of the degenerate set;
                         a model learns the centre, not a member)
-        1      18.233
-        5      14.669   <-- floor
-       10      14.932
-       25      15.267
-       50      15.268
-      100      15.212
-      200      15.265
-      400      15.307
+        1      18.199
+        5      14.323   <-- bound
+       10      14.731
+       25      15.148
+       50      15.189
+      100      15.133
+      200      15.201
+      400      15.276
 
-  The floor is a property of the design space and the four chosen
-  targets, NOT of any model. It falls slowly as the bank grows, so
-  the bank size above is part of the result.
+  This is the error of a SPECIFIC estimator (conditional-mean lookup over
+  a finite bank), so it is an UPPER BOUND on the true information floor.
+  The asymmetry matters: measuring it BELOW a threshold proves the floor
+  is below that threshold, but measuring it ABOVE proves nothing. It
+  falls as the bank grows, so the bank size is part of the result and
+  no value from a single bank size should be quoted as 'the floor'.
 
-  learning curve refit with asymptote pinned here (DIAGNOSTIC ONLY; the asymptote is not identifiable, see floor_convergence.txt):
-    err(n) = 14.669 + 9.760 * n^(-0.3450)
+  learning curve refit with asymptote pinned here (DIAGNOSTIC ONLY; not identifiable, see floor_convergence.txt):
+    err(n) = 14.323 + 8.102 * n^(-0.2717)

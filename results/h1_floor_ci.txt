@@ -1,0 +1,24 @@
+H1: information-bound estimate with bootstrap intervals
+==================================================================
+bank 1000000 geometries; 173 test targets; B = 10000, seed 20261103
+
+    k  estimate %       95% interval  P(<15%)
+    1      18.199     [16.68, 19.66]    0.000
+    2      15.402     [14.08, 16.70]    0.279
+    3      14.630     [13.44, 15.82]    0.735
+    4      14.336     [13.11, 15.53]    0.867
+    5      14.323     [13.18, 15.42]    0.888   <-- minimum   <-- k fixed in advance
+    7      14.619     [13.41, 15.78]    0.743
+   10      14.731     [13.61, 15.82]    0.689
+   25      15.148     [14.07, 16.19]    0.401
+   50      15.189     [14.12, 16.22]    0.371
+  100      15.133     [14.12, 16.13]    0.405
+
+(a) k = 5 (minimum): 14.323 %  [13.18, 15.42]   P(<15 %) = 0.888
+(b) k = 5 (fixed in advance): 14.323 %  [13.18, 15.42]   P(<15 %) = 0.888
+(c) k re-chosen in every resample: median 14.206 %  [13.05, 15.32]   P(<15 %) = 0.915
+
+What this covers: sampling variation over the 173 test targets only. It does not
+cover the variation from drawing a different 10^6 bank (seed), which is not measured here.
+The paper's quoted estimate is the minimum over k, so (a) and (c) show how much of the
+margin below 15 % could be a product of choosing k on the test targets.
