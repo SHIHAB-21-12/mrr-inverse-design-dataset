@@ -1,0 +1,48 @@
+{
+ "V0_flat": {
+  "k2": 0.019830000552690418,
+  "t2": 0.9801846351774992,
+  "shutoff": {
+   "25": 2.07365e-05,
+   "50": 2.07365e-05,
+   "75": 2.07365e-05,
+   "100": 2.32392e-06
+  },
+  "notes": [],
+  "minutes": 3.7
+ },
+ "V2_wide_loose": {
+  "k2": 0.020312216049534884,
+  "t2": 1.0974525517845788,
+  "shutoff": {
+   "25": 0.00782658,
+   "50": 0.0121008,
+   "75": 0.0244957,
+   "100": 0.0494106
+  },
+  "notes": [
+   "Si_wide: fitted n_g 3.6262 (raw 3.6421, -0.44 %)",
+   "SiO2_wide: fitted n_g 1.4633 (raw 1.4639, -0.04 %)"
+  ],
+  "minutes": 57.1
+ },
+ "V1_dt0.5": {
+  "k2": 0.020734392095305323,
+  "t2": 1.2048972323502947,
+  "shutoff": {
+   "25": 0.0125178,
+   "50": 0.0292918,
+   "75": 0.0707031,
+   "100": 0.170494
+  },
+  "notes": [
+   "      method A failed: 'copymaterial can have at most 1 argument'",
+   "      Si_disp_B: fitted n_g 1.90468 (raw 3.64213)",
+   "      Si_disp_C: fitted n_g 3.62620 (raw 3.64213)",
+   "      method A failed: 'copymaterial can have at most 1 argument'",
+   "      SiO2_disp_B: fitted n_g 1.20968 (raw 1.46388)",
+   "      SiO2_disp_C: fitted n_g 1.46383 (raw 1.46388)"
+  ],
+  "minutes": 149.0
+ }
+}
