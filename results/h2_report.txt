@@ -1,0 +1,23 @@
+H2 -- closed-loop re-simulation of tandem variants (seed 43, 20 evenly spaced test targets)
+====================================================================================
+3-D FDTD coupler (flat material fit, production mesh) + analytic ring; same pipeline as the
+existing closed-loop table. RMS is over the realisable predictions, relative error in %.
+
+bounded:  simulated 20, unrealisable 0 of 20
+   lambda_res_nm    MAPE    0.186   RMS    0.241   max    0.566
+   FSR_nm           MAPE    1.304   RMS    1.657   max    3.618
+   Q_L              MAPE    5.294   RMS    6.562   max   15.138
+   IL_dB            MAPE    4.842   RMS    5.484   max    9.732
+   overall RMS closed-loop error 4.357 %  (bootstrap 95% [3.46, 5.24], B=10000, seed 20261103)
+   energy check: kappa^2 + t^2 mean 1.0000
+
+bounded+weighted:  simulated 20, unrealisable 0 of 20
+   lambda_res_nm    MAPE    0.215   RMS    0.264   max    0.535
+   FSR_nm           MAPE    1.116   RMS    1.486   max    3.183
+   Q_L              MAPE    5.088   RMS    5.634   max   10.185
+   IL_dB            MAPE    4.261   RMS    5.207   max   11.735
+   overall RMS closed-loop error 3.909 %  (bootstrap 95% [3.26, 4.52], B=10000, seed 20261103)
+   energy check: kappa^2 + t^2 mean 1.0000
+
+Reference (existing table): naive 3.989 % on 96 realisable of 100; tandem baseline 8 of 20 buildable.
+Single initialisation (seed 43); not a seed sweep.
