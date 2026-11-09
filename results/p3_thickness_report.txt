@@ -1,0 +1,26 @@
+P3 thickness test -- first-order resonance sensitivity from the mode solver
+==============================================================================
+   w (nm)   n_eff    n_g     dlam/dw (nm/nm)   dlam/dt (nm/nm)
+     400  2.2271  4.436       0.9405          1.3341
+     425  2.2944  4.387       0.8903          1.3437
+     450  2.3531  4.336       0.7701          1.3500
+     475  2.4021  4.287       0.6664          1.3548
+     500  2.4453  4.241       0.6308          1.3580
+   thickness/width sensitivity ratio at w=400: 1.42,  at w=500: 2.15
+
+equivalent designs per target (within 1 %): median 60
+
+Best-versus-median saving in resonance spread, median over targets (and targets with >= 30 %):
+   sigma_w (nm)  sigma_t (nm)   saving     targets >= 30 %   worst/best ratio (median)
+        0.7           0.0      16.4 %       0 of 20          1.43
+        0.7           1.0       1.8 %       0 of 20          1.04
+        0.7           2.0       0.1 %       0 of 20          1.00
+        0.7           3.0       0.5 %       0 of 20          1.01
+        1.5           0.0      16.4 %       0 of 20          1.43
+        1.5           1.0       6.7 %       0 of 20          1.16
+        1.5           2.0       2.0 %       0 of 20          1.05
+        1.5           3.0       0.7 %       0 of 20          1.01
+
+Decision rule fixed in advance: saving >= 30 % (median over targets, and in most targets) at a
+realistic thickness spread reopens idea A; otherwise A stays a bounded model-level result.
+Thickness spread is a parameter here, not a measured value: a cited figure is needed before any claim.
