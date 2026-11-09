@@ -20,6 +20,7 @@ import mrr_template as m
 ap = argparse.ArgumentParser()
 ap.add_argument("--sigma_w", type=float, default=5.0)    # nm, assumption
 ap.add_argument("--sigma_g", type=float, default=5.0)    # nm, assumption
+ap.add_argument("--tag", default="")
 ap.add_argument("--starts", type=int, default=300)
 ap.add_argument("--mc", type=int, default=200)
 ap.add_argument("--max_members", type=int, default=60)
@@ -95,20 +96,21 @@ for c, k in enumerate(keys, 1):
         sp = np.array([mc_spread(x, tgt[0], draws)[:3] for x in mem])
         med, best = np.median(sp, axis=0), sp.min(axis=0)
         entry[str(tol)] = dict(n=len(mem), median=med.tolist(), best=best.tolist(),
-                               saving=((med - best) / med).tolist(),
-                               ratio_worst_best=(sp.max(axis=0) / sp.min(axis=0)).tolist())
+                               saving=np.where(med > 0, (med - best) / np.where(med > 0, med, 1.0), np.nan).tolist(),
+                               ratio_worst_best=np.where(sp.min(axis=0) > 0, sp.max(axis=0) / np.where(sp.min(axis=0) > 0, sp.min(axis=0), 1.0), np.nan).tolist())
     res_json[k] = entry
     e = entry["0.01"]
-    msg = f"{e['n']} designs, saving (best vs median) lambda/Q/IL = " + \
-        " / ".join(f"{100*v:.0f}%" for v in e["saving"]) if e.get("saving") else f"only {e['n']} designs found"
+    msg = (f"{e['n']} designs, saving (best vs median) lambda/Q/IL = " + " / ".join(("n/a" if np.isnan(v) else f"{100*v:.0f}%") for v in e["saving"])) if e.get("saving") else f"only {e['n']} designs found"
     print(f"[p2] {c}/{len(keys)} target {k}: {msg}  ({time.time()-t0:.0f} s)")
-json.dump(res_json, open(os.path.join(resdir, "p2_pilot.json"), "w"), indent=1)
+sfx = f"_{args.tag}" if args.tag else ""
+json.dump(res_json, open(os.path.join(resdir, f"p2_pilot{sfx}.json"), "w"), indent=1)
 
 L = ["P2 pilot -- fabrication sensitivity across equivalent designs (analytic model)", "=" * 78,
      f"Assumed sigma: width {args.sigma_w} nm, gap {args.sigma_g} nm (assumptions). Thickness not modelled.",
      f"{args.mc} common random draws per design. 'saving' = (median - best) / median over the family members.", ""]
 for tol, name in (("0.001", "targets matched within 0.1 %"), ("0.01", "targets matched within 1 % (below the 4.5 % model-fidelity floor)")):
     ok = [v[tol] for v in res_json.values() if v.get(tol, {}).get("saving")]
+    ok = [o for o in ok]
     L.append(f"{name}: {len(ok)} of {len(res_json)} targets had >= 5 designs")
     if not ok:
         continue
@@ -116,11 +118,11 @@ for tol, name in (("0.001", "targets matched within 0.1 %"), ("0.01", "targets m
     n = np.array([o["n"] for o in ok])
     L.append(f"   designs per target: median {int(np.median(n))}")
     for j, nm in enumerate(["resonance shift (trimming proxy)", "Q_L spread", "IL spread"]):
-        L.append(f"   {nm:34s} saving median {100*np.median(S[:, j]):5.1f} %   targets with >= 30 %: "
-                 f"{int((S[:, j] >= 0.3).sum())} of {len(ok)}   worst/best ratio median {np.median(W[:, j]):.2f}")
+        L.append(f"   {nm:34s} saving median {100*np.nanmedian(S[:, j]) if not np.all(np.isnan(S[:, j])) else float('nan'):5.1f} %   targets with >= 30 %: "
+                 f"{int(np.nansum(S[:, j] >= 0.3))} of {len(ok)}   worst/best ratio median {np.nanmedian(W[:, j]) if not np.all(np.isnan(W[:, j])) else float('nan'):.2f}")
     L.append("")
 L += ["Gate: resonance-shift saving >= 30 % (median over targets) and in most targets -> proceed with idea A.",
       "Below ~10 % -> A is a null result; submit the corrected current paper."]
 txt = "\n".join(L)
-open(os.path.join(resdir, "p2_pilot_report.txt"), "w").write(txt + "\n")
+open(os.path.join(resdir, f"p2_pilot{sfx}_report.txt"), "w").write(txt + "\n")
 print("\n" + txt)

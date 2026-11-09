@@ -1,0 +1,19 @@
+P2 pilot -- fabrication sensitivity across equivalent designs (analytic model)
+==============================================================================
+Assumed sigma: width 0.0 nm, gap 5.0 nm (assumptions). Thickness not modelled.
+200 common random draws per design. 'saving' = (median - best) / median over the family members.
+
+targets matched within 0.1 %: 19 of 20 targets had >= 5 designs
+   designs per target: median 60
+   resonance shift (trimming proxy)   saving median   nan %   targets with >= 30 %: 0 of 19   worst/best ratio median nan
+   Q_L spread                         saving median   4.6 %   targets with >= 30 %: 0 of 19   worst/best ratio median 1.10
+   IL spread                          saving median   4.6 %   targets with >= 30 %: 0 of 19   worst/best ratio median 1.10
+
+targets matched within 1 % (below the 4.5 % model-fidelity floor): 20 of 20 targets had >= 5 designs
+   designs per target: median 60
+   resonance shift (trimming proxy)   saving median   nan %   targets with >= 30 %: 0 of 20   worst/best ratio median nan
+   Q_L spread                         saving median   5.5 %   targets with >= 30 %: 0 of 20   worst/best ratio median 1.12
+   IL spread                          saving median   5.6 %   targets with >= 30 %: 0 of 20   worst/best ratio median 1.12
+
+Gate: resonance-shift saving >= 30 % (median over targets) and in most targets -> proceed with idea A.
+Below ~10 % -> A is a null result; submit the corrected current paper.
