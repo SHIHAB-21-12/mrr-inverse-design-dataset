@@ -1,0 +1,21 @@
+P1 step 2 -- Jacobian of log(lambda_res, FSR, Q_L, IL) wrt scaled (R, w, g, Lc)
+==============================================================================
+20 designs. Singular values s1>=s2>=s3>=s4 (median over designs, and min..max):
+   s1: median      5.514   range 4.283 .. 8.118
+   s2: median      1.106   range 0.5057 .. 5.327
+   s3: median     0.1263   range 0.03161 .. 0.5911
+   s4: median    0.02716   range 0.00787 .. 0.03705
+   ratio s3/s1 median 0.023;  s4/s1 median 0.00499
+
+   effective rank (s_i/s_1 > 0.01): 2: 1 designs, 3: 19 designs
+   effective rank (s_i/s_1 > 0.001): 4: 20 designs
+   effective rank (s_i/s_1 > 0.0001): 4: 20 designs
+
+Direction the targets see LEAST (right singular vector of s4), averaged with sign alignment,
+components in order R, w, g, Lc (scaled units):
+   mean [ 0.048  0.15  -0.455 -0.807]   std [0.004 0.198 0.11  0.258]
+Second least-seen direction (s3):
+   mean [ 0.052  0.231 -0.183 -0.009]   std [0.172 0.785 0.369 0.358]
+
+Reading: if s3 and s4 are far below s1, the four targets constrain only about two parameter
+combinations and the solution set is a 2-D family. If s3 is comparable to s2 the family is 1-D.

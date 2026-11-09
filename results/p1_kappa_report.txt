@@ -1,0 +1,20 @@
+P1 step 1 -- kappa^2: 3-D FDTD vs fitted model, at the 20 DE designs
+==============================================================================
+n = 20.  ratio = kappa2_FDTD / kappa2_model
+median ratio 0.994   mean |log ratio| 0.039   std of log ratio 0.045   range 0.933 .. 1.081
+
+Correlation of log ratio with each geometry parameter (|r| > 0.45 is significant at n=20, ~5 %):
+   R   r = -0.31
+   w   r = -0.17
+   g   r = -0.23
+   Lc  r = -0.22
+   log(kappa2_model) r = +0.10
+
+Overall RMS error vs the targets, using different kappa^2 in the ring model (%):
+   FDTD kappa2 (reproduces closed-loop table)      2.889   per target [0.005, 0.005, 3.968, 4.201]
+   model kappa2 (check: should be ~0)              0.004
+   model kappa2 x constant factor (leave-one-out)  0.619
+   model kappa2 x linear fit in R,w,g,Lc (LOO)     1.732
+
+Reading: if the LOO-corrected value is clearly below the FDTD value, the discrepancy is systematic
+and removable. If not, it is the real fidelity limit and is reported as such. n = 20: wide uncertainty.
