@@ -1,0 +1,17 @@
+P0 baseline -- DE on the analytic model, closed loop in 3-D FDTD
+====================================================================================
+20 of 20 targets simulated. Relative error in %, over those targets.
+
+   lambda_res_nm    MAPE    0.001   RMS    0.005   max    0.024
+   FSR_nm           MAPE    0.002   RMS    0.005   max    0.018
+   Q_L              MAPE    3.509   RMS    3.968   max    6.714
+   IL_dB            MAPE    3.708   RMS    4.201   max    7.038
+   overall RMS closed-loop error 2.889 %  (bootstrap 95% [2.32, 3.42])
+
+Same targets, other methods (overall RMS closed-loop error, %):
+   bounded tandem (H2)                 4.357  [3.46, 5.24]   on 20 common targets
+   bounded+weighted tandem (H2)        3.909  [3.26, 4.52]   on 20 common targets
+   naive network (existing table)      3.669  [2.35, 5.11]   on 20 common targets
+
+Reading: if the optimiser matches the networks, the closed-loop floor is set by the coupler
+model and the physics, not by the inverse method. Intervals are wide with 20 targets.
