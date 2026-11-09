@@ -666,7 +666,7 @@ factor $4.00$.}
 \centering
 \caption{Closed-loop re-verification, four models and a direct optimiser, twenty targets each. All
 clear the $20\%$ response-error bar. $\theta$ error is evaluated on buildable
-predictions, matching the designs over which closed-loop error is measured. The $\lres$ column is a percentage of about \SI{1550}{nm}; because the targets lie within $\pm 0.5\%$ of \SI{1550}{nm} it is not informative on its own (see Section~3.7 for the value in nm and a no-skill baseline).}
+predictions, matching the designs over which closed-loop error is measured. The $\lres$ column is a percentage of about \SI{1550}{nm}; because the targets lie within $\pm 0.5\%$ of \SI{1550}{nm} it is not informative on its own (see Section~\ref{sec:cpo} for the value in nm and a no-skill baseline).}
 \label{tab:cl}
 \small
 \begin{tabular}{@{}lrrrrrrr@{}}
@@ -717,9 +717,9 @@ much worse one is than another, which is what a design metric is for.
 \subsection{A direct optimiser as a baseline, and the source of the error floor}
 \label{sec:baseline}
 
-Whether a learned inverse model is needed at all can be tested directly. We solved each of the twenty closed-loop targets by differential evolution on the analytic ring model, minimising the RMS relative error of the four responses over the design box (population of $120$, no training data, seconds per target). In the model, $19$ of the $20$ targets were matched to better than $0.01\%$ (median $8\times 10^{-5}\%$); the other two, whose targets lie at the edge of the reachable range, to $0.018\%$ and $0.007\%$. Re-simulated through the same 3-D FDTD coupler and analytic ring as in Table~\ref{tab:cl}, these designs give an RMS closed-loop error of $2.89\%$ (bootstrap 95\% interval $2.32$--$3.42\%$, $B = 10\,000$), against $3.67\%$ ($2.35$--$5.11\%$) for the naive network on the same targets. The intervals overlap, so we cannot rank the two, but the networks show no accuracy advantage on this task. The $\lres$ and FSR errors are about $0.005\%$ (rms); essentially all of the error is in $\QL$ ($3.97\%$ rms) and IL ($4.20\%$ rms). The networks' remaining advantage is evaluation cost, which matters little here because the analytic ring model is itself cheap.
+Whether a learned inverse model is needed at all can be tested directly. We solved each of the twenty closed-loop targets by differential evolution on the analytic ring model, minimising the RMS relative error of the four responses over the design box (population of $120$, no training data, seconds per target). In the model, $19$ of the $20$ targets were matched to better than $0.01\%$ (median $8\times 10^{-5}\%$); the other two, whose targets lie at the edge of the reachable range, to $0.018\%$ and $0.007\%$. Re-simulated through the same 3-D FDTD coupler and analytic ring as in Table~\ref{tab:cl}, these designs give an RMS closed-loop error of $2.89\%$ (bootstrap 95\% interval $2.32$--$3.42\%$, $B = 10\,000$), against $3.67\%$ ($2.35$--$5.11\%$) for the naive network on the same targets. The unpaired intervals overlap. Paired over the same twenty targets (bootstrap of the difference), the optimiser's RMS error is lower than the naive network's by $0.78$ points ($95\%$ interval $-2.35$ to $+0.64$; lower on $10$ of $20$ targets), so the two are not separable, and lower than the bounded and the bounded, weighted tandem networks' by $1.47$ points ($-2.40$ to $-0.52$; $14$ of $20$ targets) and $1.02$ points ($-1.95$ to $-0.09$; $14$ of $20$ targets). With three comparisons and a single initialisation of each tandem network, the last two are suggestive, not conclusive. The networks show no accuracy advantage on this task. The $\lres$ and FSR errors are about $0.005\%$ (rms); essentially all of the error is in $\QL$ ($3.97\%$ rms) and IL ($4.20\%$ rms). The networks' remaining advantage is evaluation cost, which matters little here because the analytic ring model is itself cheap.
 
-That error is the discrepancy between the fitted coupler model and 3-D FDTD. At the twenty optimiser designs the ratio of the FDTD to the model $\kappa^2$ has median $0.994$ and a standard deviation of its logarithm of $0.045$ (range $0.93$--$1.08$), and no geometric parameter correlates with it significantly (all $|r| \le 0.31$ with $n = 20$). A scatter of that size in $\kappa^2$ is of the size of the $\QL$ and IL errors above. It is scatter, not a removable bias: neither a constant factor nor a linear fit in the four parameters is supported by these twenty points. We have not separated how much of it is model error and how much is FDTD numerical noise (Section~\ref{sec:limits}). We therefore report the closed-loop error of about $3\%$ as the fidelity limit of the coupler model, not as a property of the inverse method.
+That error is the discrepancy between the fitted coupler model and 3-D FDTD. At the twenty optimiser designs the ratio of the FDTD to the model $\kappa^2$ has median $0.994$ and a standard deviation of its logarithm of $0.045$ (range $0.93$--$1.08$), and no geometric parameter correlates with it significantly (all $|r| \le 0.31$ with $n = 20$). A scatter of that size in $\kappa^2$ is of the size of the $\QL$ and IL errors above. This is consistent with the validation of the coupler model in Table~\ref{tab:valid} (cross-validated MAPE $3.36\%$; out-of-sample MAPE $1.23$--$5.16\%$), and the twenty designs are further out-of-sample tests of it. It is scatter, not a removable bias: neither a constant factor nor a linear fit in the four parameters is supported by these twenty points. We have not separated how much of it is model error and how much is FDTD numerical noise (Section~\ref{sec:limits}). We therefore report the closed-loop error of about $3\%$ as the fidelity limit of the coupler model, not as a property of the inverse method.
 
 The degeneracy can be quantified the same way. At the twenty designs we took the Jacobian of the logarithms of the four targets with respect to the four parameters, each scaled to its range. The median singular values are $5.5$, $1.1$, $0.13$ and $0.027$. The map is therefore locally full rank in the strict sense, but two directions are to the responses $40$ to $200$ times less visible than the strongest: moving along them across a parameter's entire range changes the targets by about $13\%$ and $2.7\%$. The family of equivalent designs is thus approximately two-dimensional at a response tolerance above $13\%$ and approximately one-dimensional, mostly a combination of $L_c$ and $g$ at constant coupling, at about $3\%$. The analysis is local and linear, and one of the twenty designs behaves differently (its flattest direction is dominated by $w$), so we quote medians.
 
@@ -895,6 +895,7 @@ report O3 as met by that route, and record here that it was available and
 declined.
 
 \subsection{Translation to co-packaged-optics scenarios}
+\label{sec:cpo}
 
 \begin{table}[t]
 \centering
@@ -1045,6 +1046,8 @@ is such an invariant for this device; the general construction is to identify
 the quantity through which the degenerate parameters act and measure error in
 it. Ranking designs of similar performance by their robustness to fabrication perturbations has been proposed in a general computational-design setting [20]; Section~\ref{sec:baseline} estimates it, within the model, for one device.
 
+That a direct optimiser matches the networks needs one qualification. It searches the fitted coupler model, which is itself a surrogate built from the $200$ three-dimensional FDTD simulations, and the networks are trained on the same labelled geometries. Learning an inverse map is therefore worth its cost when no cheap forward surrogate exists, or when many targets must be served at negligible marginal cost, and not as a way to gain accuracy over optimisation on a cheap model.
+
 The realisability result adds a second axis that neither error metric sees. It
 also puts a specific cost on the tandem architecture. The tandem network was
 introduced [3] precisely to handle degeneracy, and in response space it does:
@@ -1106,7 +1109,7 @@ percentage point.
 resonance-placement conclusion in particular predicts that trimming is
 required; it does not demonstrate a trimmed device.
 \item \textbf{Five seeds is a small sample for a spread.} The separation test
-of Section~3.5 uses the standard deviation over five seeds, which is itself
+of Section~\ref{sec:methodcmp} uses the standard deviation over five seeds, which is itself
 uncertain; a borderline comparison could be decided either way by a larger
 repetition. Only the clearly separated and clearly unseparated cases are
 treated as results.
@@ -1172,8 +1175,9 @@ be specified on that basis.
 
 \section*{Data and code availability}
 
-The complete simulation, training and evaluation pipeline is a single Python
-script, and every reported number is produced by one of its documented modes.
+The simulation, training and evaluation pipeline is one main Python module
+plus short analysis scripts for the later experiments, and every reported number
+is produced by one of them.
 The dataset, the fitted models, the response bank and all report files will be
 released with the manuscript.
 

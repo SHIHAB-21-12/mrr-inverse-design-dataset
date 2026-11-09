@@ -1,0 +1,9 @@
+Paired bootstrap: overall RMS closed-loop error, optimiser minus network (percentage points)
+==============================================================================
+Negative = optimiser better. B = 10000 resamples of the common targets; 95 % percentile interval.
+
+naive network              n=20  difference -0.780  [-2.348, +0.640]   optimiser lower in 80.1 % of resamples   optimiser better on 10 of 20 targets
+bounded tandem             n=20  difference -1.468  [-2.397, -0.515]   optimiser lower in 99.9 % of resamples   optimiser better on 14 of 20 targets
+bounded+weighted tandem    n=20  difference -1.020  [-1.953, -0.090]   optimiser lower in 98.4 % of resamples   optimiser better on 14 of 20 targets
+
+If an interval contains 0, the two are not separable on these targets.
