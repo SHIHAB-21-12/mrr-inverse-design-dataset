@@ -1,0 +1,47 @@
+P5 -- do the CPO specs survive the known bias of the analytic ring?
+==============================================================================
+Factors from the full 3-D ring runs at R=5.2 um (not measured at R>5.2 um):
+  moderate: Q x0.85, IL x1.6      worst: Q x0.725, IL x2.6
+
+(a) the four P4 designs re-scored with the factors
+------------------------------------------------------------------------------
+design     level           lam     FSR      Q_L     IL  verdict
+A|spec0 none       1549.983  16.147     4764  0.421  PASS
+A|spec0 moderate   1549.983  16.147     4049  0.674  PASS
+A|spec0 worst      1549.983  16.147     3454  1.095  PASS
+A|spec  none       1549.660  17.282     6512  0.616  PASS
+A|spec  moderate   1549.660  17.282     5535  0.985  PASS
+A|spec  worst      1549.660  17.282     4721  1.601  FAIL: IL +0.10
+B|spec0 none       1550.166   7.359    19776  0.560  PASS
+B|spec0 moderate   1550.166   7.359    16809  0.895  PASS
+B|spec0 worst      1550.166   7.359    14337  1.455  FAIL: IL +0.46
+B|spec  none       1550.009   7.349    11549  0.319  PASS
+B|spec  moderate   1550.009   7.349     9816  0.511  PASS
+B|spec  worst      1550.009   7.349     8373  0.830  PASS
+
+(b) feasibility under stress: best penalty found (0 = every spec met after the factors; lambda keeps 1/4-window margin)
+------------------------------------------------------------------------------
+A moderate  penalty 0.000000  restarts [0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000]  (4 s)
+   geometry R=5.054 w=464.7 g=169.7 Lc=0.704   nominal Q 6579 IL 0.607  -> stressed Q 5592 IL 0.971   PASS
+A worst     penalty 0.000000  restarts [0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000]  (5 s)
+   geometry R=5.099 w=444.2 g=193.6 Lc=0.861   nominal Q 5955 IL 0.531  -> stressed Q 4317 IL 1.380   PASS
+B moderate  penalty 0.000000  restarts [0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000]  (1 s)
+   geometry R=12.875 w=434.4 g=275.9 Lc=2.021   nominal Q 14272 IL 0.352  -> stressed Q 12131 IL 0.562   PASS
+B worst     penalty 0.000000  restarts [0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000]  (3 s)
+   geometry R=13.211 w=456.5 g=222.9 Lc=1.395   nominal Q 12290 IL 0.298  -> stressed Q 8910 IL 0.775   PASS
+
+(c) robust designs re-simulated: coupler in 3-D FDTD, ring analytic, then the bias factors applied
+------------------------------------------------------------------------------
+design         level           lam     FSR      Q_L     IL  verdict
+A|moderate     none       1549.795  16.771     6391  0.589  PASS
+A|moderate     moderate   1549.795  16.771     5432  0.942  PASS
+A|moderate     worst      1549.795  16.771     4633  1.530  FAIL: IL +0.03
+A|worst        none       1549.537  16.317     6070  0.541  PASS
+A|worst        moderate   1549.537  16.317     5160  0.866  PASS
+A|worst        worst      1549.537  16.317     4401  1.408  PASS
+B|moderate     none       1550.017   6.493    15414  0.380  PASS
+B|moderate     moderate   1550.017   6.493    13102  0.608  PASS
+B|moderate     worst      1550.017   6.493    11175  0.989  PASS
+B|worst        none       1549.920   6.493    12155  0.295  PASS
+B|worst        moderate   1549.920   6.493    10332  0.472  PASS
+B|worst        worst      1549.920   6.493     8812  0.767  PASS
