@@ -53,7 +53,9 @@ scenarios, mainly on resonance ($4.32$\,nm RMS against $2.66$\,nm for always
 guessing the mean); but those point targets are not jointly attainable in the
 ring model (best achievable RMS $21$--$26\%$), so the misses are not attributable
 to the method. Posed as a feasibility problem, both scenarios are met by a direct
-optimiser in seconds, and the designs pass a 3-D FDTD coupler re-simulation. The
+optimiser in seconds, and designs chosen to survive the $\QL$ and IL bias measured
+in full-ring simulation ($\QL \times 0.725$, IL $\times 2.6$) pass a 3-D FDTD
+coupler re-simulation. The
 model's resonance uncertainty ($1.55$\,nm) is $3.9$ times the $0.4$\,nm window of
 the eight-channel scenario, so a model pass does not certify a fabricated device. A differential-evolution optimiser run directly on the
 analytic model, with no training data, reaches $2.89\%$ RMS closed-loop error
@@ -462,9 +464,10 @@ parameters at $R^2 \ge 0.80$), response-space criterion passes
 ($3.669\%$) --- the two criteria disagree on one device; this does not settle why [3] and [7,9] differ \\
 O7 CPO translation & \textbf{met, with caveat} & 0 of 12 trained-model
 candidates pass the point-target test, but those targets are not attainable in
-the model; posed as constraints, a direct optimiser passes both scenarios
-(coupler in 3-D FDTD, ring analytic). Scenario B passes are model-level (resonance
-uncertainty $3.9\times$ its window) \\
+the model; posed as constraints, a direct optimiser passes both scenarios,
+also after the $\QL$ and IL bias measured in full-ring runs (coupler in 3-D FDTD, ring
+analytic). Scenario B is model-level: its resonance uncertainty is $3.9\times$ its window
+and the bias is extrapolated to $R \approx \SI{13}{\micro m}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -915,7 +918,7 @@ declined.
 \centering
 \caption{Re-simulated scenario verdicts. Each candidate geometry was
 re-simulated with a fresh 3-D FDTD coupler run. Tolerance on $\lres$ is half
-the channel spacing: $\pm \SI{2.0}{nm}$ in A, $\pm \SI{0.4}{nm}$ in B. If the ring FDTD is taken as the reference, the analytic FSR is about $2.4\%$ low: RF (raw) in Scenario A would then pass FSR (about \SI{16.3}{nm}), and its $\lres$ of \SI{1548.06}{nm} lies inside the $\pm\SI{2}{nm}$ window by \SI{0.06}{nm}, less than the \SIrange{0.8}{1.1}{nm} $\lres$ error of the analytic model, so its verdict is undecided. $\QL$ above about 4300 (all Scenario B rows, and the DE rows of Scenario A) is not validated. The six trained models were given point targets that the ring model cannot attain jointly (see text); the two DE rows solve the constraints as stated (spec: exact bounds; margin: FSR $\times 1.04$, $\QL$ lower bound $\times 1.10$, IL $\times 0.9$, $\lres$ within a quarter of the window).}
+the channel spacing: $\pm \SI{2.0}{nm}$ in A, $\pm \SI{0.4}{nm}$ in B. If the ring FDTD is taken as the reference, the analytic FSR is about $2.4\%$ low: RF (raw) in Scenario A would then pass FSR (about \SI{16.3}{nm}), and its $\lres$ of \SI{1548.06}{nm} lies inside the $\pm\SI{2}{nm}$ window by \SI{0.06}{nm}, less than the \SIrange{0.8}{1.1}{nm} $\lres$ error of the analytic model, so its verdict is undecided. $\QL$ above about 4300 (all Scenario B rows, and the DE rows of Scenario A) is not validated. The six trained models were given point targets that the ring model cannot attain jointly (see text); the two DE rows solve the constraints as stated (spec: exact bounds; margin: FSR $\times 1.04$, $\QL$ lower bound $\times 1.10$, IL $\times 0.9$, $\lres$ within a quarter of the window). DE (robust) is designed to pass after the factors measured in full-ring runs (see text): after $\QL \times 0.725$ and IL $\times 2.6$ it has $\QL = 4401$, IL $= 1.41$\,dB (A) and $\QL = 8812$, IL $= 0.77$\,dB (B).}
 \label{tab:cpo}
 \small
 \begin{tabular}{@{}lrrrrl@{}}
@@ -931,6 +934,7 @@ XGB (raw)  & 1557.673 & 16.298 & 3708 & 0.322 & fail: $\lres$ $+7.67$\,nm \\
 XGB (norm) & 1547.746 & 16.111 & 3890 & 0.336 & fail: $\lres$ $-2.25$\,nm \\
 DE (spec)   & 1549.983 & 16.147 & 4724 & 0.418 & pass \\
 DE (margin) & 1549.660 & 17.282 & 6568 & 0.621 & pass \\
+DE (robust) & 1549.537 & 16.317 & 6070 & 0.541 & pass, bias-robust \\
 \midrule
 \multicolumn{6}{@{}l}{\itshape Scenario B --- 8 channels, \SI{0.8}{nm} ITU grid; FSR $\ge \SI{6.4}{nm}$, $\QL \ge 7750$, IL $\le \SI{1.0}{dB}$} \\
 naive DNN  & 1548.663 & 6.458 & 8575 & 0.207 & fail: $\lres$ $-1.34$\,nm \\
@@ -941,6 +945,7 @@ XGB (raw)  & 1550.934 & 6.405 & 6070 & 0.147 & fail: $\lres$ $+0.93$, $\QL$ $-16
 XGB (norm) & 1552.793 & 6.424 & 5816 & 0.141 & fail: $\lres$ $+2.79$, $\QL$ $-1934$ \\
 DE (spec)   & 1550.166 & 7.359 & 19047 & 0.538 & pass (model) \\
 DE (margin) & 1550.009 & 7.349 & 11873 & 0.328 & pass (model) \\
+DE (robust) & 1549.920 & 6.493 & 12155 & 0.295 & pass (model), bias-robust \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -952,6 +957,8 @@ Objective O7 asked which methods meet a CPO scenario's specification within its 
 \textbf{(ii) The point targets themselves are not attainable.} The four scenario numbers (resonance, FSR, $\QL$, IL) were passed to the models as one tuple. A differential-evolution search on the analytic ring model, minimising the RMS relative error to that tuple, reaches a best of $21$--$26\%$ for the four tuples tested (six restarts agree), and it gives up on the resonance, because \SI{5}{nm} is only $0.3\%$ relative error while the other three quantities are off by tens of percent. A resonance miss of several nm is therefore what any point-target method returns for an unattainable tuple, and the data do not separate that from the networks' own error. We do not claim the networks are better or worse on the resonance; we claim the test of (i) cannot decide it.
 
 \textbf{(iii) As a feasibility problem, both scenarios are met.} The scenarios are bands and bounds, so the direct question is whether any geometry satisfies all of them. A penalty counting only violations of the resonance window, minimum FSR, $\QL$ band and IL limit reaches zero in under ten seconds for both scenarios, with and without a margin, and all six restarts agree. The four designs were re-simulated with a fresh 3-D FDTD coupler run (energy sum $0.9999$--$1.0000$) and pass (Table~\ref{tab:cpo}, DE rows). The Scenario A designs have $\lres$ within \SI{0.34}{nm} of \SI{1550}{nm}, inside the $\pm\SI{2.0}{nm}$ window; the Scenario B designs within \SI{0.17}{nm}, inside $\pm\SI{0.4}{nm}$.
+
+\textbf{(iv) The analytic $\QL$ and IL are biased; designs can be chosen to survive the measured bias.} The full-ring 3-D simulations of Section~\ref{sec:ringval} (three geometries at $R = \SI{5.2}{\micro m}$) found the simulated $\QL$ $8$--$9\%$ below the analytic value near $\QL = 4300$ and $17$--$27\%$ below at an analytic $6351$, and the simulated IL \SIrange{0.85}{1.42}{dB} against an analytic \SIrange{0.36}{0.56}{dB}, up to $2.6$ times higher (it was lower at the lowest $\QL$). The designs of (iii) were scored with the unbiased analytic values. Re-scoring them with $\QL \times 0.725$ and IL $\times 2.6$, the worst observed factors, two of the four fail on IL (the Scenario A margin design by \SI{0.10}{dB}, the Scenario B exact-bound design by \SI{0.46}{dB}). Searching for designs that pass \emph{after} those factors finds them in both scenarios (penalty zero, all six restarts agree). With their couplers re-simulated in 3-D FDTD (energy sum $0.9999$--$1.0000$) they pass at every bias level (Table~\ref{tab:cpo}, robust rows). The Scenario A design keeps only \SI{0.09}{dB} of IL margin at the worst factors ($1.41$ against $\le \SI{1.5}{dB}$). These factors come from one radius, three geometries and one mesh; for Scenario B, at $R \approx \SI{13}{\micro m}$, they are an extrapolation, since no ring simulation covers that radius (it needs about \SI{26}{GB} of solver memory at this mesh). The Scenario B result is therefore conditional on an unverified bias.
 
 What this does \emph{not} establish is that a fabricated device would meet the window. The ring response is analytic and its resonance carries a model uncertainty of $\pm\SI{1.55}{nm}$ against full-ring FDTD: $0.78$ of the Scenario A window and $3.9$ times the Scenario B window. The B passes are passes \emph{in the model}; they are not certified. The loaded $Q$ of the B designs ($11\,873$ and $19\,047$) also exceeds the range over which $\QL$ was validated. Independently, hitting Scenario A with fabricated geometry would require the radius controlled to about \SI{13}{nm} and Scenario B to about \SI{3}{nm}, using $\mathrm{d}\lres/\mathrm{d}R \approx 0.15$\,nm/nm, which is below realistic lithographic tolerance. Absolute resonance position is therefore set after fabrication by thermal or carrier trimming, whichever inverse method produced the geometry; inverse design supplies the FSR, loaded $Q$ and insertion loss and a starting resonance close to the channel.
 
@@ -1171,7 +1178,7 @@ provable $100\%$ for Random Forest to $33.5\%$ for a tandem network at the repor
 information bound computed per design space is what makes an accuracy target
 interpretable; here the point estimate gives no evidence that the missed $15\%$ threshold is fundamental.
 
-For co-packaged optics specifically, two conclusions follow. First, the scenarios are attainable: posed as constraints rather than as a point target, a direct optimiser finds geometries that pass a 3-D FDTD coupler re-simulation in both, and the point-target misses of trained models should not be read as a physical limit. Second, the ring model's resonance uncertainty ($\pm1.55$\,nm) exceeds the eight-channel window by a factor of $3.9$, and fabricated geometry varies more than that, so channel assignment is achieved by post-fabrication trimming whichever method produced the geometry.
+For co-packaged optics specifically, two conclusions follow. First, the scenarios are attainable: posed as constraints rather than as a point target, a direct optimiser finds geometries that pass a 3-D FDTD coupler re-simulation in both, also after the $\QL$ and IL bias measured in full-ring simulation (for Scenario B an extrapolated bias), and the point-target misses of trained models should not be read as a physical limit. Second, the ring model's resonance uncertainty ($\pm1.55$\,nm) exceeds the eight-channel window by a factor of $3.9$, and fabricated geometry varies more than that, so channel assignment is achieved by post-fabrication trimming whichever method produced the geometry.
 
 \section*{Data and code availability}
 
