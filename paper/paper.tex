@@ -33,37 +33,21 @@ Khulna University of Engineering \& Technology (KUET), Khulna, Bangladesh}
 Whether a naive inverse network can design photonic devices is disputed: Liu
 \emph{et al.}\ [3] reported it failing to train when training pairs conflict, while
 Chen and Jiang [7] and Adibnia \emph{et al.}\ [9] reported it working. We show
-that the answer can depend on the criterion. On a dataset of
-1{,}150 labelled geometries of a bus-coupled add-drop silicon microring (coupler
-from 200 three-dimensional FDTD simulations, ring from coupled-mode theory,
-validated against a published device and further full-ring simulations), a plain
-inverse network \emph{fails} in geometry space (RMS-RGE $15.5\%$; $R^2 \ge 0.80$ on
-one of four parameters) yet \emph{passes} in response space: re-simulating its
-designs in FDTD reproduces the requested response to $3.99\%$ RMS (95\% interval
-$3.36$--$4.62\%$) over a hundred test targets, with $96$ of the hundred buildable.
-The reason is a constraint count: four targets impose in effect two independent
-constraints, leaving an approximately two-dimensional family of equivalent designs. The data show
-it directly: $19$ pairs of geometries with indistinguishable targets differ by a
-median of $19.4\%$ and up to $45.8\%$. Consequently geometry error does not predict
-response error (a factor $4.00$ spread against $1.20$ for a physically motivated
-metric), and realisability depends on architecture ($100\%$ for Random Forest,
-$95.4\%$ plain network, $33.5\%$ tandem, $11.6$--$83.8\%$ across initialisations).
-Asked for point targets, the trained models miss both co-packaged-optics
-scenarios, mainly on resonance ($4.32$\,nm RMS against $2.66$\,nm for always
-guessing the mean); but those point targets are not jointly attainable in the
-ring model (best achievable RMS $21$--$26\%$), so the misses are not attributable
-to the method. Posed as a feasibility problem, both scenarios are met by a direct
-optimiser in seconds, and designs chosen to survive the $\QL$ and IL bias measured
-in full-ring simulation ($\QL \times 0.725$, IL $\times 2.6$) pass a 3-D FDTD
-coupler re-simulation. The
-model's resonance uncertainty ($1.55$\,nm) is $3.9$ times the $0.4$\,nm window of
-the eight-channel scenario, so a model pass does not certify a fabricated device. A differential-evolution optimiser run directly on the
-analytic model, with no training data, reaches $2.89\%$ RMS closed-loop error
-(95\% interval $2.32$--$3.42\%$) on the twenty-target subset, against $3.67\%$ for
-the network, so the networks offer no accuracy advantage here; the remaining error
-is the coupler model's $4.5\%$ scatter in $\kappa^2$ against FDTD. The results hold for one design space and one
-analytic ring model, whose group index sits $2.5$--$3.6\%$ below FDTD, a gap traced
-to the FDTD engine's dispersionless material fit and removed by a dispersive one on a straight guide.
+that the answer can depend on the error criterion. On $1{,}150$ labelled geometries
+of a bus-coupled add-drop silicon microring (200 three-dimensional FDTD coupler
+simulations, coupled-mode ring), a plain inverse network \emph{fails} in geometry
+space ($15.5\%$ RMS relative geometry error) yet \emph{passes} in response space:
+re-simulated in FDTD, its designs reproduce the requested response to $3.99\%$ RMS.
+Four targets impose in effect two independent constraints, so a two-dimensional
+family of geometries gives the same response, and geometry error does not predict
+response error. A differential-evolution optimiser on the analytic model reaches
+$2.89\%$ closed-loop error with no training data, so the networks give no accuracy
+advantage here. Posed as constraints rather than point targets, two
+co-packaged-optics channel specifications are met by direct optimisation, also
+after the $\QL$ and insertion-loss bias measured in full-ring simulation. The ring
+model's resonance uncertainty ($1.55$\,nm) exceeds the $0.4$\,nm window of the
+eight-channel case, so fabricated devices would still need trimming. Results are for
+one design space and one analytic ring model.
 \end{abstract}
 
 \section{Introduction}
