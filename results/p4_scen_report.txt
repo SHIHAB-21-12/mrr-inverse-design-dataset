@@ -1,0 +1,21 @@
+P4 -- direct optimiser vs the CPO scenarios (coupler in 3-D FDTD, ring analytic)
+======================================================================================
+Resonance uncertainty of the analytic ring vs full-ring FDTD: +/-1.55 nm (0.10 %).
+
+Scenario A: window on lambda_res +/-2 nm   (model uncertainty / window = 0.78)
+   variant        lam     FSR      Q_L     IL  verdict (3-D FDTD coupler)
+   spec0     1549.983  16.147     4724  0.418  PASS
+   spec      1549.660  17.282     6568  0.621  PASS
+   paper    not simulated
+   margin   not simulated
+
+Scenario B: window on lambda_res +/-0.4 nm   (model uncertainty / window = 3.88)
+   variant        lam     FSR      Q_L     IL  verdict (3-D FDTD coupler)
+   spec0     1550.166   7.359    19047  0.538  PASS
+   spec      1550.009   7.349    11873  0.328  PASS
+   paper    not simulated
+   margin   not simulated
+
+Variants: spec0 = meet every band/bound exactly; spec = meet them with margin (FSR x1.04, Q_lo x1.10, IL x0.9, lambda within a quarter of the window).
+paper / margin = point targets as in the paper (infeasible in the model, not simulated unless --all).
+lambda_res is exact inside the model by construction; its real uncertainty is the +/- value above.
