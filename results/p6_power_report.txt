@@ -1,0 +1,31 @@
+P6 -- what can twenty closed-loop targets detect?
+====================================================================================================
+RMS closed-loop error (%), buildable designs only, bootstrap 95 % interval (B=10000):
+
+  DE             n= 20   RMS  2.889   [ 2.321,  3.420]   interval width  1.10
+  naive          n= 20   RMS  3.669   [ 2.351,  5.086]   interval width  2.73
+  bnd-tandem     n= 20   RMS  4.357   [ 3.470,  5.270]   interval width  1.80
+  bnd+wt-tandem  n= 20   RMS  3.909   [ 3.252,  4.514]   interval width  1.26
+  RF-raw         n= 20   RMS  4.589   [ 3.401,  5.738]   interval width  2.34
+  XGB-norm       n= 20   RMS 13.329   [ 9.122, 17.090]   interval width  7.97
+  tandem         n=  8   RMS  5.936   [ 2.285,  8.694]   interval width  6.41
+  naive (100)    n= 96   RMS  3.989   [ 3.333,  4.618]   interval width  1.28
+
+Paired comparisons on common targets (difference = A minus B, percentage points; negative = A better):
+  A              B                n     diff         95% interval     SE  MDD(80%)  n for observed diff
+  DE             naive           20   -0.780     [-2.331, +0.640]  0.787     2.204                  160
+  DE             bnd-tandem      20   -1.468     [-2.406, -0.507]  0.487     1.362                   18
+  DE             bnd+wt-tandem   20   -1.020     [-1.979, -0.073]  0.487     1.362                   36
+  DE             RF-raw          20   -1.700     [-3.167, -0.336]  0.734     2.054                   30
+  DE             XGB-norm        20  -10.440    [-14.288, -6.214]  2.073     5.804                    7
+  DE             tandem           8   -3.264     [-6.937, +0.937]  2.003     5.607                   24
+  naive          bnd-tandem      20   -0.688     [-2.024, +0.866]  0.768     2.150                  196
+  naive          bnd+wt-tandem   20   -0.240     [-1.618, +1.064]  0.705     1.975                 1352
+  naive          RF-raw          20   -0.920     [-2.714, +1.150]  1.003     2.808                  187
+  naive          XGB-norm        20   -9.660    [-13.814, -5.348]  2.189     6.130                    9
+  naive          tandem           8   -1.802     [-6.744, +3.343]  2.672     7.480                  138
+
+MDD = smallest true difference in overall RMS that these targets would detect 80 % of the time (two-sided 5 %).
+'n for observed diff' = targets needed to detect a difference the size of the observed one at 80 % power
+(if the observed difference is itself noise, this number is meaningless: read it only where the interval excludes 0
+or where it is of a size the paper would care about).
