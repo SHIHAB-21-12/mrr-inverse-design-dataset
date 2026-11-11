@@ -1,0 +1,14 @@
+P9 -- generality across response maps (model-level response error, NOT FDTD)
+Settings: Appendix B of the paper; nothing tuned. Test split 805/172/173; targets: lambda, FSR, log10 Q, log10 IL (or depth).
+================================================================================================================
+
+addrop_asym  params ['R', 'w', 'g1', 'Lc1', 'g2', 'Lc2']   rows dropped by the quality gate: 0   test rows 173
+method        RMS-RGE %   non-Lc RGE %  n params R2>=0.8  buildable %  response RMS %   mean R^2 per parameter
+naive       16.71+-0.03     9.94+-0.07              1.00         98.2            9.42   R:+0.99 w:+0.51 g1:+0.54 Lc1:+0.24 g2:+0.52 Lc2:+0.20
+rf          17.42+-0.03    10.61+-0.02              1.00        100.0           11.99   R:+0.97 w:+0.42 g1:+0.50 Lc1:+0.22 g2:+0.48 Lc2:+0.11
+xgb         17.66+-0.08    10.42+-0.09              1.00         99.8           16.98   R:+1.00 w:+0.42 g1:+0.46 Lc1:+0.24 g2:+0.50 Lc2:-0.00
+
+PRE-REGISTERED PREDICTIONS (p9_predictions.md)
+C1 addrop_asym: mean #parameters with R^2>=0.8 = 1.00; recovered: ['R'] (<=1 and it is R) -> PASS
+C2 addrop_asym: naive response RMS 9.42 % (<20 %) -> PASS
+C3 addrop_asym: R^2 of g1,Lc1,g2,Lc2 = [0.54, 0.24, 0.52, 0.2] (all <0.5) -> FAIL
