@@ -437,7 +437,7 @@ $11.331 \pm 1.101\%$ against $\le 10\%$ over five seeds. Cause: small
 denominators on a sub-decibel target, at $0.072$\,dB RMSE \\
 O3 inverse accuracy & \textbf{not met} & $\rge = 15.506\%$ against
 $\le 15\%$; closed-loop half met at $3.669\%$ ($3.989\%$ over a hundred targets). Information-bound estimate
-$14.323\%$ (95\% interval $13.18$--$15.42\%$): no evidence the threshold is unreachable \\
+$14.323\%$ (95\% interval $13.18$--$15.42\%$; $14.41$--$14.77\%$ in three further banks): no evidence the threshold is unreachable \\
 O4 four-way comparison & met & all four families, identical split, every
 metric, no omissions \\
 O5 sample efficiency & met & XGBoost forward below 300 samples; network at
@@ -874,7 +874,7 @@ $16.063\%$ at $N = 12\,500$ to $14.323\%$ at $N = 10^6$. Since
 $14.323\% < 15\%$:
 
 \begin{quote}
-\textbf{At $N = 10^6$ the estimate is $14.323\%$, below the $15\%$ threshold; we therefore have no evidence that the threshold is unreachable.} We do not claim it is reachable. The neighbourhood size $k$ was chosen on the same 173 test targets; the $k$-curve is not smooth ($14.32\%$ at $k = 5$, $14.62\%$ at $k = 7$, $14.73\%$ at $k = 10$); and the 95\% bootstrap interval over the test targets, $[13.18, 15.42]\%$ at $k = 5$ ($[13.05, 15.32]\%$ when $k$ is re-chosen in every resample), contains the threshold: the estimate falls below $15\%$ in $89\%$ of resamples. The interval covers variation over the test targets only, not a different draw of the bank.
+\textbf{At $N = 10^6$ the estimate is $14.323\%$, below the $15\%$ threshold; we therefore have no evidence that the threshold is unreachable.} We do not claim it is reachable. The neighbourhood size $k$ was chosen on the same 173 test targets; the $k$-curve is not smooth ($14.32\%$ at $k = 5$, $14.62\%$ at $k = 7$, $14.73\%$ at $k = 10$); and the 95\% bootstrap interval over the test targets, $[13.18, 15.42]\%$ at $k = 5$ ($[13.05, 15.32]\%$ when $k$ is re-chosen in every resample), contains the threshold: the estimate falls below $15\%$ in $89\%$ of resamples. That interval covers variation over the test targets only. A fresh draw of the bank matters less, but not nothing: three independent banks of the same size give $14.41$, $14.77$ and $14.56\%$ at their best $k$ (mean $14.58\%$, s.d.\ $0.18$; all three prefer $k = 25$) and $14.94$, $14.81$ and $15.08\%$ at $k = 5$. The original bank's $14.32\%$ is therefore the lowest of four, and a fixed $k = 5$ crosses $15\%$ in one of the three fresh banks. The margin below $15\%$ is about $0.4$ points, with a bank-to-bank s.d.\ of about $0.15$--$0.2$ on top of the test-target interval, and the conclusion stays the weaker one stated above.
 \end{quote}
 
 Two honest qualifications. The estimate is not converged: the optimal
@@ -1086,7 +1086,7 @@ solver and the length convention. The coupling model, the bend-loss model,
 $\QL$ and IL are not externally validated against measurement.
 \item \textbf{The information bound is not converged.} It is a valid upper
 bound at every bank size, which is enough for the one-directional conclusion
-drawn, but its asymptote is not determined by the sweep performed.
+drawn, but its asymptote is not determined by the sweep performed. It also depends on the bank draw (s.d.\ about $0.15$--$0.2$ points across three independent banks) and on a neighbourhood size chosen on the same test targets.
 \item \textbf{$\lres$ is unlearnable within this parameterisation.} An
 alternative target --- for example resonance offset from a grid wavelength, or
 azimuthal mode order --- might be learnable. We measured one reparameterisation

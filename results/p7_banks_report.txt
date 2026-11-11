@@ -1,0 +1,14 @@
+P7 -- information-bound estimate across independent response banks
+==========================================================================
+Same box, same analytic responder, same quality gate; only the random draw of the bank differs.
+
+       bank         N  best k  floor (best k) %  floor (k=5) %
+  --------------------------------------------------------------
+   original   1000000       5            14.323         14.323
+         11   1000000      25            14.412         14.942
+         22   1000000      25            14.769         14.808
+         33   1000000      25            14.555         15.077
+
+  independent banks only: k=5 floor mean 14.942 %, sd 0.135, range 14.808-15.077
+                         best-k floor mean 14.579 %, sd 0.179, range 14.412-14.769
+  banks with k=5 floor below 15 %: 2 of 3
