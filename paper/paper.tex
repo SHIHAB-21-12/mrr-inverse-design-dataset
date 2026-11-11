@@ -189,8 +189,7 @@ and no evidence of $\sin^2\theta$ saturation.
 
 The modelling dataset comprises 1{,}150 labelled geometries --- 1{,}000 from a
 primary Latin hypercube design plus a 150-point supplementary batch covering a
-sparse corner of the space --- split 805/172/173 into training, validation and
-test sets with a fixed seed. The test set was held out from model fitting; post-hoc analyses that did use it (for example the neighbourhood size of the information bound) are marked where they occur.
+sparse corner of the space --- split 805/172/173 into training, validation and test sets with a fixed seed. Before modelling, a quality gate removes any row whose exact drop-port half-maximum does not exist, whose peak drop transmission exceeds one, whose responses are not finite or whose $\QL \le 0$; the response bank of the information bound applies the same gate. The test set was held out from model fitting; post-hoc analyses that did use it (for example the neighbourhood size of the information bound) are marked where they occur.
 
 \subsection{Validation of the construction}
 
@@ -275,9 +274,7 @@ $g = \SI{180}{nm}$, $L_c = \SI{0.60}{\micro\metre}$ & 4603 & 5229 & 5253 & 3447 
 Four method families are compared, each in the forward and inverse direction,
 on the identical split with identical metrics: Random Forest, XGBoost, a plain
 feed-forward network, and a tandem network trained through the frozen forward
-model. Tree models are evaluated with raw and normalised inputs. The forward
-network architecture was selected by a 144-configuration grid search over
-depth, width, learning rate and weight decay.
+model. Tree models are evaluated with raw and normalised inputs. The forward network architecture was selected by a 144-configuration grid search over depth, width, learning rate and weight decay; the three best configurations differ by under $0.1\%$ in validation error, so the choice among them is effectively a tie, and the selected network has depth 4 and width 256. The naive and tandem inverse networks use a fixed 64--128--64 topology, deliberately not the search winner, so that the comparison isolates the loss function; they were not tuned. All settings are in Appendix~\ref{sec:appimpl}.
 
 Two metric conventions require statement. Aggregate geometric error is the
 root-mean-square relative geometric error
@@ -677,7 +674,7 @@ seeds both give $p<0.05$ after Holm correction within each training size
 (\texttt{p8\_seedstats.py}). With five seeds per group the permutation test cannot
 give $p$ below $0.0079$, so a pair can be separated only if all five seeds of one
 method beat all five of the other. The earlier pooled-spread rule (gap larger than
-$\sqrt{s_a^2+s_b^2}$) gives the same verdict on every pair reported below.
+$\sqrt{s_a^2+s_b^2}$) gives the same verdict on every pair reported below. The hyperparameters of every model in the sweep are those found for the full training pool and are reused at every size; the tree models are the normalised-input variants with the seed varied, so their full-size means ($5.115\%$ for XGBoost, $11.802\%$ for the forward random forest) are seed averages and differ slightly from the single-run values of Table~\ref{tab:fwd} ($5.323\%$ and $11.929\%$).
 
 In the forward direction at the full 805-sample pool the network is most
 accurate, at $3.776 \pm 0.282\%$ against XGBoost's $5.115 \pm 0.115\%$: a gap
@@ -922,7 +919,7 @@ useful to know before pursuing it.
 \item \textbf{The ring validation is limited.} It is not mesh-converged (a third mesh exceeds the \SI{15.7}{GB} of memory, so the extrapolation rests on two meshes), covers small radius only (ten runs at $R = 5.10$--$\SI{5.20}{\micro\metre}$; a \SI{10}{\micro\metre} ring needs about \SI{20}{GB}), establishes $\QL$ only below about $4300$ to within 2\% ($84.7\%$ of labels lie above), and does not validate IL. The ring's group index is about $3\%$ below the mode solver's; the cause was found and removed on a straight guide, not on the ring, and the coupler $\kappa^2$ values used the same material fit (Section~2.4, Appendix~\ref{sec:appring}). Bend loss is not resolvable by the eigenmode route (the imaginary part of $n_{\mathrm{eff}}$ is at the solver's numerical floor), so the wavelength-independent bend-loss model stands uncorrected.
 \item \textbf{External validation covers FSR only.} The coupling model, bend-loss model, $\QL$ and IL are not validated against measurement. Label fidelity was tested only against a uniform $\pm3\%$ shift (Section~3.2); a geometry-dependent label error would require regenerating the dataset from full 3-D simulation.
 \item \textbf{No fabrication.} Every result is simulation-based. The trimming requirement follows from the model's resonance uncertainty and the fabrication sensitivities; the Scenario B passes are model-level passes. The ring response in the closed-loop and scenario evaluations is analytic; only the coupler is re-simulated.
-\item \textbf{Small samples.} Closed-loop verification uses twenty targets for four of six models (only the naive network was extended to a hundred); at $80\%$ power the smallest detectable difference is about $1.4$--$2.2$ percentage points (Section~\ref{sec:baseline}), so smaller differences are not resolved. The optimiser baseline, the $\kappa^2$ comparison and the Jacobian analysis share the same twenty targets. Seed tests use five seeds per group: after Holm correction the smallest attainable $p$ is $0.048$, so a pair is separated only if every seed of one method beats every seed of the other, and a larger repetition could separate pairs we call comparable. Seed tests do not cover data-draw or test-set variability (173 targets for geometric error, 20 for closed-loop error); bootstrap intervals are given where computed. Whether the $4.5\%$ scatter in $\kappa^2$ is model error or FDTD noise has not been separated.
+\item \textbf{Small samples.} Closed-loop verification uses twenty targets for four of six models (only the naive network was extended to a hundred); at $80\%$ power the smallest detectable difference is about $1.4$--$2.2$ percentage points (Section~\ref{sec:baseline}), so smaller differences are not resolved. The optimiser baseline, the $\kappa^2$ comparison and the Jacobian analysis share the same twenty targets. Seed tests use five seeds per group: after Holm correction the smallest attainable $p$ is $0.048$, so a pair is separated only if every seed of one method beats every seed of the other, and a larger repetition could separate pairs we call comparable. Seed tests do not cover data-draw or test-set variability (173 targets for geometric error, 20 for closed-loop error); bootstrap intervals are given where computed. Whether the $4.5\%$ scatter in $\kappa^2$ is model error or FDTD noise has not been separated. Hyperparameters were tuned once, at the full training pool, and reused at every size of the sample-efficiency sweep, which may disadvantage all models at small sizes; the inverse networks were not tuned.
 \item \textbf{The information bound is not converged.} It is a valid upper bound at every bank size, which suffices for the one-directional conclusion, but its asymptote is not determined, and it depends on the bank draw (s.d.\ $0.15$--$0.2$ points) and on a neighbourhood size chosen on the same test targets.
 \item \textbf{$\lres$ is unlearnable within this parameterisation.} An alternative target (resonance offset from a grid wavelength, azimuthal mode order) might be learnable; one candidate showed $|\mathrm{corr}(\lres, g)| = 0.095$ within matched sets, so $\lres$ is close to redundant with FSR for geometry recovery. A systematic study was not performed.
 \item \textbf{One device family and coupler symmetry.} Both couplers share a gap and coupling length; asymmetric couplers would change the degeneracy structure. The equivalent-design study uses the analytic model with thickness to first order for the resonance only, no gap-dependent coupler phase, and assumed width, gap and thickness spreads ($0.7$\,nm and $1$\,nm).
@@ -1073,6 +1070,31 @@ the sample-efficiency comparison are unaffected. What must be qualified is the
 absolute accuracy of $\QL$ above $\QL \approx 4300$, the absolute accuracy of
 IL anywhere, and the scenario verdicts, which are judged against $\QL$ specifications. Of the 1{,}150 labels, $84.7\%$ have $\QL$ above 4300 and $76.3\%$ above 6351 (the analytic $\QL$ of the highest-$\QL$ geometry simulated), so most absolute $\QL$ and IL labels lie outside the range this validation supports.
 
+
+\section{Implementation details}
+\label{sec:appimpl}
+
+\begin{table}[h]
+\centering
+\caption{Model settings, as used in the reported runs.}
+\small
+\begin{tabular}{@{}p{3.1cm}p{11.4cm}@{}}
+\toprule
+Item & Setting \\
+\midrule
+Split & $805/172/173$ (train/validation/test), fixed seed; $1{,}000$ Latin-hypercube rows plus a $150$-row supplementary batch in the box $R \in [5.0, 5.6]\,\mu$m, $w \in [400, 500]$\,nm, $g \in [150, 290]$\,nm, $L_c \in [0, 1.6]\,\mu$m, aimed at $\mathrm{FSR} \ge 16$\,nm ($2\pi R + 2L_c \le 34.85\,\mu$m) \\
+Forward network & Leaky ReLU ($\alpha = 0.2$); Adam; batch $16$; initial learning rate $10^{-3}$ in the fixed default, decayed by $0.97$ per epoch; early stopping with patience $40$, at most $600$ epochs; seed $42$ \\
+Forward search & depth $\{2,3,4\}$, width $\{32,64,128,256\}$, learning rate $\{10^{-4}, 5\times10^{-4}, 10^{-3}, 5\times10^{-3}\}$, weight decay $\{10^{-6}, 10^{-5}, 10^{-4}\}$ ($144$ configurations), $300$ epochs each, scored by validation MSE. Best three: $0.00991$, $0.00992$, $0.00992$ \\
+Selected forward network & depth $4$, width $256$, learning rate $5\times10^{-3}$, weight decay $10^{-4}$ \\
+Inverse networks (naive and tandem) & hidden widths $64$--$128$--$64$ (fixed, not tuned); Adam, learning rate $10^{-3}$, weight decay $10^{-5}$; batch $16$; patience $40$; at most $600$ epochs. Naive seed $42$, tandem initialisation seed $43$ \\
+Random forest & $5$-fold cross-validation over trees $\{100,200,300,500\}$, depth $\{10,20,40,80,\text{none}\}$, minimum leaf size $\{1,2,5,7\}$, features $\{\sqrt{\cdot}, \log_2, \text{all}\}$ \\
+XGBoost & $5$-fold cross-validation, randomised search of $60$ configurations over trees $\{100,300,500\}$, depth $\{3,6,9\}$, learning rate $\{0.01,0.05,0.1,0.3\}$, subsample $\{0.7,0.85,1\}$, column sample $\{0.7,0.85,1\}$, $L_2$ regularisation $\{0,1,5\}$ \\
+Sample-efficiency sweep & training sizes $\{100,200,400,600,805\}$; seeds $42$--$46$; hyperparameters fixed at the full-pool values \\
+Quality gate & rows removed if the exact half-maximum of the drop response does not exist, the peak drop transmission exceeds one, a response is not finite, or $\QL \le 0$ \\
+Direct optimiser & differential evolution on the analytic ring model, population $120$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section*{References}
 
