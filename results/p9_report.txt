@@ -1,0 +1,39 @@
+P9 -- generality across response maps (model-level response error, NOT FDTD)
+Settings: Appendix B of the paper; nothing tuned. Test split 805/172/173; targets: lambda, FSR, log10 Q, log10 IL (or depth).
+================================================================================================================
+
+addrop  params ['R', 'w', 'g', 'Lc']   rows dropped by the quality gate: 0   test rows 173
+method        RMS-RGE %   non-Lc RGE %  n params R2>=0.8  buildable %  response RMS %   mean R^2 per parameter
+naive       16.32+-1.10    10.59+-0.40              1.00         98.6            3.78   R:+0.99 w:+0.26 g:+0.64 Lc:+0.14
+tandem     496.59+-169.92   371.09+-230.96              0.00          0.6            2.91   R:-32.94 w:-1205.74 g:-643.23 Lc:-617.22
+rf          17.74+-0.03    11.11+-0.03              1.00        100.0            5.08   R:+0.99 w:+0.19 g:+0.60 Lc:-0.04
+xgb         18.17+-0.12    11.49+-0.13              1.00        100.0           12.29   R:+0.99 w:+0.15 g:+0.58 Lc:-0.08
+
+allpass  params ['R', 'w', 'g', 'Lc']   rows dropped by the quality gate: 0   test rows 173
+method        RMS-RGE %   non-Lc RGE %  n params R2>=0.8  buildable %  response RMS %   mean R^2 per parameter
+naive       16.18+-0.63    10.63+-0.20              1.00         99.3            3.04   R:+0.99 w:+0.26 g:+0.64 Lc:+0.17
+tandem     313.40+-116.79   170.40+-26.77              0.00          2.2            3.17   R:-5.46 w:-115.07 g:-95.58 Lc:-417.81
+rf          17.63+-0.03    10.97+-0.04              1.00        100.0            4.31   R:+0.99 w:+0.20 g:+0.61 Lc:-0.03
+xgb         18.14+-0.16    11.53+-0.09              1.00        100.0           10.42   R:+0.99 w:+0.16 g:+0.57 Lc:-0.07
+
+addrop_asym  params ['R', 'w', 'g1', 'Lc1', 'g2', 'Lc2']   rows dropped by the quality gate: 0   test rows 173
+method        RMS-RGE %   non-Lc RGE %  n params R2>=0.8  buildable %  response RMS %   mean R^2 per parameter
+naive       20.55+-0.06    16.01+-0.10              1.00         97.7           37.93   R:+0.99 w:+0.51 g1:+0.24 Lc1:+0.07 g2:+0.20 Lc2:+0.10
+tandem     519.04+-188.72   425.06+-253.98              0.00          4.4           14.18   R:-3.97 w:-1507.15 g1:-453.83 Lc1:-519.28 g2:-1068.73 Lc2:-510.04
+rf          21.60+-0.05    16.44+-0.02              1.00        100.0           35.38   R:+0.98 w:+0.44 g1:+0.20 Lc1:-0.06 g2:+0.15 Lc2:-0.03
+xgb         22.71+-0.06    17.28+-0.13              1.00         99.7           39.70   R:+1.00 w:+0.42 g1:+0.06 Lc1:-0.15 g2:+0.06 Lc2:-0.16
+
+PRE-REGISTERED PREDICTIONS (p9_predictions.md)
+C0 control: add-drop naive RMS-RGE 16.32 % (14-17 %), R^2(R) 0.989 (>=0.95)  -> PASS
+C1 addrop: mean #parameters with R^2>=0.8 = 1.00; recovered: ['R'] (<=1 and it is R) -> PASS
+C2 addrop: naive response RMS 3.78 % (<20 %) -> PASS
+C5 addrop: tandem buildable 0.6 % (<90 %) -> PASS
+C1 allpass: mean #parameters with R^2>=0.8 = 1.00; recovered: ['R'] (<=1 and it is R) -> PASS
+C2 allpass: naive response RMS 3.04 % (<20 %) -> PASS
+C5 allpass: tandem buildable 2.2 % (<90 %) -> PASS
+C1 addrop_asym: mean #parameters with R^2>=0.8 = 1.00; recovered: ['R'] (<=1 and it is R) -> PASS
+C2 addrop_asym: naive response RMS 37.93 % (<20 %) -> FAIL
+C5 addrop_asym: tandem buildable 4.4 % (<90 %) -> PASS
+C3 addrop_asym: R^2 of g1,Lc1,g2,Lc2 = [0.24, 0.07, 0.2, 0.1] (all <0.5) -> PASS
+C4 addrop_asym RMS-RGE 20.55 % vs control 16.32 % (higher) -> PASS
+C6 all-pass RMS-RGE 16.18 % vs control 16.32 % (within 3 points) -> PASS
