@@ -1,0 +1,69 @@
+P8 -- seed-level tests behind the sample-efficiency comparisons
+========================================================================================================
+seeds [42, 43, 44, 45, 46]; training sizes [100, 200, 400, 600, 805]. Welch t and exact permutation over seeds; Holm over the pairs in each block.
+'old rule' = the paper's earlier criterion, gap between two means > sqrt(sd_a^2 + sd_b^2) with divisor n.
+
+FORWARD (aggregate test MAPE, %)
+--------------------------------------------------------------------------------------------------------
+  n = 100:  DNN 17.439+-3.071  RF 34.911+-0.448  XGB 15.000+-0.350
+      DNN forward        - RF forward         diff  -17.472   Welch p   0.0003   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+      DNN forward        - XGB forward        diff   +2.439   Welch p   0.1879   perm p 0.1746   Holm 0.1746   old rule no    test not separated
+      RF forward         - XGB forward        diff  +19.911   Welch p   0.0000   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+  n = 200:  DNN 11.166+-3.089  RF 25.433+-0.303  XGB 10.631+-0.188
+      DNN forward        - RF forward         diff  -14.266   Welch p   0.0007   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+      DNN forward        - XGB forward        diff   +0.535   Welch p   0.7466   perm p 0.6429   Holm 0.6429   old rule no    test not separated
+      RF forward         - XGB forward        diff  +14.802   Welch p   0.0000   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+  n = 400:  DNN 5.658+-1.094  RF 16.383+-0.231  XGB 7.338+-0.162
+      DNN forward        - RF forward         diff  -10.724   Welch p   0.0000   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+      DNN forward        - XGB forward        diff   -1.680   Welch p   0.0364   perm p 0.0476   Holm 0.0476   old rule sep   test SEPARATED
+      RF forward         - XGB forward        diff   +9.045   Welch p   0.0000   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+  n = 600:  DNN 6.175+-1.815  RF 13.149+-0.073  XGB 5.575+-0.134
+      DNN forward        - RF forward         diff   -6.974   Welch p   0.0015   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+      DNN forward        - XGB forward        diff   +0.601   Welch p   0.5449   perm p 0.5952   Holm 0.5952   old rule no    test not separated
+      RF forward         - XGB forward        diff   +7.574   Welch p   0.0000   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+  n = 805:  DNN 3.776+-0.282  RF 11.802+-0.079  XGB 5.115+-0.115
+      DNN forward        - RF forward         diff   -8.026   Welch p   0.0000   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+      DNN forward        - XGB forward        diff   -1.339   Welch p   0.0002   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+      RF forward         - XGB forward        diff   +6.687   Welch p   0.0000   perm p 0.0079   Holm 0.0238   old rule sep   test SEPARATED
+
+INVERSE (RMS-RGE, %)
+--------------------------------------------------------------------------------------------------------
+  n = 100:  naive 16.652+-0.152  Tandem 34.565+-8.573  RF 17.196+-0.020  XGB 17.594+-0.142
+      naive DNN inverse  - Tandem inverse     diff  -17.913   Welch p   0.0139   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      naive DNN inverse  - RF inverse         diff   -0.544   Welch p   0.0018   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      naive DNN inverse  - XGB inverse        diff   -0.942   Welch p   0.0000   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      Tandem inverse     - RF inverse         diff  +17.369   Welch p   0.0154   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      Tandem inverse     - XGB inverse        diff  +16.971   Welch p   0.0167   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      RF inverse         - XGB inverse        diff   -0.398   Welch p   0.0046   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+  n = 200:  naive 16.297+-0.117  Tandem 39.531+-7.016  RF 16.553+-0.051  XGB 17.045+-0.074
+      naive DNN inverse  - Tandem inverse     diff  -23.234   Welch p   0.0027   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      naive DNN inverse  - RF inverse         diff   -0.256   Welch p   0.0084   perm p 0.0159   Holm 0.0476   old rule sep   test SEPARATED
+      naive DNN inverse  - XGB inverse        diff   -0.748   Welch p   0.0000   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      Tandem inverse     - RF inverse         diff  +22.978   Welch p   0.0028   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      Tandem inverse     - XGB inverse        diff  +22.486   Welch p   0.0030   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      RF inverse         - XGB inverse        diff   -0.492   Welch p   0.0000   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+  n = 400:  naive 15.899+-0.102  Tandem 87.058+-19.288  RF 15.707+-0.023  XGB 16.733+-0.086
+      naive DNN inverse  - Tandem inverse     diff  -71.160   Welch p   0.0018   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      naive DNN inverse  - RF inverse         diff   +0.191   Welch p   0.0182   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      naive DNN inverse  - XGB inverse        diff   -0.834   Welch p   0.0000   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      Tandem inverse     - RF inverse         diff  +71.351   Welch p   0.0018   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      Tandem inverse     - XGB inverse        diff  +70.326   Welch p   0.0019   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      RF inverse         - XGB inverse        diff   -1.025   Welch p   0.0000   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+  n = 600:  naive 15.730+-0.083  Tandem 117.548+-37.980  RF 15.473+-0.047  XGB 16.692+-0.192
+      naive DNN inverse  - Tandem inverse     diff -101.818   Welch p   0.0058   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      naive DNN inverse  - RF inverse         diff   +0.257   Welch p   0.0014   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      naive DNN inverse  - XGB inverse        diff   -0.962   Welch p   0.0002   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      Tandem inverse     - RF inverse         diff +102.075   Welch p   0.0058   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      Tandem inverse     - XGB inverse        diff +100.855   Welch p   0.0060   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      RF inverse         - XGB inverse        diff   -1.220   Welch p   0.0001   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+  n = 805:  naive 15.500+-0.069  Tandem 29.141+-6.664  RF 15.853+-0.016  XGB 16.657+-0.107
+      naive DNN inverse  - Tandem inverse     diff  -13.641   Welch p   0.0149   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      naive DNN inverse  - RF inverse         diff   -0.353   Welch p   0.0003   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      naive DNN inverse  - XGB inverse        diff   -1.156   Welch p   0.0000   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      Tandem inverse     - RF inverse         diff  +13.288   Welch p   0.0163   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      Tandem inverse     - XGB inverse        diff  +12.484   Welch p   0.0200   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+      RF inverse         - XGB inverse        diff   -0.804   Welch p   0.0001   perm p 0.0079   Holm 0.0476   old rule sep   test SEPARATED
+
+Reading: with five seeds per group the permutation test cannot give p below 0.0079, and after Holm over six pairs
+the smallest attainable p is 0.047, so a pair can be 'separated' only if all five seeds of one method beat all five
+of the other. That is a property of n = 5, not of the methods; it is the sample-size limitation the paper states.

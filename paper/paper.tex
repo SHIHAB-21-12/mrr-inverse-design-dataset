@@ -785,20 +785,24 @@ differences that panel exists to show.}
 Because a curve read at a single random seed cannot distinguish an ordering
 from initialisation noise, the whole sweep was repeated over five seeds
 (42--46) and is reported as mean $\pm$ standard deviation (divisor $n$; with divisor $n-1$ every spread in this section would be $11.8\%$ larger). Two methods are
-taken to be separated only when the gap between them exceeds the pooled seed
-spread.
+called separated only if a Welch test and an exact permutation test over the five
+seeds both give $p<0.05$ after Holm correction within each training size
+(\texttt{p8\_seedstats.py}). With five seeds per group the permutation test cannot
+give $p$ below $0.0079$, so a pair can be separated only if all five seeds of one
+method beat all five of the other. The earlier pooled-spread rule (gap larger than
+$\sqrt{s_a^2+s_b^2}$) gives the same verdict on every pair reported below.
 
 In the forward direction at the full 805-sample pool the network is most
 accurate, at $3.776 \pm 0.282\%$ against XGBoost's $5.115 \pm 0.115\%$: a gap
-of $1.34$ against a pooled spread of $0.30$, so the ordering is real. Below
+of $1.34$ against a pooled spread of $0.30$, so the ordering holds across seeds (Welch $p=0.0002$, permutation $p=0.0079$, Holm $0.0079\to0.024$). Below
 300 samples it is \emph{not}. XGBoost averages $12.815\%$ and the network
 $14.303\%$, a gap of $1.49$ against a pooled spread of $3.09$, driven by the
 network's seed-to-seed variability at small $n$ ($\pm 3.07$ at $n = 100$).
-The two are comparable in that regime and we do not claim a winner. A
+The two are comparable in that regime and we do not claim a winner (at $n=100$ and $200$ the network--XGBoost difference has Welch $p=0.19$ and $0.75$, not separated; at $n=400$ the network is ahead and separated, at $n=600$ not separated again). A
 single-seed reading of the same sweep shows XGBoost ahead by $4.4$ points and
 would support the opposite, stronger statement; it does not survive repetition.
 
-In the inverse direction the naive network is lowest at the smallest and the largest training sizes ($16.475\%$ against the random forest's $16.875\%$ below 300 samples; $15.500 \pm 0.069\%$ against $15.853 \pm 0.016\%$ at full size), separated over seeds by the pooled-spread rule. Two cautions apply. The random forest's own curve is not monotone ($15.473\%$ at $n = 600$, $15.853\%$ at $n = 805$, a change of $0.38$ percentage points), which is as large as the margins above, so the ordering is established across initialisations but not across draws of the data. And test-set sampling uncertainty is larger than seed spread: 95\% bootstrap intervals over the 173 test rows are about $\pm 1.0$ to $1.2$ percentage points for every model (naive DNN $15.51\%$, interval $14.47$--$16.52\%$; RF (raw) $16.04\%$, $14.96$--$17.12\%$). Paired over the same resampled rows, the naive network's advantage at full size is $-0.53$ points against RF (raw) (interval $-1.23$ to $+0.14$), $-0.33$ against RF (norm) ($-1.12$ to $+0.45$), $-0.95$ against XGBoost (raw) ($-1.94$ to $+0.06$) and $-1.04$ against XGBoost (norm) ($-2.04$ to $-0.03$). Only the last interval excludes zero, and only just, so at full size the naive network is not shown to be more accurate than the random forest on this test set; it is clearly more accurate than the tandem network ($-13.96$ points, interval $-15.72$ to $-12.04$). The O3 shortfall ($15.5\%$ against $15\%$) lies inside the naive network's own interval (bootstrap probability that its $\rge$ is at most $15\%$: $0.17$), so we report it as ``not met at the point estimate'', not as missed by a fixed number of standard deviations.
+In the inverse direction the naive network is lowest at the smallest and the largest training sizes ($16.475\%$ against the random forest's $16.875\%$ below 300 samples; $15.500 \pm 0.069\%$ against $15.853 \pm 0.016\%$ at full size), separated over seeds by the test above (Holm-corrected $p=0.048$ in each block, the smallest attainable with five seeds). At $n=400$ and $600$ the random forest is lower than the naive network by $0.19$ and $0.26$ points, also separated over seeds. Two cautions apply. The random forest's own curve is not monotone ($15.473\%$ at $n = 600$, $15.853\%$ at $n = 805$, a change of $0.38$ percentage points), which is as large as the margins above, so the ordering is established across initialisations but not across draws of the data. And test-set sampling uncertainty is larger than seed spread: 95\% bootstrap intervals over the 173 test rows are about $\pm 1.0$ to $1.2$ percentage points for every model (naive DNN $15.51\%$, interval $14.47$--$16.52\%$; RF (raw) $16.04\%$, $14.96$--$17.12\%$). Paired over the same resampled rows, the naive network's advantage at full size is $-0.53$ points against RF (raw) (interval $-1.23$ to $+0.14$), $-0.33$ against RF (norm) ($-1.12$ to $+0.45$), $-0.95$ against XGBoost (raw) ($-1.94$ to $+0.06$) and $-1.04$ against XGBoost (norm) ($-2.04$ to $-0.03$). Only the last interval excludes zero, and only just, so at full size the naive network is not shown to be more accurate than the random forest on this test set; it is clearly more accurate than the tandem network ($-13.96$ points, interval $-15.72$ to $-12.04$). The O3 shortfall ($15.5\%$ against $15\%$) lies inside the naive network's own interval (bootstrap probability that its $\rge$ is at most $15\%$: $0.17$), so we report it as ``not met at the point estimate'', not as missed by a fixed number of standard deviations.
 
 The tandem network's inverse curve is not a learning curve at all:
 $34.6 \pm 8.6$, $39.5 \pm 7.0$, $87.1 \pm 19.3$, $117.5 \pm 38.0$ and
@@ -1104,11 +1108,12 @@ percentage point. With twenty targets the smallest difference between two models
 trimming requirement follows from the model's resonance uncertainty and the
 fabrication sensitivities; it does not demonstrate a trimmed device, and the
 Scenario B passes are model-level passes.
-\item \textbf{Five seeds is a small sample for a spread.} The separation test
-of Section~\ref{sec:methodcmp} uses the standard deviation over five seeds, which is itself
-uncertain; a borderline comparison could be decided either way by a larger
-repetition. Only the clearly separated and clearly unseparated cases are
-treated as results.
+\item \textbf{Five seeds is a small sample for a spread.} The separation tests
+of Section~\ref{sec:methodcmp} use five seeds per group. After Holm correction the smallest
+attainable $p$ is $0.047$, so a pair is separated only if every seed of one method beats
+every seed of the other; the verdicts are therefore conservative for small effects, and a
+larger repetition could separate pairs we call comparable. Seed tests address initialisation
+and not data-draw or test-set variability, which the bootstrap intervals above cover.
 \item \textbf{Label fidelity is tested only against a uniform shift.} The
 $\pm 3\%$ perturbation of Section~3.2 leaves the O6 verdict unchanged, but a
 uniform rescaling is the simplest form the measured discrepancy could take;
