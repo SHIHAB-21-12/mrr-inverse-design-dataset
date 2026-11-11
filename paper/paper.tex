@@ -37,16 +37,14 @@ that the answer can depend on the error criterion. On $1{,}150$ labelled geometr
 of a bus-coupled add-drop silicon microring (200 three-dimensional FDTD coupler
 simulations, coupled-mode ring), a plain inverse network \emph{fails} in geometry
 space ($15.5\%$ RMS relative geometry error) yet \emph{passes} in response space:
-re-simulated in FDTD, its designs reproduce the requested response to $3.99\%$ RMS.
+re-simulated in FDTD, its designs reproduce the requested response to $3.99\%$ RMS (96 of 100 targets buildable).
 Four targets impose in effect two independent constraints, so a two-dimensional
 family of geometries gives the same response, and geometry error does not predict
 response error. A differential-evolution optimiser on the analytic model reaches
 $2.89\%$ closed-loop error with no training data, so the networks give no accuracy
 advantage here. Posed as constraints rather than point targets, two
-co-packaged-optics channel specifications are met by direct optimisation, and the
-Scenario A design passes a complete 3-D ring simulation. The ring
-model's resonance uncertainty ($1.55$\,nm) exceeds the $0.4$\,nm window of the
-eight-channel case, so fabricated devices would still need trimming. Results are for
+co-packaged-optics channel specifications are met by direct optimisation (Scenario B at model level only), and the Scenario A design passes a complete 3-D ring simulation. The ring
+model's resonance uncertainty ($1.55$\,nm) exceeds the $\pm0.4$\,nm tolerance of the eight-channel case, so fabricated devices would still need trimming. Results are for
 one design space and one analytic ring model.
 \end{abstract}
 
@@ -55,7 +53,7 @@ one design space and one analytic ring model.
 Inverse design asks for a geometry given a desired optical response. Where a
 forward simulation is expensive, a natural approach is to train a surrogate on
 simulated data and then invert it, and a substantial literature now does
-exactly this for nanophotonic components [1,2]. Within that literature sits a
+exactly this for nanophotonic components [1,2,4]. Within that literature sits a
 specific, unresolved disagreement about whether the simplest approach works.
 
 Liu \emph{et al.}\ [3] argued that training a network to map response
@@ -70,46 +68,35 @@ response space, where the relation is single-valued.
 Two later studies report direct inverse networks working on other devices.
 Chen and Jiang [7] trained a forward and an inverse network independently (no
 tandem) for a four-ring channel-dropping filter (five geometric parameters,
-100-point spectra, 25{,}000 two-dimensional FDTD samples); they report a low
-geometry-space test loss and show six FDTD re-simulations that match their
+100-point spectra, 25{,}000 two-dimensional FDTD samples); they report a small geometry-space test loss (not a relative error) and show six FDTD re-simulations that match their
 targets qualitatively. Adibnia \emph{et al.}\ [9] did likewise for a plasmonic
-ring-resonator switch (five parameters, 800-point spectra, 147{,}456 samples);
-they report a loss of order $10^{-4}$, acknowledge the many-to-one problem, and
+ring-resonator switch (five geometric parameters, 800-point spectra, 147{,}456 simulated examples); they report training losses of order $10^{-4}$ (a mean squared logarithmic error, not comparable with the other studies' losses), acknowledge the many-to-one problem, and
 show for a worst-case target that the predicted and true structures differ while
 their spectra agree. The three studies are not directly comparable: devices,
-parameter counts, spectral dimensions and training-set sizes all differ. Because
-[7] and [9] report \emph{low} geometry-space loss, their design spaces were
-probably not strongly redundant, so the disagreement with [3] need not be about
-which criterion is used; we did not test this. What none of the three provides
+parameter counts, spectral dimensions and training-set sizes all differ. The losses reported in [7] and [9] are not normalised as ours is and are not comparable with it, and [9] itself shows a case in which the predicted and true structures differ while their spectra agree. Whether the difference between [3] and [7,9] lies in the error criterion or in how redundant each design space is was not tested here. What none of the three provides
 is a systematic response-space statistic over many held-out targets next to the
 geometry-space error. We measure both on one device.
 
-No prior study we are aware of tests this for a bus-coupled add-drop microring resonator. Pal \emph{et al.}\ [6] apply classical tree-based machine learning to microring inverse design on 462 finite-element samples, and two recent preprints apply machine learning to microrings with different aims. Simsek \emph{et al.}\ [15] use neural networks to recover the width and height of a silicon-nitride ring from its dispersion data, a characterisation problem with no coupling section. Hasani \emph{et al.}\ [16] combine a generative network with gradient boosting on FDTD data for a silicon ring parameterised by radius, gap and width, and report RMSE together with one FDTD-checked high-$Q$ design. The design space of Pal \emph{et al.}\ [6] contains
-no bus-coupling parameter at all and so cannot predict insertion loss or any
+No prior study we are aware of tests this for a bus-coupled add-drop microring resonator; scoring designs by their re-simulated response is not new in itself (see below). Pal \emph{et al.}\ [6] apply decision-tree and random-forest regression to microresonator inverse design on 462 finite-element samples, and two recent preprints apply machine learning to microrings with different aims. Simsek \emph{et al.}\ [15] use neural networks to recover the width and height of a silicon-nitride ring from its dispersion data, a characterisation problem with no coupling section. Hasani \emph{et al.}\ [16] combine a generative network with gradient boosting on FDTD data for a microring parameterised by radius, gap and width, and report RMSE together with one FDTD-checked high-$Q$ design. The design space of Pal \emph{et al.}\ [6] (radius, width and height, with the integrated dispersion of an isolated ring as input) contains no bus-coupling parameter at all and so cannot predict insertion loss or any
 other coupling-dependent quantity --- the specifications that decide whether a
 filter is usable in a co-packaged-optics (CPO) link. Torabi \emph{et al.}\
-[12], the most recent and most dimensionally comparable study, defines the
-$\rge$ metric adopted here but addresses a polymer-scale biosensor ring and
-includes no classical-machine-learning baseline; it is also an unrefereed
+[12], the most recent study and the closest in parameterisation, defines the $\rge$ metric adopted here but addresses a larger biosensor ring (target $R = \SI{200}{\micro\metre}$, $w = h = \SI{2}{\micro\metre}$, with a thickness parameter), compares its physics-informed graph network only with a diffusion model and an ablation of itself, and includes no classical-machine-learning baseline; it is also an unrefereed
 preprint and is cited as such throughout. Valencia-Garz\'on \emph{et al.}\
-[10] release a large all-pass dataset without modelling it.
+[10] release a $4{,}719$-sample all-pass silicon-nitride dataset of scalar metrics without modelling it. Optimisation-based and hybrid approaches also exist: DeepAdjoint [5] combines a conditional generative network with adjoint optimisation for metasurfaces, and Sadeghi Dizaji and Habibiyan [8] apply Bayesian optimisation with knowledge constraints to microring design for a quantum light source; the direct-optimiser baseline of Section~\ref{sec:baseline} is of this second kind.
 
-Methods that return several solutions, rather than one, are the usual remedy for non-uniqueness. Frising \emph{et al.}\ [18] use a conditional invertible network, tested on a metallic film with subwavelength indentations and compared with a conditional variational autoencoder, and Ren \emph{et al.}\ [17] benchmark neural-adjoint, mixture-density, conditional-variational-autoencoder and invertible-network methods on electromagnetic-material design problems, with a metric of how ill-posed a problem is. We implement none of these: our comparison is limited to a plain network, a tandem network, Random Forest, XGBoost and, in Section~\ref{sec:baseline}, a direct optimiser, and a benchmark that adds the distribution-valued methods is left to future work.
+Methods that return several solutions, rather than one, are the usual remedy for non-uniqueness. Frising \emph{et al.}\ [18] use a conditional invertible network, tested on a metallic film with subwavelength indentations and compared with a conditional variational autoencoder, and Ren \emph{et al.}\ [17] benchmark eight methods (among them tandem, neural-adjoint, mixture-density, variational and invertible networks) on electromagnetic-material design problems, scoring each by re-simulation error and proposing a measure of how ill-posed a problem is. We implement none of the distribution-valued methods: our comparison is limited to a plain network, a tandem network, Random Forest, XGBoost and, in Section~\ref{sec:baseline}, a direct optimiser, and a benchmark that adds the distribution-valued methods is left to future work. Scoring an inverse design by the response of the re-simulated or reconstructed design, rather than by its geometry, is established: it is the basis of the benchmark in [17], whose measure of ill-posedness is a ratio of two re-simulation errors, and of the tandem-network study in [21]. What we add is the direct comparison with geometry error on a bus-coupled add-drop ring.
 
 This paper contributes the following.
 
 \begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
 \item \textbf{A test of the disagreement}, measured on one dataset with
-one protocol: the naive inverse network fails in geometry space and succeeds
-in response space, so the two reports are consistent. We give a closed-form reason, by
+one protocol: the naive inverse network fails in geometry space and succeeds in response space, so on this device the two criteria disagree; whether this explains the differing reports of [3] and [7,9] was not tested. We give a closed-form reason, by
 counting how many independent constraints four scalar targets actually impose, and
 show the resulting degeneracy directly in the data: pairs of geometries with
 indistinguishable targets that differ by up to $45.8\%$.
-\item \textbf{Evidence that geometry-space error is the wrong metric}, and a
-physically motivated replacement that predicts response-space error across
-architectures.
+\item \textbf{Evidence that geometry-space error is the wrong metric}, and a physically motivated replacement ($\theta$ error) that tracks response-space error across the four models that were re-simulated (a consistency check, not an independent test).
 \item \textbf{A measurement of physical realisability as a first-class
-result}, with a proof that one model family cannot violate the design box.
+result}, with a short argument that one model family (Random Forest) cannot violate the convex design box.
 \item \textbf{A reproducible information-bound estimate} for this design space, intended to separate model limitations from information limits; its bootstrap interval over the test targets contains the $15\%$ threshold, so it supports no claim of reachability.
 \item \textbf{A controlled four-way comparison} of Random Forest, XGBoost, a
 plain deep network and a tandem network on an identical split with identical
@@ -135,8 +122,7 @@ silicon-on-insulator: silicon core of fixed height \SI{220}{nm}, SiO$_2$
 cladding, fundamental TE mode only, scanned over
 \SIrange{1500}{1600}{nm} with a nominal target of \SI{1550}{nm}. Both
 couplers share a gap and coupling length, keeping the design space at exactly
-four dimensions. Dispersive material models are used throughout; no constant
-index is assumed. A racetrack rather than a circular ring makes the coupling
+four dimensions. The mode solver uses dispersive (Palik) material data; the FDTD engine's fit of those data proved to be effectively dispersionless over the band (Appendix~\ref{sec:appring}). A racetrack rather than a circular ring makes the coupling
 length a genuine continuous parameter, which is the degree of freedom absent
 from [6], [10] and [12].
 
@@ -204,7 +190,7 @@ and no evidence of $\sin^2\theta$ saturation.
 The modelling dataset comprises 1{,}150 labelled geometries --- 1{,}000 from a
 primary Latin hypercube design plus a 150-point supplementary batch covering a
 sparse corner of the space --- split 805/172/173 into training, validation and
-test sets with a fixed seed. The test set was used once.
+test sets with a fixed seed. The test set was held out from model fitting; post-hoc analyses that did use it (for example the neighbourhood size of the information bound) are marked where they occur.
 
 \subsection{Validation of the construction}
 
@@ -242,8 +228,7 @@ coupling model, the bend-loss model, $\QL$ or IL. Further, the propagation
 loss used in the analytic model (\SI{1.3}{dB/cm}) is itself taken from [11];
 it does not enter the FSR prediction, so this particular comparison is
 unaffected, but [11] is not an independent source for the loss model. We also
-note that the loaded $Q \approx 3\times 10^5$ appearing in [11] is a stated
-assumption in a scalability projection, not a measurement, and is therefore
+note that the loaded $Q \approx 3\times 10^5$ appearing in [11] is an assumed input to a crosstalk simulation, not a measurement, and is therefore
 not used here.
 
 The $\kappa^2$ model was further tested on 68 coupler geometries that arose
@@ -276,7 +261,7 @@ $g = \SI{180}{nm}$, $L_c = \SI{0.60}{\micro\metre}$ & 4603 & 5229 & 5253 & 3447 
 \end{tabular}
 \end{table}
 
-\textbf{Resonance and FSR.} $\lres$ agrees to $0.10\%$; FSR is biased $+2.2$ to $+2.8\%$, identical for all three geometries. The ring's group index is $2.8$--$3.0\%$ below the mode solver's. Round-trip length, bend effects (a 210-point bent-waveguide sweep), FSR extraction and the $n_g$ polynomial were each excluded by measurement. A straight-guide test traces the deficit to the FDTD engine's dispersionless material fit (group index $4.17$--$4.22$ against the solver's $4.329$); a dispersive fit brings it to $+0.3$ to $+1.4\%$. The ring itself was not re-run with that fit, so for the ring this is an inference. The dataset labels use the mode solver, which agrees with the measured device of [11] ($4.344$ against $4.345$ implied).
+\textbf{Resonance and FSR.} $\lres$ is about $0.1\%$ ($0.7$--$2.2$\,nm) below the analytic value; FSR is biased $+2.2$ to $+2.8\%$, identical for all three geometries. The ring's group index is $2.8$--$3.0\%$ below the mode solver's. Round-trip length, bend effects (a 210-point bent-waveguide sweep), FSR extraction and the $n_g$ polynomial were each excluded by measurement. A straight-guide test traces the deficit to the FDTD engine's dispersionless material fit (group index $4.17$--$4.22$ against the solver's $4.329$); a dispersive fit brings it to $+0.3$ to $+1.4\%$. The ring itself was not re-run with that fit, so for the ring this is an inference. The dataset labels use the mode solver, which agrees with the measured device of [11] ($4.344$ against $4.345$ implied).
 
 \textbf{$\QL$.} At low to moderate $\QL$ the analytic model is correct to within 2\% after extrapolation to zero mesh (Table~\ref{tab:ringval}); the 4--6\% error at the production mesh is attributed to mesh error, an inference from two geometries and two meshes. At the highest $\QL$ the simulation lies $17$--$27\%$ below the analytic value and refinement moves it away from the model; the cause is unexplained (a wavelength-blind bend-loss model is one untested candidate).
 
@@ -305,8 +290,7 @@ root-mean-square relative geometric error
 with $s_p = p^{\mathrm{target}}$ for $R$, $w$ and $g$ following [12], and
 $s_p = \SI{3}{\micro\metre}$, the range width, for $L_c$ --- necessary because
 $L_c = 0$ is a valid design point at which a target-normalised relative error
-is undefined. Per-parameter terms and the pure [12]-convention value over
-$\{R,w,g\}$ are reported alongside every aggregate.
+is undefined. Per-parameter terms and the value over $\{R,w,g\}$ alone (the normalisation of [12] without our $L_c$ term; [12] also has a thickness parameter, which is fixed here) are reported alongside every aggregate.
 
 Closed-loop response error is measured by taking a model's predicted geometry
 for each of twenty representative test targets (a hundred for the naive
@@ -347,9 +331,7 @@ $\le 15\%$; closed-loop half met at $3.669\%$ ($3.989\%$ over a hundred targets)
 $14.323\%$ (95\% interval $13.18$--$15.42\%$; $14.41$--$14.77\%$ in three further banks): no evidence the threshold is unreachable \\
 O4 four-way comparison & met & all four families, identical split, every
 metric, no omissions \\
-O5 sample efficiency & met & XGBoost forward below 300 samples; network at
-full size; naive network inverse at both (ordering holds across seeds; at full
-size the paired test-row interval against RF includes zero) \\
+O5 sample efficiency & met & curves characterised over five seeds: forward, XGBoost and the network not separated below 300 samples, network ahead at full size; inverse, naive network ahead of RF at the smallest and largest sizes (RF ahead at 400 and 600), and at full size the paired test-row interval against RF includes zero \\
 O6 one-to-many & \textbf{shown} & geometry-space criterion fails (1 of 4
 parameters at $R^2 \ge 0.80$), response-space criterion passes
 ($3.669\%$) --- the two criteria disagree on one device; this does not settle why [3] and [7,9] differ \\
@@ -431,8 +413,7 @@ The resonance wavelength is not learnable by any method here. All four tree
 variants return \emph{negative} $R^2$ --- worse than predicting the mean ---
 and the network manages $0.0069$. The cause is sensitivity:
 $\mathrm{d}\lres/\mathrm{d}R \approx 0.15$\,nm/nm, so placing a resonance to
-within \SI{1}{nm} requires the radius to roughly \SI{7}{nm}, about one part in
-$1.5\times10^4$ of the range. The consequence propagates: $\lres$ accounts for
+within \SI{1}{nm} requires the radius to roughly \SI{7}{nm}, about one part in $1.4\times10^3$ of the \SI{10}{\micro\metre} radius range. The consequence propagates: $\lres$ accounts for
 almost all of the forward model's residual loss, so the 144-configuration grid
 search was in effect ranking configurations on noise.
 
@@ -508,7 +489,7 @@ sits above them by $3.32\%$ on average (MAPE $4.10\%$, maximum $8.72\%$, all wit
 $10\%$), consistent with the positive bias of a few per cent noted in Section~2.3.
 The other models were not extended and are compared at twenty targets in Section~3.3.
 
-This is the outcome in which the two literatures are simultaneously consistent with the data. The reports differ in the criterion they apply; for this device the disagreement is one of criterion, not of measured result.
+On this device the two criteria give opposite verdicts on the same predictions. That is compatible with, but does not establish, the explanation that the reports of [3] and [7,9] differ in the criterion they apply.
 
 \paragraph{Why: counting constraints.} The structure of the problem explains
 the split exactly. Of the four targets, $\lres$ carries essentially no
@@ -618,20 +599,19 @@ $\theta$ error $2.095\%$ and lands at $4.589\%$, beside the network's
 $3.669\%$ and far from XGBoost's $13.329\%$. Within the tree family alone,
 $\theta$ error varies by a factor $3.4$ and closed-loop error by $2.9$, while
 $\rge$ differs by $3\%$ --- so there is no architecture explanation available.
-The second is that ordering alone would not have discriminated: $\rge$ happens
-to rank three of these four models correctly. What it cannot do is say how
+The second is that ordering alone would not have discriminated: $\rge$ happens to order five of the six model pairs correctly (it ranks the tandem network worst, whereas in closed loop XGBoost is worst). What it cannot do is say how
 much worse one is than another, which is what a design metric is for.
 
 \subsection{A direct optimiser as a baseline, and the source of the error floor}
 \label{sec:baseline}
 
-Whether a learned inverse model is needed at all can be tested directly. We solved each of the twenty closed-loop targets by differential evolution on the analytic ring model, minimising the RMS relative error of the four responses over the design box (population of $120$, no training data, seconds per target). In the model, $19$ of the $20$ targets were matched to better than $0.01\%$ (median $8\times 10^{-5}\%$); the other two, whose targets lie at the edge of the reachable range, to $0.018\%$ and $0.007\%$. Re-simulated through the same 3-D FDTD coupler and analytic ring as in Table~\ref{tab:cl}, these designs give an RMS closed-loop error of $2.89\%$ (bootstrap 95\% interval $2.32$--$3.42\%$, $B = 10\,000$), against $3.67\%$ ($2.35$--$5.11\%$) for the naive network on the same targets. The unpaired intervals overlap. Paired over the same twenty targets (bootstrap of the difference), the optimiser's RMS error is lower than the naive network's by $0.78$ points ($95\%$ interval $-2.35$ to $+0.64$; lower on $10$ of $20$ targets), so the two are not separable, and lower than the bounded and the bounded, weighted tandem networks' by $1.47$ points ($-2.40$ to $-0.52$; $14$ of $20$ targets) and $1.02$ points ($-1.95$ to $-0.09$; $14$ of $20$ targets). The optimiser is also lower than Random Forest (raw) by $1.70$ points ($-3.17$ to $-0.34$) and than XGBoost (normalised) by $10.4$ points ($-14.3$ to $-6.2$; XGBoost's closed-loop error is $13.3\%$). With five comparisons and a single initialisation of each tandem network, the intervals that exclude zero, other than XGBoost's, are suggestive, not conclusive. Twenty targets are also few: at $80\%$ power they detect a difference of about $2.2$ points between the optimiser and the naive network and about $1.4$ points between the optimiser and the tandem variants, so `not separable' from the naive network means `not powered'; the observed $0.78$ points would need about $160$ targets. The interval does bound the other direction, though: the naive network is better than the optimiser by at most $0.64$ points (upper end of the interval). The networks therefore show no accuracy advantage over the optimiser larger than the sizes quoted here. The $\lres$ and FSR errors are about $0.005\%$ (rms); essentially all of the error is in $\QL$ ($3.97\%$ rms) and IL ($4.20\%$ rms). The networks' remaining advantage is evaluation cost, which matters little here because the analytic ring model is itself cheap.
+Whether a learned inverse model is needed at all can be tested directly. We solved each of the twenty closed-loop targets by differential evolution on the analytic ring model, minimising the RMS relative error of the four responses over the design box (population of $120$, no training data, seconds per target). In the model, all twenty targets were matched to better than $0.02\%$ (median $8\times 10^{-5}\%$); the two whose targets lie at the edge of the reachable range were matched to $0.018\%$ and $0.007\%$. Re-simulated through the same 3-D FDTD coupler and analytic ring as in Table~\ref{tab:cl}, these designs give an RMS closed-loop error of $2.89\%$ (bootstrap 95\% interval $2.32$--$3.42\%$, $B = 10\,000$), against $3.67\%$ ($2.35$--$5.11\%$) for the naive network on the same targets. The unpaired intervals overlap. Paired over the same twenty targets (bootstrap of the difference), the optimiser's RMS error is lower than the naive network's by $0.78$ points ($95\%$ interval $-2.35$ to $+0.64$; lower on $10$ of $20$ targets), so the two are not separable, and lower than the bounded and the bounded, weighted tandem networks' by $1.47$ points ($-2.40$ to $-0.52$; $14$ of $20$ targets) and $1.02$ points ($-1.95$ to $-0.09$; $14$ of $20$ targets). The optimiser is also lower than Random Forest (raw) by $1.70$ points ($-3.17$ to $-0.34$) and than XGBoost (normalised) by $10.4$ points ($-14.3$ to $-6.2$; XGBoost's closed-loop error is $13.3\%$). With five comparisons and a single initialisation of each tandem network, the intervals that exclude zero, other than XGBoost's, are suggestive, not conclusive. Twenty targets are also few: at $80\%$ power they detect a difference of about $2.2$ points between the optimiser and the naive network and about $1.4$ points between the optimiser and the tandem variants, so `not separable' from the naive network means `not powered'; the observed $0.78$ points would need about $160$ targets. The interval does bound the other direction, though: the naive network is better than the optimiser by at most $0.64$ points (upper end of the interval). The networks therefore show no accuracy advantage over the optimiser larger than the sizes quoted here. The $\lres$ and FSR errors are about $0.005\%$ (rms); essentially all of the error is in $\QL$ ($3.97\%$ rms) and IL ($4.20\%$ rms). The networks' remaining advantage is evaluation cost, which matters little here because the analytic ring model is itself cheap.
 
 That error is the discrepancy between the fitted coupler model and 3-D FDTD. At the twenty optimiser designs the ratio of the FDTD to the model $\kappa^2$ has median $0.994$ and a standard deviation of its logarithm of $0.045$ (range $0.93$--$1.08$), and no geometric parameter correlates with it significantly (all $|r| \le 0.31$ with $n = 20$). A scatter of that size in $\kappa^2$ is of the size of the $\QL$ and IL errors above. This is consistent with the validation of the coupler model in Table~\ref{tab:valid} (cross-validated MAPE $3.36\%$; out-of-sample MAPE $1.23$--$5.16\%$), and the twenty designs are further out-of-sample tests of it. It is scatter, not a removable bias: neither a constant factor nor a linear fit in the four parameters is supported by these twenty points. We have not separated how much of it is model error and how much is FDTD numerical noise (Section~\ref{sec:limits}). We therefore report the closed-loop error of about $3\%$ as the fidelity limit of the coupler model, not as a property of the inverse method.
 
 The degeneracy can be quantified the same way. At the twenty designs we took the Jacobian of the logarithms of the four targets with respect to the four parameters, each scaled to its range. The median singular values are $5.5$, $1.1$, $0.13$ and $0.027$. The map is therefore locally full rank in the strict sense, but two directions are to the responses $40$ to $200$ times less visible than the strongest: moving along them across a parameter's entire range changes the targets by about $13\%$ and $2.7\%$. The family of equivalent designs is thus approximately two-dimensional at a response tolerance above $13\%$ and approximately one-dimensional, mostly a combination of $L_c$ and $g$ at constant coupling, at about $3\%$. The analysis is local and linear, and one of the twenty designs behaves differently (its flattest direction is dominated by $w$), so we quote medians.
 
-Does the choice among equivalent designs matter for fabrication tolerance? For each target we found up to $60$ distinct designs meeting the four targets to within $0.1\%$ (and a second set to within $1\%$, below the coupler-model scatter) and applied the same random width and gap errors to every one of them ($200$ draws; $\sigma_w = 0.7$\,nm and $\sigma_g = 1$\,nm, assumed values that give a resonance spread of about $0.5$\,nm). The best design's resonance-shift spread was smaller than the median design's by $18.5\%$ (median over targets; $22.7\%$ for the $1\%$ set; worst-to-best ratio $1.5$--$1.6$; $1$ of $19$ targets above $30\%$), while the spreads of $\QL$ and IL differed by only $0.2\%$ and $0.1\%$. The mechanism is the width. Members of a family differ in width, and the resonance shift per nanometre of width error falls as the waveguide widens, in the direction of wafer-scale measurements in which wider waveguides show much lower variation in effective and group index [19] (over $480$--$1200$\,nm, a wider range than our box): a $0.7$\,nm error shifts the resonance by $0.72$, $0.62$, $0.54$ and $0.41$\,nm at $w = 400$, $425$, $450$ and $499$\,nm (a fifth point, at $475$\,nm, jumped by one free spectral range between resonance orders and is not used). Within the design box the best a designer can do is therefore about a quarter below the mid-range value, which is what the sampled families already reach. Gap errors do not move the resonance in this model. At an unrealistically large $\sigma_w = 5$\,nm the shift exceeds half the free spectral range, the spread saturates, and the difference between designs disappears ($4.3\%$); we regard that setting as invalid for the resonance. Thickness changes this. A mode-solver sweep of the straight guide at $215$, $220$ and $225$\,nm gives a resonance shift of $1.33$--$1.36$\,nm per nanometre of thickness, almost independent of width, against $0.94$ falling to $0.63$\,nm per nanometre of width over the same range. To first order, with $\sigma_w = 0.7$\,nm the best-versus-median saving is $16\%$ for width variation alone, but $1.8\%$ with a thickness spread of $1$\,nm and $0.1\%$ with $2$\,nm (no target reaches $30\%$ in any case; thickness spread is a swept parameter here, not a measured value). The benefit of choosing the widest equivalent design therefore exists only where width variation dominates, and disappears once thickness variation of $1$\,nm or more is present. The gap-dependent coupler phase and the effect of thickness on the coupling are not modelled, so this estimates one mechanism and is not a fabrication yield.
+Does the choice among equivalent designs matter for fabrication tolerance? For each target we found up to $60$ distinct designs meeting the four targets to within $0.1\%$ (and a second set to within $1\%$, below the coupler-model scatter) and applied the same random width and gap errors to every one of them ($200$ draws; $\sigma_w = 0.7$\,nm and $\sigma_g = 1$\,nm, assumed values that give a resonance spread of about $0.5$\,nm). The best design's resonance-shift spread was smaller than the median design's by $18.5\%$ (median over targets; $22.7\%$ for the $1\%$ set; worst-to-best ratio $1.5$--$1.6$; $1$ of $19$ targets above $30\%$), while the spreads of $\QL$ and IL differed by only $0.2\%$ and $0.1\%$. The mechanism is the width. Members of a family differ in width, and the resonance shift per nanometre of width error falls as the waveguide widens, in the direction of wafer-scale measurements in which wider waveguides show much lower variation in effective and group index [19] (e.g.\ \SI{480}{nm} against \SI{1200}{nm} waveguides, wider than our box): a $0.7$\,nm error shifts the resonance by $0.72$, $0.62$, $0.54$ and $0.41$\,nm at $w = 400$, $425$, $450$ and $499$\,nm (a fifth point, at $475$\,nm, jumped by one free spectral range between resonance orders and is not used). Within the design box the best a designer can do is therefore about a quarter below the mid-range value, which is what the sampled families already reach. Gap errors do not move the resonance in this model. At an unrealistically large $\sigma_w = 5$\,nm the shift exceeds half the free spectral range, the spread saturates, and the difference between designs disappears ($4.3\%$); we regard that setting as invalid for the resonance. Thickness changes this. A mode-solver sweep of the straight guide at $215$, $220$ and $225$\,nm gives a resonance shift of $1.33$--$1.36$\,nm per nanometre of thickness, almost independent of width, against $0.94$ falling to $0.63$\,nm per nanometre of width over the same range. To first order, with $\sigma_w = 0.7$\,nm the best-versus-median saving is $16\%$ for width variation alone, but $1.8\%$ with a thickness spread of $1$\,nm and $0.1\%$ with $2$\,nm (no target reaches $30\%$ in any case; thickness spread is a swept parameter here, not a measured value). The benefit of choosing the widest equivalent design therefore exists only where width variation dominates, and disappears once thickness variation of $1$\,nm or more is present. The gap-dependent coupler phase and the effect of thickness on the coupling are not modelled, so this estimates one mechanism and is not a fabrication yield.
 
 \subsection{Physical realisability}
 \label{sec:build}
@@ -714,7 +694,7 @@ In the inverse direction the naive network is lowest at the smallest and the lar
 The tandem network's inverse curve is not a learning curve at all:
 $34.6 \pm 8.6$, $39.5 \pm 7.0$, $87.1 \pm 19.3$, $117.5 \pm 38.0$ and
 $29.1 \pm 6.7$ per cent across the five sizes --- non-monotonic in training
-size, with a standard deviation approaching a third of the mean. This is
+size, with a standard deviation of up to about a third of the mean. This is
 consistent with the box-escape mechanism of Section~\ref{sec:build}; with
 nothing anchoring predictions inside the design space, where the network
 wanders is largely a function of initialisation and data. The tandem
@@ -740,15 +720,13 @@ tandem, bounded + weighted & $19.76 \pm 0.31$ & $1.92 \pm 0.11$ & $100$ & $3.61 
 \end{tabular}
 \end{table}
 
-Bounding the output removes both faults of the baseline: every design is buildable, and the seed-to-seed spread of $\rge$ falls from $5.79$ to $0.29$ percentage points. It does not close the gap in geometry space: the bounded tandem network stays $3.96$ points above the naive network, against a pooled seed spread of $0.21$. Weighting alone leaves the geometry unchanged ($31.35 \pm 7.74\%$, $30.6\%$ buildable) but improves the reconstructed response, from $4.34\%$ to $3.31\%$, mostly through $\QL$. With both changes, the coupling-phase error ($1.92 \pm 0.11\%$) and the reconstructed-response error ($3.61\%$) are comparable to the naive network's ($1.82\%$ and $3.81\%$, single run), while $\rge$ remains about four points higher. A bounded, weighted tandem network is therefore not worse than the naive network in response space or in $\theta$; it is worse only in geometry space, which is the distinction this paper is about. These runs are not the sweep of Figure~\ref{fig:sample}: that sweep retrains the forward network for every seed and initialises the tandem network at seeds 43--47, so its full-size tandem spread ($29.1 \pm 6.7\%$) is a different experiment, with one run in common ($29.461\%$). We also re-simulated the bounded network and the bounded, weighted network in closed loop (seed 43, the same twenty test targets as Table~\ref{tab:cl}), through the same 3-D FDTD coupler and analytic ring. All twenty designs are buildable for both, and the RMS closed-loop response error is $4.36\%$ (bootstrap 95\% interval $3.46$--$5.24\%$) for the bounded network and $3.91\%$ ($3.26$--$4.52\%$) for the bounded, weighted one, against $3.67\%$ ($2.4$--$5.1\%$) for the naive network on the same targets. The intervals overlap, so with twenty targets and one initialisation we cannot separate the three; what the result shows is that a bounded, weighted tandem network, which is about four points worse in geometry space, is not measurably worse in closed loop.
+Bounding the output removes both faults of the baseline: every design is buildable, and the seed-to-seed spread of $\rge$ falls from $5.79$ to $0.29$ percentage points. It does not close the gap in geometry space: the bounded tandem network stays $3.96$ points above the naive network, against a pooled seed spread of $0.30$. Weighting alone leaves the geometry unchanged ($31.35 \pm 7.74\%$, $30.6\%$ buildable) but improves the reconstructed response, from $4.34\%$ to $3.31\%$, mostly through $\QL$. With both changes, the coupling-phase error ($1.92 \pm 0.11\%$) and the reconstructed-response error ($3.61\%$) are comparable to the naive network's ($1.82\%$ and $3.81\%$, single run), while $\rge$ remains about four points higher. A bounded, weighted tandem network is therefore not worse than the naive network in response space or in $\theta$; it is worse only in geometry space, which is the distinction this paper is about. These runs are not the sweep of Figure~\ref{fig:sample}: that sweep retrains the forward network for every seed and initialises the tandem network at seeds 43--47, so its full-size tandem spread ($29.1 \pm 6.7\%$) is a different experiment, with one run in common ($29.461\%$). We also re-simulated the bounded network and the bounded, weighted network in closed loop (seed 43, the same twenty test targets as Table~\ref{tab:cl}), through the same 3-D FDTD coupler and analytic ring. All twenty designs are buildable for both, and the RMS closed-loop response error is $4.36\%$ (bootstrap 95\% interval $3.46$--$5.24\%$) for the bounded network and $3.91\%$ ($3.26$--$4.52\%$) for the bounded, weighted one, against $3.67\%$ ($2.4$--$5.1\%$) for the naive network on the same targets. The intervals overlap, so with twenty targets and one initialisation we cannot separate the three; what the result shows is that a bounded, weighted tandem network, which is about four points worse in geometry space, is not measurably worse in closed loop.
 
 A final observation on metric dependence. Ranking parameter difficulty by mean
 $R^2$ gives $L_c > w > g > R$, hardest first; ranking by mean $\rge$
 contribution gives $L_c > g > w > R$. The two orderings disagree on $w$
 against $g$. Under either, the coupling gap is \emph{not} the hardest
-parameter --- the coupling length is, with mean $R^2 = -0.2645$ --- which
-refutes the hypothesis that $g$ would dominate by analogy with [6]'s finding
-for radius.
+parameter --- the coupling length is, with mean $R^2 = -0.2645$ --- so the coupling gap does not dominate the error.
 
 \subsection{An information bound}
 
@@ -815,15 +793,15 @@ DE (robust) & 1549.920 & 6.493 & 12155 & 0.295 & pass (model), bias-robust \\
 
 Objective O7 asked which methods meet a CPO scenario's specification within its stated tolerance. Each candidate's coupler was re-simulated in 3-D FDTD; the ring response was then assembled analytically, so the verdicts inherit the biases of Section~\ref{sec:ringval}. Table~\ref{tab:cpo} answers in three parts.
 
-\textbf{(i) Given point targets, the trained models fail.} Eleven of the twelve failures involve resonance placement. The single exception is Random Forest (raw) in Scenario A, which placed the resonance at \SI{1548.058}{nm}, inside the $\pm\SI{2.0}{nm}$ window, and then missed FSR by \SI{0.13}{nm}. The naive network's closed-loop $\lres$ error is \SI{3.15}{nm} MAPE, \SI{4.32}{nm} RMS and \SI{10.9}{nm} at worst; always predicting the dataset's mean resonance wavelength gives \SI{2.66}{nm} RMS on the same twenty targets, and a randomly chosen geometry about \SI{4.4}{nm}.
+\textbf{(i) Given point targets, the trained models fail.} Eleven of the twelve failures involve resonance placement. The single exception is Random Forest (raw) in Scenario A, which placed the resonance at \SI{1548.058}{nm}, inside the $\pm\SI{2.0}{nm}$ window, and then missed FSR by \SI{0.13}{nm}. The naive network's closed-loop $\lres$ error is \SI{3.15}{nm} mean absolute error, \SI{4.33}{nm} RMS and \SI{10.9}{nm} at worst; always predicting the dataset's mean resonance wavelength gives \SI{2.66}{nm} RMS on the same twenty targets, and a randomly chosen geometry about \SI{4.4}{nm}.
 
 \textbf{(ii) The point targets themselves are not attainable.} The four scenario numbers (resonance, FSR, $\QL$, IL) were passed to the models as one tuple. A differential-evolution search on the analytic ring model, minimising the RMS relative error to that tuple, reaches a best of $21$--$26\%$ for the four tuples tested (six restarts agree), and it gives up on the resonance, because \SI{5}{nm} is only $0.3\%$ relative error while the other three quantities are off by tens of percent. A resonance miss of several nm is therefore what any point-target method returns for an unattainable tuple, and the data do not separate that from the networks' own error. We do not claim the networks are better or worse on the resonance; we claim the test of (i) cannot decide it.
 
 \textbf{(iii) As a feasibility problem, both scenarios are met.} The scenarios are bands and bounds, so the direct question is whether any geometry satisfies all of them. A penalty counting only violations of the resonance window, minimum FSR, $\QL$ band and IL limit reaches zero in under ten seconds for both scenarios, with and without a margin, and all six restarts agree. The four designs were re-simulated with a fresh 3-D FDTD coupler run (energy sum $0.9999$--$1.0000$) and pass (Table~\ref{tab:cpo}, DE rows). The Scenario A designs have $\lres$ within \SI{0.34}{nm} of \SI{1550}{nm}, inside the $\pm\SI{2.0}{nm}$ window; the Scenario B designs within \SI{0.17}{nm}, inside $\pm\SI{0.4}{nm}$.
 
-\textbf{(iv) The analytic $\QL$ and IL are biased; designs can be chosen to survive the measured bias.} The full-ring 3-D simulations of Section~\ref{sec:ringval} (three geometries at $R = \SI{5.2}{\micro m}$) found the simulated $\QL$ $8$--$9\%$ below the analytic value near $\QL = 4300$ and $17$--$27\%$ below at an analytic $6351$, and the simulated IL \SIrange{0.85}{1.42}{dB} against an analytic \SIrange{0.36}{0.56}{dB}, up to $2.6$ times higher (it was lower at the lowest $\QL$). The designs of (iii) were scored with the unbiased analytic values. Re-scoring them with $\QL \times 0.725$ and IL $\times 2.6$, the worst observed factors, two of the four fail on IL (the Scenario A margin design by \SI{0.10}{dB}, the Scenario B exact-bound design by \SI{0.46}{dB}). Searching for designs that pass \emph{after} those factors finds them in both scenarios (penalty zero, all six restarts agree). With their couplers re-simulated in 3-D FDTD (energy sum $0.9999$--$1.0000$) they pass at every bias level (Table~\ref{tab:cpo}, robust rows). The Scenario A design keeps only \SI{0.09}{dB} of IL margin at the worst factors ($1.41$ against $\le \SI{1.5}{dB}$). It was therefore also simulated as a complete ring in 3-D FDTD ($R = \SI{5.10}{\micro m}$, \SI{82}{ps} window, \SI{19}{h}): $\lres = \SI{1548.48}{nm}$ (\SI{1.52}{nm} from \SI{1550}{nm}, inside the $\pm\SI{2.0}{nm}$ window with \SI{0.48}{nm} to spare), FSR \SI{16.80}{nm}, $\QL = 5285$ and IL \SI{1.09}{dB}. All four meet the Scenario A specification. The simulated $\QL$ is $11.2\%$ below the analytic value and the simulated IL $2.05$ times above it, both inside the factors used above. This is the only design in this work verified in a complete 3-D ring simulation, and the resonance is its limiting item: all ten full-ring resonances (nine in Section~\ref{sec:ringval}, one here) lie \SIrange{0.7}{2.2}{nm} below the analytic value, but moving the mesh from $32$ to $40$\,nm shifts the same geometry by about \SI{1.1}{nm}, so we do not subtract the offset. These factors come from one radius, three geometries and one mesh; for Scenario B, at $R \approx \SI{13}{\micro m}$, they are an extrapolation, since no ring simulation covers that radius (it needs about \SI{26}{GB} of solver memory at this mesh). The Scenario B result is therefore conditional on an unverified bias.
+\textbf{(iv) The analytic $\QL$ and IL are biased; designs can be chosen to survive the measured bias.} The full-ring 3-D simulations of Section~\ref{sec:ringval} (three geometries at $R = \SI{5.2}{\micro m}$) found the simulated $\QL$ $4$--$9\%$ below the analytic value at the two lower-$\QL$ geometries (analytic $1855$ and $4264$; production and coarse meshes) and $17$--$27\%$ below at an analytic $6351$, and the simulated IL \SIrange{0.85}{1.42}{dB} against an analytic \SIrange{0.36}{0.56}{dB}, up to $2.6$ times higher (it was lower at the lowest $\QL$). The simulated ring is also the less certain reference: its group index is about $3\%$ too low (Appendix~\ref{sec:appring}), and since $\QL \propto n_g$ at fixed loss and coupling that alone lowers its $\QL$ by roughly $3\%$, so part of the $\QL$ bias attributed to the analytic model belongs to the FDTD engine. The designs of (iii) were scored with the unbiased analytic values. Re-scoring them with $\QL \times 0.725$ and IL $\times 2.6$, the worst observed factors, two of the four fail on IL (the Scenario A margin design by \SI{0.10}{dB}, the Scenario B exact-bound design by \SI{0.46}{dB}). Searching for designs that pass \emph{after} those factors finds them in both scenarios (penalty zero, all six restarts agree). With their couplers re-simulated in 3-D FDTD (energy sum $0.9999$--$1.0000$) they pass at every bias level (Table~\ref{tab:cpo}, robust rows). The Scenario A design keeps only \SI{0.09}{dB} of IL margin at the worst factors ($1.41$ against $\le \SI{1.5}{dB}$). It was therefore also simulated as a complete ring in 3-D FDTD ($R = \SI{5.10}{\micro m}$, \SI{82}{ps} window, \SI{19}{h}): $\lres = \SI{1548.48}{nm}$ (\SI{1.52}{nm} from \SI{1550}{nm}, inside the $\pm\SI{2.0}{nm}$ window with \SI{0.48}{nm} to spare), FSR \SI{16.80}{nm}, $\QL = 5285$ and IL \SI{1.09}{dB}. All four meet the Scenario A specification. The simulated $\QL$ is $11.2\%$ below the analytic value and the simulated IL $2.05$ times above it, both inside the factors used above. This is the only design in this work verified in a complete 3-D ring simulation, and the resonance is its limiting item: all ten full-ring resonances (nine in Section~\ref{sec:ringval}, one here) lie \SIrange{0.7}{2.2}{nm} below the analytic value, but moving the mesh from $32$ to $40$\,nm shifts the same geometry by about \SI{1.1}{nm}, so we do not subtract the offset. These factors come from one radius, three geometries and one mesh; for Scenario B, at $R \approx \SI{13}{\micro m}$, they are an extrapolation, since no ring simulation covers that radius (it needs about \SI{26}{GB} of solver memory at this mesh). The Scenario B result is therefore conditional on an unverified bias.
 
-What this does \emph{not} establish is that a fabricated device would meet the window. The ring response is analytic and its resonance carries a model uncertainty of $\pm\SI{1.55}{nm}$ against full-ring FDTD: $0.78$ of the Scenario A window and $3.9$ times the Scenario B window. The B passes are passes \emph{in the model}; they are not certified. The loaded $Q$ of the B designs ($11\,873$ and $19\,047$) also exceeds the range over which $\QL$ was validated. Independently, hitting Scenario A with fabricated geometry would require the radius controlled to about \SI{13}{nm} and Scenario B to about \SI{3}{nm}, using $\mathrm{d}\lres/\mathrm{d}R \approx 0.15$\,nm/nm, which is below realistic lithographic tolerance. Absolute resonance position is therefore set after fabrication by thermal or carrier trimming, whichever inverse method produced the geometry; inverse design supplies the FSR, loaded $Q$ and insertion loss and a starting resonance close to the channel.
+What this does \emph{not} establish is that a fabricated device would meet the window. The ring response is analytic and its resonance carries a model uncertainty of about $\pm\SI{1.55}{nm}$ against full-ring FDTD ($0.1\%$ of \SI{1550}{nm}; the ten full-ring resonances lie \SIrange{0.7}{2.2}{nm} below the analytic value, and the largest offset exceeds the Scenario A half-window of \SI{2.0}{nm}): $0.78$ of the Scenario A window and $3.9$ times the Scenario B window. The B passes are passes \emph{in the model}; they are not certified. The loaded $Q$ of the B designs ($11\,873$ and $19\,047$) also exceeds the range over which $\QL$ was validated. Independently, hitting Scenario A with fabricated geometry would require the radius controlled to about \SI{13}{nm} and Scenario B to about \SI{3}{nm}, using $\mathrm{d}\lres/\mathrm{d}R \approx 0.15$\,nm/nm, which is below realistic lithographic tolerance. Absolute resonance position is therefore set after fabrication by thermal or carrier trimming, whichever inverse method produced the geometry; inverse design supplies the FSR, loaded $Q$ and insertion loss and a starting resonance close to the channel.
 
 \subsection{What the trimming costs}
 \label{sec:trim}
@@ -857,8 +835,7 @@ ring is tuned onto whichever resonance is nearest above it. A ring designed
 with a deliberate blue bias $\delta$ therefore needs a shift of
 $(\delta - e_i) \bmod \mathrm{FSR}_i$, where $e_i$ is its closed-loop $\lres$
 error. Choosing $\delta$ to minimise the worst case is a covering problem on
-a circle of circumference FSR, solved here by direct search. The requirement
-is bounded by one FSR --- about \SI{227}{K} for these geometries --- however
+a circle of circumference FSR, solved here by direct search. The requirement is bounded by one FSR --- up to about \SI{227}{K} for the largest FSR among these geometries, about \SI{135}{K} at the mean --- however
 poorly a model places $\lres$.
 
 \begin{table}[htbp]
@@ -901,8 +878,7 @@ The errors of every model fill most of one FSR: the circular spread is $71$--$81
 
 \section{Discussion}
 
-The central result is that a question treated as empirical in the
-inverse-design literature was in fact definitional. Asking whether a naive
+The central result is that, on this device, a question treated as empirical in the inverse-design literature depends on a definition. Asking whether a naive
 inverse network ``converges acceptably'' has no answer until one says in which
 space the error is measured, and the two available answers differ here by a
 factor of four on the same predictions. For a degenerate design space the
@@ -920,7 +896,7 @@ is such an invariant for this device; the general construction is to identify
 the quantity through which the degenerate parameters act and measure error in
 it. Ranking designs of similar performance by their robustness to fabrication perturbations has been proposed in a general computational-design setting [20]; Section~\ref{sec:baseline} estimates it, within the model, for one device.
 
-That a direct optimiser matches the networks needs one qualification. It searches the fitted coupler model, which is itself a surrogate built from the $200$ three-dimensional FDTD simulations, and the networks are trained on the same labelled geometries. Learning an inverse map is therefore worth its cost when no cheap forward surrogate exists, or when many targets must be served at negligible marginal cost, and not as a way to gain accuracy over optimisation on a cheap model.
+That a direct optimiser matches the networks needs one qualification. It searches the fitted coupler model, which is itself a surrogate built from the $200$ three-dimensional FDTD simulations, and the networks are trained on the same labelled geometries. Learning an inverse map is therefore worth its cost when no cheap forward surrogate exists, or when many targets must be served at negligible marginal cost, and not as a way to gain accuracy over optimisation on a cheap model. This agrees with the caution in [2] that problems with few free parameters (three or four) may be better solved by conventional optimisation than by deep learning.
 
 The realisability result adds a second axis that neither error metric sees. It
 also puts a specific cost on the tandem architecture. The tandem network was
@@ -933,10 +909,7 @@ fraction. A sigmoid-bounded variant confirms it: $100\%$ of its designs are buil
 
 The information bound changes how a missed threshold should be read. $\rge$
 targets in this literature are quoted without reference to how much geometric
-information the chosen targets contain --- [12] reports $3.46\%$ and $5.14\%$
-under the $\{R,w,g\}$ convention, against $8.878\%$ here under the same
-convention, in a design space one to two orders of magnitude different in
-three of four dimensions. Such numbers are not commensurable, and a bound
+information the chosen targets contain --- [12] reports $5.14\%$ (analytical) and $3.46\%$ (FDTD) for one target design under its four-parameter $\{R,w,h,g\}$ convention, against $8.878\%$ here over $\{R,w,g\}$ on $173$ test targets, in a design space whose radius differs by one to two orders of magnitude and which includes a thickness parameter. Such numbers are not commensurable, and a bound
 computed per design space is what makes them interpretable. Here the bound
 establishes that the shortfall is addressable; in another design space the
 same computation might show a target to be unreachable, which is equally
@@ -962,8 +935,7 @@ useful to know before pursuing it.
 
 For a four-parameter add-drop silicon microring resonator, a naive inverse
 neural network fails the geometry-space convergence criterion and passes the
-response-space one. Both findings reported in the prior literature are therefore consistent with these results, and the apparent disagreement between them was a difference
-of metric rather than of result. The reason is an approximately two-dimensional degeneracy
+response-space one. On this device the two error criteria therefore give opposite verdicts on the same predictions; whether that also accounts for the differing reports in the literature [3,7,9] was not tested. The reason is an approximately two-dimensional degeneracy
 that follows from counting constraints: four scalar targets impose two
 effective conditions, one on round-trip length and one on a single coupling
 phase.
@@ -1019,9 +991,7 @@ Table~\ref{tab:ringval} (main text) gives the three geometries.
 
 Three findings follow, and they are not all favourable.
 
-\textbf{Resonance wavelength and free spectral range behave as the
-published-device check predicted.} $\lres$ agrees to $0.10\%$ across all nine
-runs. FSR is biased $+2.2$ to $+2.8\%$, the same sign and magnitude every
+\textbf{Resonance wavelength and free spectral range.} $\lres$ is about $0.1\%$ ($0.7$--$2.2$\,nm) below the analytic value across all nine runs. FSR is biased $+2.2$ to $+2.8\%$, the same sign and magnitude every
 time. Since FSR $= \lambda^2/(n_g L)$ and $L = 2\pi R + 2L_c$ is exact
 geometry --- the ring is built as two straights of length $L_c$ joined by two
 \SI{180}{\degree} bends --- the discrepancy must lie in $n_g$: the product
@@ -1129,7 +1099,7 @@ assisted inverse design of microresonators,'' \emph{Optics Express}, vol.~31,
 no.~5, pp.~8020--8028, 2023.
 \item G. Chen and C. Jiang, ``Transmittance prediction and inverse design of
 microring resonator channel dropping filters with deep learning,'' \emph{IEEE
-Photonics Journal}, vol.~14, no.~2, pp.~1--11, 2022,
+Photonics Journal}, vol.~14, no.~2, art.~8518911, 2022,
 doi:~10.1109/JPHOT.2022.3157776.
 \item P. Sadeghi Dizaji and H. Habibiyan, ``Machine learning with knowledge
 constraints for design optimization of microring resonators as a quantum light
@@ -1164,10 +1134,11 @@ dispersion metrology with neural networks,'' arXiv preprint arXiv:2601.19669
 Y. M. Banad, and S. Sharif, ``XG-Attention-WGAN PIC: Utilizing
 XGboost-Attention-WGAN for photonics integrated circuit design,'' arXiv
 preprint arXiv:2510.03651, Oct.\ 2025. (Unrefereed preprint.)
-\item S. Ren, A. Mahendra, O. Khatib, Y. Deng, W. J. Padilla, and J. M. Malof, ``Inverse deep learning methods and benchmarks for artificial electromagnetic material design,'' \emph{Nanoscale}, 2022, doi:~10.1039/D1NR08346E.
+\item S. Ren, A. Mahendra, O. Khatib, Y. Deng, W. J. Padilla, and J. M. Malof, ``Inverse deep learning methods and benchmarks for artificial electromagnetic material design,'' \emph{Nanoscale}, vol.~14, no.~10, pp.~3958--3969, 2022, doi:~10.1039/D1NR08346E.
 \item M. Frising, J. Bravo-Abad, and F. Prins, ``Tackling multimodal device distributions in inverse photonic design using invertible neural networks,'' \emph{Machine Learning: Science and Technology}, vol.~4, no.~2, art.~02LT02, 2023, doi:~10.1088/2632-2153/acd619.
 \item R. Parsons, A. Oh, J. Robinson, S. Wang, M. Cullen, K. Jang, A. James, Y. Wang, and K. Bergman, ``Foundry-enabled wafer-scale characterization and modeling of silicon photonic DWDM links,'' \emph{Nanophotonics}, vol.~14, no.~27, pp.~5363--5374, 2025, doi:~10.1515/nanoph-2025-0439.
 \item N. Ansari, H.-P. Seidel, and V. Babaei, ``Mixed integer neural inverse design,'' ACM SIGGRAPH 2022, doi:~10.1145/3528223.3530083.
+\item L. Grbcic, J. M\"uller, and W. A. de Jong, ``AutoTandemML: Active learning enhanced tandem neural networks for inverse design problems,'' arXiv preprint arXiv:2502.15643, 2025.
 \end{enumerate}
 \endgroup
 
