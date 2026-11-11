@@ -254,23 +254,7 @@ should be reported as a known systematic.
 \subsection{Full 3-D validation of the ring model}
 \label{sec:ringval}
 
-The checks above validate the \emph{coupler} and the \emph{mode solver}. The
-coupled-mode assembly that turns $\kappa^2$, $n_g$ and loss into $\QL$ and IL
-is not tested by either, and closed-loop re-verification does not test it
-because it re-simulates the coupler and then recomputes the ring with the same
-analytic model that produced the labels. Since $\QL$ and IL carry the
-degeneracy argument of Section~\ref{sec:o6}, we simulated the \emph{complete
-ring} in 3-D FDTD.
-
-Nine runs were performed: three geometries at $R = \SI{5.20}{\micro\metre}$,
-$w = \SI{450}{nm}$, spanning the coupling range, each at the production
-\SI{32}{nm} mesh, at a coarse \SI{40}{nm} mesh, and at \SI{40}{nm} with
-three times denser spectral sampling as a control on the extraction. The
-simulation window was sized from the predicted $\QL$ so that the linewidth
-exceeds the transform limit of the DFT window by at least a factor three, and
-auto-shutoff was disabled so that the window is exactly the one assumed. All
-nine met the resolution criteria (6.1--52.9 points across the FWHM,
-3.14--4.12 times the transform limit).
+The coupler and mode-solver checks above do not test the coupled-mode assembly that turns $\kappa^2$, $n_g$ and loss into $\QL$ and IL, and closed-loop re-verification does not either, since it recomputes the ring with the same analytic model that produced the labels. We therefore simulated complete rings in 3-D FDTD: nine runs (three geometries at $R = \SI{5.20}{\micro\metre}$, $w = \SI{450}{nm}$, each at \SI{32}{nm} and \SI{40}{nm} mesh and with denser spectral sampling), all meeting the resolution criteria. Procedure, controls and caveats are in Appendix~\ref{sec:appring}.
 
 \begin{table}[t]
 \centering
@@ -292,91 +276,14 @@ $g = \SI{180}{nm}$, $L_c = \SI{0.60}{\micro\metre}$ & 4603 & 5229 & 5253 & 3447 
 \end{tabular}
 \end{table}
 
-Three findings follow, and they are not all favourable.
+\textbf{Resonance and FSR.} $\lres$ agrees to $0.10\%$; FSR is biased $+2.2$ to $+2.8\%$, identical for all three geometries. The ring's group index is $2.8$--$3.0\%$ below the mode solver's. Round-trip length, bend effects (a 210-point bent-waveguide sweep), FSR extraction and the $n_g$ polynomial were each excluded by measurement. A straight-guide test traces the deficit to the FDTD engine's dispersionless material fit (group index $4.17$--$4.22$ against the solver's $4.329$); a dispersive fit brings it to $+0.3$ to $+1.4\%$. The ring itself was not re-run with that fit, so for the ring this is an inference. The dataset labels use the mode solver, which agrees with the measured device of [11] ($4.344$ against $4.345$ implied).
 
-\textbf{Resonance wavelength and free spectral range behave as the
-published-device check predicted.} $\lres$ agrees to $0.10\%$ across all nine
-runs. FSR is biased $+2.2$ to $+2.8\%$, the same sign and magnitude every
-time. Since FSR $= \lambda^2/(n_g L)$ and $L = 2\pi R + 2L_c$ is exact
-geometry --- the ring is built as two straights of length $L_c$ joined by two
-\SI{180}{\degree} bends --- the discrepancy must lie in $n_g$: the product
-$n_g L$ the model uses differs from the ring's by about $2.5\%$.
+\textbf{$\QL$.} At low to moderate $\QL$ the analytic model is correct to within 2\% after extrapolation to zero mesh (Table~\ref{tab:ringval}); the 4--6\% error at the production mesh is attributed to mesh error, an inference from two geometries and two meshes. At the highest $\QL$ the simulation lies $17$--$27\%$ below the analytic value and refinement moves it away from the model; the cause is unexplained (a wavelength-blind bend-loss model is one untested candidate).
 
-The obvious explanation is that the model takes $n_g$ from a
-\emph{straight-waveguide} mode sweep while a \SI{5.2}{\micro\metre} bend is
-not a straight waveguide. \emph{That explanation does not survive
-measurement.} A 210-point bent-waveguide FDE sweep (six radii from
-\SIrange{5}{15}{\micro\metre}, six widths, five wavelengths, \SI{10}{nm}
-mesh, PML on all boundaries) gives $n_g$ of the bent guide within $0.08\%$ of
-the straight guide at every point in the grid, and $n_{\mathrm{eff}}$ within
-$0.05\%$. The bend contribution is roughly thirty times too small to account
-for the observed bias.
+\textbf{Insertion loss does not validate:} drop-port peak transmission differs by $-12.5\%$, $+1.5\%$ and $-17.9\%$ with no consistent sign.
 
-Stated as a percentage of FSR this comparison is treacherous, because FSR
-itself varies by about $4\%$ across \SIrange{1500}{1600}{nm}; a model FSR
-evaluated at $\lres$ and a measured spacing whose resonance pair is centred
-\SI{8}{nm} away are not the same quantity. We therefore compare group
-indices at matched wavelengths. Each adjacent resonance pair gives
-$n_g = \lambda_1\lambda_2 / [L(\lambda_2-\lambda_1)]$, which we compare with
-the FDE value interpolated at that pair's midpoint. Over ten pairs spanning the three geometries, \textbf{the ring's group index is $2.8$--$3.0\%$ below the mode solver's}: $-2.83\%$ (s.d.\ $0.24\%$) when the solver's $n_{\mathrm{eff}}(\lambda)$ is fitted with a quadratic and $-3.03\%$ (s.d.\ $0.31\%$) with a cubic (ddof $=1$; the pairs come from three geometries and are not independent). The deficit has a mild wavelength trend (about $-2.4\%$ at \SI{1520}{nm} to $-3.2\%$ at \SI{1567}{nm}). We do not use the solver's reported $n_g$ column as the reference because it is not smooth in wavelength (below); it gives $-2.73\%$ with s.d.\ $0.72\%$.
+\textbf{Scope.} Every model was trained and scored on identical labels, so a shared bias cancels from all model-to-model comparisons (O6, the metric result, realisability, sample efficiency). What must be qualified is the absolute accuracy of $\QL$ above about $4300$ ($84.7\%$ of the 1{,}150 labels), of IL anywhere, and the scenario verdicts judged against $\QL$ specifications.
 
-Four candidate explanations are excluded by measurement. \emph{Round-trip
-length:} the straight fraction $2L_c/L$ is $3.5\%$, $5.8\%$ and $10.9\%$ for
-the three geometries --- a factor of three --- and the deficit is identical
-for all three, whereas a length error or a straight/bend mixing error would
-scale with it. \emph{Bend effects:} $0.08\%$, above. \emph{FSR extraction:}
-an independent re-extraction from the saved spectra agrees with the
-production analysis to $0.03\%$, $0.005\%$ and $0.014\%$. \emph{The $n_g$
-polynomial:} $0.26\%$ at these geometries. What remains was traced to the FDTD material model. FDTD represents each database material by a fit over the source band, and for silicon (Palik) over \SIrange{1500}{1600}{nm} that fit has \emph{no} dispersion: its group index equals its phase index ($3.4766$ for both), against $3.642$ for the raw data, and the same holds for silica ($1.4440$). We tested the consequence on a plain straight \SI{450}{nm}$\times$\SI{220}{nm} guide, with no ring and no bend, in 3-D FDTD at four mesh sizes. The mode-solver group index is $4.329$. FDTD gives $4.219$, $4.221$, $4.182$ and $4.174$ at 40, 32, 25 and \SI{20}{nm}, which is $-2.5$ to $-3.6\%$, the size of the ring's deficit, and the gap widens as the mesh is refined, so it is not numerical dispersion. Replacing both materials by fixed indices changes the FDTD result by less than $2\times10^{-5}$, confirming that the engine already behaves as if the materials were dispersionless, while the mode solver with the same fixed indices gives $4.147$; the FDTD values lie $+1.8$, $+0.9$ and $+0.7\%$ above that at 40, 25 and \SI{20}{nm}, converging toward it. The difference of $0.18$ between the dispersive and fixed-index solver values is the material contribution to the guide's group index, which the FDTD engine omits. We then gave FDTD a dispersive fit instead (the sampled Palik index entered as permittivity, whose fitted group index is $3.626$ for silicon against $3.642$ raw and $1.4638$ for silica against $1.4639$) and repeated the straight-guide runs. The group index becomes $4.390$, $4.349$ and $4.341$ at 40, 25 and \SI{20}{nm}, i.e.\ $+1.4$, $+0.5$ and $+0.3\%$ against the mode solver, a small positive error that shrinks with the mesh, in place of $-2.5$, $-3.4$ and $-3.6\%$ with the default fit. Restoring the dispersion therefore removes the gap. We attribute the ring's deficit to this omission and not to the coupled-mode assembly. Two limits apply. The ring itself was not re-simulated with a dispersive silicon model, so the cause is demonstrated for the straight guide and inferred for the ring from the agreement in size. And the $\kappa^2$ values from coupler FDTD used the same material fit; we expect the effect to be small at \SI{1550}{nm}, where the index is correct, but did not measure it: an attempt with the dispersive fit was numerically unstable in the long 3-D coupler runs (field energy grew with time and the transmitted power exceeded the input), so those runs were discarded. The mode-solver $n_g$ agrees with the measured device of [11] ($4.344$ against $4.345$ implied), so the dataset labels, which use the mode solver, are not affected.
-
-Two caveats attach to the sweep itself. The FDE solver intermittently returns
-a degenerate result from an identical call sequence, so each solve is
-verified and repeated until a guided mode is found. And the solver's reported
-$n_g$ is not smooth in wavelength: successive steps for the straight
-\SI{450}{nm} guide are $+0.0085$, $+0.0878$, $+0.0031$, $-0.0250$, one of
-them an order of magnitude larger than its neighbours. Against a
-finite-difference $n_g$ computed from the solver's own $n_{\mathrm{eff}}(\lambda)$
-the reported values scatter with a standard deviation of $0.54\%$. We
-therefore do \emph{not} regenerate the dataset labels from these values: the
-correction they would apply ($0.26\%$) is smaller than the noise they would
-inject.
-
-\textbf{The validation itself was mesh-limited, and at low to moderate $\QL$
-the analytic model is correct to within 2\%.} Simulated $\QL$ depends on the
-mesh, so the \SI{32}{nm} spacing --- established as converged for $\kappa^2$,
-a single-pass quantity --- is not converged for $\QL$, which accumulates loss
-over hundreds of round trips. For the two lower-$\QL$ geometries, refinement
-moves the simulation \emph{toward} the analytic prediction and a second-order
-extrapolation to zero mesh recovers it to $1.2\%$ and $1.9\%$
-(Table~\ref{tab:ringval}). A discrepancy of 4--6\% at the production mesh is
-therefore attributed to numerical error for these two geometries; with only two geometries and two mesh sizes this is an inference, not a convergence proof.
-
-\textbf{At the highest $\QL$ the discrepancy is real and unexplained.} For the
-third geometry, refinement moves the simulation \emph{away} from the model.
-The tripled spectral sampling changed $\QL$ by $0.45\%$, so this is neither an
-extraction nor a sampling artifact. One candidate is that the bend-loss model
-is a function of radius alone and carries no wavelength dependence, while this
-geometry resonates at \SI{1555}{nm} against \SI{1542}{nm} and \SI{1543}{nm}
-for the other two; bend radiation at this radius increases steeply toward
-longer wavelengths, so a wavelength-blind loss model would over-predict $\QL$
-for the reddest resonance, and a finer mesh resolving genuine radiation would
-lower it. We state this as a hypothesis: testing it requires a
-wavelength-resolved bend-loss study that we have not performed.
-
-\textbf{Insertion loss does not validate.} Drop-port peak transmission differs
-from the analytic prediction by $-12.5\%$, $+1.5\%$ and $-17.9\%$ at the
-production mesh, with no consistent sign. One of the three is not evidence at
-all: that geometry's IL is \SI{0.084}{dB}, i.e.\ $T = 0.981$, within 2\% of
-unity, where the absolute uncertainty of extracting IL from a simulated
-spectrum is comparable to the value itself.
-
-\textbf{What this does and does not affect.} Every model compared in
-Section~3 was trained and scored on identical labels, so a bias shared by all
-of them cancels from every model-to-model comparison: the assessment of O6,
-the metric result of Section~\ref{sec:metric}, the realisability result and
-the sample-efficiency comparison are unaffected. What must be qualified is the
-absolute accuracy of $\QL$ above $\QL \approx 4300$, the absolute accuracy of
-IL anywhere, and the scenario verdicts, which are judged against $\QL$ specifications. Of the 1{,}150 labels, $84.7\%$ have $\QL$ above 4300 and $76.3\%$ above 6351 (the analytic $\QL$ of the highest-$\QL$ geometry simulated), so most absolute $\QL$ and IL labels lie outside the range this validation supports.
 
 \subsection{Models and protocol}
 
@@ -794,7 +701,7 @@ $\sqrt{s_a^2+s_b^2}$) gives the same verdict on every pair reported below.
 
 In the forward direction at the full 805-sample pool the network is most
 accurate, at $3.776 \pm 0.282\%$ against XGBoost's $5.115 \pm 0.115\%$: a gap
-of $1.34$ against a pooled spread of $0.30$, so the ordering holds across seeds (Welch $p=0.0002$, permutation $p=0.0079$, Holm $0.0079\to0.024$). Below
+of $1.34$ against a pooled spread of $0.30$, so the ordering holds across seeds (Welch $p=0.0002$, permutation $p=0.0079$, Holm-adjusted $p=0.024$). Below
 300 samples it is \emph{not}. XGBoost averages $12.815\%$ and the network
 $14.303\%$, a gap of $1.49$ against a pooled spread of $3.09$, driven by the
 network's seed-to-seed variability at small $n$ ($\pm 3.07$ at $n = 100$).
@@ -856,48 +763,16 @@ bound estimator's per-parameter error; these are not individual bounds, since th
 \label{fig:floor}
 \end{figure}
 
-Objective O3 required, for at least one method, $\rge \le 15\%$ \emph{and}
-closed-loop error $\le 20\%$. The closed-loop half is met with a wide margin
-($3.669\%$). The geometric half is not: the best aggregate $\rge$ is
-$15.506\%$. \textbf{O3 is therefore not met}, by $0.506$ percentage points.
+Objective O3 required, for at least one method, $\rge \le 15\%$ \emph{and} closed-loop error $\le 20\%$. The closed-loop half is met ($3.669\%$); the best aggregate $\rge$ is $15.506\%$. \textbf{O3 is therefore not met}, by $0.506$ percentage points.
 
-Whether that shortfall reflects the models or the problem is a separate
-question, and answering it requires knowing how much geometric information
-four scalar targets contain. We measure this directly. A bank of $10^6$
-distinct geometries is drawn over the design box and labelled with the same analytic
-responder that produced the dataset, subject to the same quality gate. For
-each test target, the $k$ bank geometries whose responses are closest are
-averaged, and the $\rge$ of that average against the true geometry is
-computed. Because this is the error of one specific predictor, it is an
-\emph{upper bound} on the Bayes-optimal error.
-
-The asymmetry of that bound governs what can be concluded. An upper bound
-measured below a threshold proves the true bound is below it; measured above,
-it proves nothing. Figure~\ref{fig:floor} shows the estimate falling from
-$16.063\%$ at $N = 12\,500$ to $14.323\%$ at $N = 10^6$. Since
-$14.323\% < 15\%$:
+Whether that shortfall reflects the models or the problem depends on how much geometric information four scalar targets contain. We draw a bank of $10^6$ distinct geometries over the design box, label it with the same analytic responder and quality gate, average for each test target the $k$ bank geometries with the closest responses, and compute the $\rge$ of that average. This is the error of one specific predictor, so it is an \emph{upper bound} on the Bayes-optimal error: a value below a threshold proves the true bound is below it; a value above proves nothing. The estimate falls from $16.063\%$ at $N = 12\,500$ to $14.323\%$ at $N = 10^6$ (Figure~\ref{fig:floor}), below $15\%$.
 
 \begin{quote}
-\textbf{At $N = 10^6$ the estimate is $14.323\%$, below the $15\%$ threshold; we therefore have no evidence that the threshold is unreachable.} We do not claim it is reachable. The neighbourhood size $k$ was chosen on the same 173 test targets; the $k$-curve is not smooth ($14.32\%$ at $k = 5$, $14.62\%$ at $k = 7$, $14.73\%$ at $k = 10$); and the 95\% bootstrap interval over the test targets, $[13.18, 15.42]\%$ at $k = 5$ ($[13.05, 15.32]\%$ when $k$ is re-chosen in every resample), contains the threshold: the estimate falls below $15\%$ in $89\%$ of resamples. That interval covers variation over the test targets only. A fresh draw of the bank matters less, but not nothing: three independent banks of the same size give $14.41$, $14.77$ and $14.56\%$ at their best $k$ (mean $14.58\%$, s.d.\ $0.18$; all three prefer $k = 25$) and $14.94$, $14.81$ and $15.08\%$ at $k = 5$. The original bank's $14.32\%$ is therefore the lowest of four, and a fixed $k = 5$ crosses $15\%$ in one of the three fresh banks. The margin below $15\%$ is about $0.4$ points, with a bank-to-bank s.d.\ of about $0.15$--$0.2$ on top of the test-target interval, and the conclusion stays the weaker one stated above.
+\textbf{At $N = 10^6$ the estimate is $14.323\%$, below the $15\%$ threshold; we therefore have no evidence that the threshold is unreachable. We do not claim it is reachable.} The neighbourhood size $k$ was chosen on the same 173 test targets and the $k$-curve is not smooth ($14.32\%$ at $k = 5$, $14.73\%$ at $k = 10$). The 95\% bootstrap interval over test targets, $[13.18, 15.42]\%$ ($[13.05, 15.32]\%$ with $k$ re-chosen per resample), contains the threshold; the estimate is below $15\%$ in $89\%$ of resamples. Three independent banks of the same size give $14.41$, $14.77$ and $14.56\%$ at their best $k$ (all prefer $k = 25$) and $14.94$, $14.81$ and $15.08\%$ at $k = 5$, so the original $14.32\%$ is the lowest of four and a fixed $k = 5$ crosses $15\%$ in one fresh bank. The margin is about $0.4$ points, against a bank-to-bank s.d.\ of $0.15$--$0.2$.
 \end{quote}
 
-Two honest qualifications. The estimate is not converged: the optimal
-neighbourhood size drifts from $k = 25$ to $k = 5$ across the sweep, and the
-descent accelerates from $0.096$ to $0.718$ percentage points per e-fold of
-bank size. A shifting optimum means the estimator's own finite-sample bias is
-still unwinding, so no rate from this sweep describes the true bound, and a
-three-parameter asymptotic fit to these points is not identifiable. And the
-per-parameter values in Figure~\ref{fig:floor} are not individual bounds: the
-estimator minimises the aggregate and trades parameters against one another,
-which is why the best model legitimately beats two of them.
+The estimate is not converged: the optimal $k$ drifts from $25$ to $5$ across the sweep and the descent accelerates ($0.096$ to $0.718$ points per e-fold of bank size), so the estimator's finite-sample bias is still unwinding, no rate can be read from the sweep, and a three-parameter asymptotic fit is not identifiable. The per-parameter values in Figure~\ref{fig:floor} are not individual bounds, because the estimator minimises the aggregate. Finally, enlarging the training set with rows from the \emph{fitted} analytic model lowers measured $\rge$ below $15\%$, but those rows add sampling density, not physics, so we do not report O3 as met by that route.
 
-We also record a negative decision. Enlarging the training set with
-additional rows drawn from the \emph{fitted} analytic model lowers measured
-$\rge$ below $15\%$. Those rows add sampling density, not physics --- the
-dataset would still carry the information of 200 coupler simulations --- and
-the closed-loop error against FDTD would not improve. We therefore do not
-report O3 as met by that route, and record here that it was available and
-declined.
 
 \subsection{Translation to co-packaged-optics scenarios}
 \label{sec:cpo}
@@ -1071,81 +946,17 @@ useful to know before pursuing it.
 \label{sec:limits}
 
 \begin{enumerate}[leftmargin=1.6em,itemsep=3pt]
-\item \textbf{The ring validation is not mesh-converged, and cannot be on the
-available hardware.} Simulated $\QL$ depends on mesh spacing
-(Section~\ref{sec:ringval}). A third, finer mesh for these geometries exceeds
-the \SI{15.7}{GB} of system memory available, so the Richardson extrapolation
-rests on two mesh sizes and assumes second-order convergence, which two points
-cannot verify.
-\item \textbf{Ring validation is at small radius only.} All ten runs are at
-$R = 5.10$--$\SI{5.20}{\micro\metre}$ (nine in Section~\ref{sec:ringval}, one for the Scenario A design). A \SI{10}{\micro\metre} ring requires about
-\SI{20}{GB} of solver memory at this mesh and a \SI{14}{\micro\metre} ring
-about \SI{36}{GB}, so the radius range could not be spanned. Small radius is
-where bend loss is largest and the loss model most stressed, but the
-validation does not establish accuracy at large radius.
-\item \textbf{$\QL$ accuracy is established only below $\QL \approx 4300$},
-to within 2\%. Above it the simulated $\QL$ is $17$--$27\%$ below the analytic value at the \SI{32}{nm} and \SI{40}{nm} meshes (the analytic value is $21$--$38\%$ above the simulation) and the cause is not established. $84.7\%$ of the labels lie above $\QL = 4300$. \textbf{IL is not validated at all.}
-\item \textbf{The external validation covers FSR only.} It tests the mode
-solver and the length convention. The coupling model, the bend-loss model,
-$\QL$ and IL are not externally validated against measurement.
-\item \textbf{The information bound is not converged.} It is a valid upper
-bound at every bank size, which is enough for the one-directional conclusion
-drawn, but its asymptote is not determined by the sweep performed. It also depends on the bank draw (s.d.\ about $0.15$--$0.2$ points across three independent banks) and on a neighbourhood size chosen on the same test targets.
-\item \textbf{$\lres$ is unlearnable within this parameterisation.} An
-alternative target --- for example resonance offset from a grid wavelength, or
-azimuthal mode order --- might be learnable. We measured one reparameterisation
-candidate and found that within an already matched set the mean
-$|\mathrm{corr}(\lres, g)|$ is $0.095$, so $\lres$ is close to redundant with
-FSR for geometry recovery; a systematic study was not performed.
-\item \textbf{Both couplers share a gap and coupling length.} Asymmetric
-couplers are a valid extension and would change the degeneracy structure.
-\item \textbf{Closed-loop verification uses twenty targets per model}, the
-stated minimum, and four of six models; only the naive network was extended to a
-hundred targets. The two unmeasured models are ones for
-which the two candidate metrics make predictions differing by less than one
-percentage point. With twenty targets the smallest difference between two models that is detectable at $80\%$ power is about $1.4$--$2.2$ percentage points (Section~\ref{sec:baseline}); smaller differences between models in this paper are not resolved.
-\item \textbf{No fabrication.} Every result is simulation-based. The
-trimming requirement follows from the model's resonance uncertainty and the
-fabrication sensitivities; it does not demonstrate a trimmed device, and the
-Scenario B passes are model-level passes.
-\item \textbf{Five seeds is a small sample for a spread.} The separation tests
-of Section~\ref{sec:methodcmp} use five seeds per group. After Holm correction the smallest
-attainable $p$ is $0.047$, so a pair is separated only if every seed of one method beats
-every seed of the other; the verdicts are therefore conservative for small effects, and a
-larger repetition could separate pairs we call comparable. Seed tests address initialisation
-and not data-draw or test-set variability, which the bootstrap intervals above cover.
-\item \textbf{Label fidelity is tested only against a uniform shift.} The
-$\pm 3\%$ perturbation of Section~3.2 leaves the O6 verdict unchanged, but a
-uniform rescaling is the simplest form the measured discrepancy could take;
-a geometry-dependent label error was not tested and would require
-regenerating the dataset from full 3-D simulation.
-\item \textbf{The ring's group index is about $3\%$ below the mode solver's;
-the cause was found, and removed, on a straight guide, not on the ring.} Round-trip length,
-bend effects, FSR extraction and the $n_g$ polynomial are each excluded by
-measurement (Section~2.4), and a straight-guide test traces the deficit to the
-FDTD engine's dispersionless material fit; a dispersive fit removes it. The ring was not re-simulated with
-a dispersive silicon model, so for the ring this is an inference from the
-agreement in size. The dataset labels use the mode solver, which agrees with the
-published device, but every FSR-derived quantity checked against ring FDTD
-inherits the discrepancy, and the coupler $\kappa^2$ values were obtained with
-the same material fit.
-\item \textbf{Bend loss is not resolvable by the eigenmode route.} The
-imaginary part of $n_{\mathrm{eff}}$ returned by the FDE solve at these radii
-is negative at every grid point and of magnitude \SIrange{e-12}{e-5}{dB/cm},
-i.e.\ at the solver's numerical floor. The wavelength-independent bend-loss
-model therefore stands uncorrected, and a wavelength-resolved replacement
-would require 3-D FDTD of a bend section.
-\item \textbf{The optimiser baseline, the $\kappa^2$ comparison and the Jacobian analysis rest on the same twenty targets,} so their intervals are wide; the Jacobian is local and linear. The equivalent-design study uses the analytic model, with thickness included to first order for the resonance only (from a mode-solver sweep) and not for the coupling, no gap-dependent coupler phase, and assumed width, gap and thickness spreads ($0.7$\,nm and $1$\,nm). Whether the $4.5\%$ scatter in $\kappa^2$ is model error or FDTD numerical noise has not been separated.
-\item \textbf{No independent expert review of the physical methods} was
-obtained prior to this draft.
-\item \textbf{The ring response in the closed-loop and scenario evaluations
-is analytic;} only the coupler is re-simulated.
-\item \textbf{Test-set sampling uncertainty is not covered by the five-seed
-spreads} (173 targets for geometric error, 20 for closed-loop error);
-bootstrap intervals are given where computed.
-\item \textbf{The headline tandem baseline has unbounded outputs and an unweighted
-loss dominated by $\lres$.} Bounded and weighted variants were evaluated for geometry accuracy, $\theta$ error and buildable fraction (Section~\ref{sec:methodcmp}) and, for the bounded and the bounded, weighted network, in closed loop at a single initialisation (seed 43, twenty targets); the closed-loop figures in Table~\ref{tab:cl} are for the baseline at a single initialisation.
+\item \textbf{The ring validation is limited.} It is not mesh-converged (a third mesh exceeds the \SI{15.7}{GB} of memory, so the extrapolation rests on two meshes), covers small radius only (ten runs at $R = 5.10$--$\SI{5.20}{\micro\metre}$; a \SI{10}{\micro\metre} ring needs about \SI{20}{GB}), establishes $\QL$ only below about $4300$ to within 2\% ($84.7\%$ of labels lie above), and does not validate IL. The ring's group index is about $3\%$ below the mode solver's; the cause was found and removed on a straight guide, not on the ring, and the coupler $\kappa^2$ values used the same material fit (Section~2.4, Appendix~\ref{sec:appring}). Bend loss is not resolvable by the eigenmode route (the imaginary part of $n_{\mathrm{eff}}$ is at the solver's numerical floor), so the wavelength-independent bend-loss model stands uncorrected.
+\item \textbf{External validation covers FSR only.} The coupling model, bend-loss model, $\QL$ and IL are not validated against measurement. Label fidelity was tested only against a uniform $\pm3\%$ shift (Section~3.2); a geometry-dependent label error would require regenerating the dataset from full 3-D simulation.
+\item \textbf{No fabrication.} Every result is simulation-based. The trimming requirement follows from the model's resonance uncertainty and the fabrication sensitivities; the Scenario B passes are model-level passes. The ring response in the closed-loop and scenario evaluations is analytic; only the coupler is re-simulated.
+\item \textbf{Small samples.} Closed-loop verification uses twenty targets for four of six models (only the naive network was extended to a hundred); at $80\%$ power the smallest detectable difference is about $1.4$--$2.2$ percentage points (Section~\ref{sec:baseline}), so smaller differences are not resolved. The optimiser baseline, the $\kappa^2$ comparison and the Jacobian analysis share the same twenty targets. Seed tests use five seeds per group: after Holm correction the smallest attainable $p$ is $0.048$, so a pair is separated only if every seed of one method beats every seed of the other, and a larger repetition could separate pairs we call comparable. Seed tests do not cover data-draw or test-set variability (173 targets for geometric error, 20 for closed-loop error); bootstrap intervals are given where computed. Whether the $4.5\%$ scatter in $\kappa^2$ is model error or FDTD noise has not been separated.
+\item \textbf{The information bound is not converged.} It is a valid upper bound at every bank size, which suffices for the one-directional conclusion, but its asymptote is not determined, and it depends on the bank draw (s.d.\ $0.15$--$0.2$ points) and on a neighbourhood size chosen on the same test targets.
+\item \textbf{$\lres$ is unlearnable within this parameterisation.} An alternative target (resonance offset from a grid wavelength, azimuthal mode order) might be learnable; one candidate showed $|\mathrm{corr}(\lres, g)| = 0.095$ within matched sets, so $\lres$ is close to redundant with FSR for geometry recovery. A systematic study was not performed.
+\item \textbf{One device family and coupler symmetry.} Both couplers share a gap and coupling length; asymmetric couplers would change the degeneracy structure. The equivalent-design study uses the analytic model with thickness to first order for the resonance only, no gap-dependent coupler phase, and assumed width, gap and thickness spreads ($0.7$\,nm and $1$\,nm).
+\item \textbf{The headline tandem baseline has unbounded outputs and an unweighted loss dominated by $\lres$.} Bounded and weighted variants were evaluated for geometry, $\theta$ error and buildable fraction (Section~\ref{sec:methodcmp}) and, for two of them, in closed loop at a single initialisation (seed 43, twenty targets); the closed-loop figures in Table~\ref{tab:cl} are for the baseline at a single initialisation.
+\item \textbf{No independent expert review} of the physical methods was obtained prior to this draft.
 \end{enumerate}
+
 
 \section{Conclusion}
 
@@ -1181,6 +992,117 @@ released with the manuscript.
 
 Computational work used Ansys Lumerical FDTD. The author thanks no funding
 body, having received none.
+
+\appendix
+\section{Full 3-D validation of the ring model: procedure and details}
+\label{sec:appring}
+
+The checks above validate the \emph{coupler} and the \emph{mode solver}. The
+coupled-mode assembly that turns $\kappa^2$, $n_g$ and loss into $\QL$ and IL
+is not tested by either, and closed-loop re-verification does not test it
+because it re-simulates the coupler and then recomputes the ring with the same
+analytic model that produced the labels. Since $\QL$ and IL carry the
+degeneracy argument of Section~\ref{sec:o6}, we simulated the \emph{complete
+ring} in 3-D FDTD.
+
+Nine runs were performed: three geometries at $R = \SI{5.20}{\micro\metre}$,
+$w = \SI{450}{nm}$, spanning the coupling range, each at the production
+\SI{32}{nm} mesh, at a coarse \SI{40}{nm} mesh, and at \SI{40}{nm} with
+three times denser spectral sampling as a control on the extraction. The
+simulation window was sized from the predicted $\QL$ so that the linewidth
+exceeds the transform limit of the DFT window by at least a factor three, and
+auto-shutoff was disabled so that the window is exactly the one assumed. All
+nine met the resolution criteria (6.1--52.9 points across the FWHM,
+3.14--4.12 times the transform limit).
+
+Table~\ref{tab:ringval} (main text) gives the three geometries.
+
+Three findings follow, and they are not all favourable.
+
+\textbf{Resonance wavelength and free spectral range behave as the
+published-device check predicted.} $\lres$ agrees to $0.10\%$ across all nine
+runs. FSR is biased $+2.2$ to $+2.8\%$, the same sign and magnitude every
+time. Since FSR $= \lambda^2/(n_g L)$ and $L = 2\pi R + 2L_c$ is exact
+geometry --- the ring is built as two straights of length $L_c$ joined by two
+\SI{180}{\degree} bends --- the discrepancy must lie in $n_g$: the product
+$n_g L$ the model uses differs from the ring's by about $2.5\%$.
+
+The obvious explanation is that the model takes $n_g$ from a
+\emph{straight-waveguide} mode sweep while a \SI{5.2}{\micro\metre} bend is
+not a straight waveguide. \emph{That explanation does not survive
+measurement.} A 210-point bent-waveguide FDE sweep (six radii from
+\SIrange{5}{15}{\micro\metre}, six widths, five wavelengths, \SI{10}{nm}
+mesh, PML on all boundaries) gives $n_g$ of the bent guide within $0.08\%$ of
+the straight guide at every point in the grid, and $n_{\mathrm{eff}}$ within
+$0.05\%$. The bend contribution is roughly thirty times too small to account
+for the observed bias.
+
+Stated as a percentage of FSR this comparison is treacherous, because FSR
+itself varies by about $4\%$ across \SIrange{1500}{1600}{nm}; a model FSR
+evaluated at $\lres$ and a measured spacing whose resonance pair is centred
+\SI{8}{nm} away are not the same quantity. We therefore compare group
+indices at matched wavelengths. Each adjacent resonance pair gives
+$n_g = \lambda_1\lambda_2 / [L(\lambda_2-\lambda_1)]$, which we compare with
+the FDE value interpolated at that pair's midpoint. Over ten pairs spanning the three geometries, \textbf{the ring's group index is $2.8$--$3.0\%$ below the mode solver's}: $-2.83\%$ (s.d.\ $0.24\%$) when the solver's $n_{\mathrm{eff}}(\lambda)$ is fitted with a quadratic and $-3.03\%$ (s.d.\ $0.31\%$) with a cubic (ddof $=1$; the pairs come from three geometries and are not independent). The deficit has a mild wavelength trend (about $-2.4\%$ at \SI{1520}{nm} to $-3.2\%$ at \SI{1567}{nm}). We do not use the solver's reported $n_g$ column as the reference because it is not smooth in wavelength (below); it gives $-2.73\%$ with s.d.\ $0.72\%$.
+
+Four candidate explanations are excluded by measurement. \emph{Round-trip
+length:} the straight fraction $2L_c/L$ is $3.5\%$, $5.8\%$ and $10.9\%$ for
+the three geometries --- a factor of three --- and the deficit is identical
+for all three, whereas a length error or a straight/bend mixing error would
+scale with it. \emph{Bend effects:} $0.08\%$, above. \emph{FSR extraction:}
+an independent re-extraction from the saved spectra agrees with the
+production analysis to $0.03\%$, $0.005\%$ and $0.014\%$. \emph{The $n_g$
+polynomial:} $0.26\%$ at these geometries. What remains was traced to the FDTD material model. FDTD represents each database material by a fit over the source band, and for silicon (Palik) over \SIrange{1500}{1600}{nm} that fit has \emph{no} dispersion: its group index equals its phase index ($3.4766$ for both), against $3.642$ for the raw data, and the same holds for silica ($1.4440$). We tested the consequence on a plain straight \SI{450}{nm}$\times$\SI{220}{nm} guide, with no ring and no bend, in 3-D FDTD at four mesh sizes. The mode-solver group index is $4.329$. FDTD gives $4.219$, $4.221$, $4.182$ and $4.174$ at 40, 32, 25 and \SI{20}{nm}, which is $-2.5$ to $-3.6\%$, the size of the ring's deficit, and the gap widens as the mesh is refined, so it is not numerical dispersion. Replacing both materials by fixed indices changes the FDTD result by less than $2\times10^{-5}$, confirming that the engine already behaves as if the materials were dispersionless, while the mode solver with the same fixed indices gives $4.147$; the FDTD values lie $+1.8$, $+0.9$ and $+0.7\%$ above that at 40, 25 and \SI{20}{nm}, converging toward it. The difference of $0.18$ between the dispersive and fixed-index solver values is the material contribution to the guide's group index, which the FDTD engine omits. We then gave FDTD a dispersive fit instead (the sampled Palik index entered as permittivity, whose fitted group index is $3.626$ for silicon against $3.642$ raw and $1.4638$ for silica against $1.4639$) and repeated the straight-guide runs. The group index becomes $4.390$, $4.349$ and $4.341$ at 40, 25 and \SI{20}{nm}, i.e.\ $+1.4$, $+0.5$ and $+0.3\%$ against the mode solver, a small positive error that shrinks with the mesh, in place of $-2.5$, $-3.4$ and $-3.6\%$ with the default fit. Restoring the dispersion therefore removes the gap. We attribute the ring's deficit to this omission and not to the coupled-mode assembly. Two limits apply. The ring itself was not re-simulated with a dispersive silicon model, so the cause is demonstrated for the straight guide and inferred for the ring from the agreement in size. And the $\kappa^2$ values from coupler FDTD used the same material fit; we expect the effect to be small at \SI{1550}{nm}, where the index is correct, but did not measure it: an attempt with the dispersive fit was numerically unstable in the long 3-D coupler runs (field energy grew with time and the transmitted power exceeded the input), so those runs were discarded. The mode-solver $n_g$ agrees with the measured device of [11] ($4.344$ against $4.345$ implied), so the dataset labels, which use the mode solver, are not affected.
+
+Two caveats attach to the sweep itself. The FDE solver intermittently returns
+a degenerate result from an identical call sequence, so each solve is
+verified and repeated until a guided mode is found. And the solver's reported
+$n_g$ is not smooth in wavelength: successive steps for the straight
+\SI{450}{nm} guide are $+0.0085$, $+0.0878$, $+0.0031$, $-0.0250$, one of
+them an order of magnitude larger than its neighbours. Against a
+finite-difference $n_g$ computed from the solver's own $n_{\mathrm{eff}}(\lambda)$
+the reported values scatter with a standard deviation of $0.54\%$. We
+therefore do \emph{not} regenerate the dataset labels from these values: the
+correction they would apply ($0.26\%$) is smaller than the noise they would
+inject.
+
+\textbf{The validation itself was mesh-limited, and at low to moderate $\QL$
+the analytic model is correct to within 2\%.} Simulated $\QL$ depends on the
+mesh, so the \SI{32}{nm} spacing --- established as converged for $\kappa^2$,
+a single-pass quantity --- is not converged for $\QL$, which accumulates loss
+over hundreds of round trips. For the two lower-$\QL$ geometries, refinement
+moves the simulation \emph{toward} the analytic prediction and a second-order
+extrapolation to zero mesh recovers it to $1.2\%$ and $1.9\%$
+(Table~\ref{tab:ringval}). A discrepancy of 4--6\% at the production mesh is
+therefore attributed to numerical error for these two geometries; with only two geometries and two mesh sizes this is an inference, not a convergence proof.
+
+\textbf{At the highest $\QL$ the discrepancy is real and unexplained.} For the
+third geometry, refinement moves the simulation \emph{away} from the model.
+The tripled spectral sampling changed $\QL$ by $0.45\%$, so this is neither an
+extraction nor a sampling artifact. One candidate is that the bend-loss model
+is a function of radius alone and carries no wavelength dependence, while this
+geometry resonates at \SI{1555}{nm} against \SI{1542}{nm} and \SI{1543}{nm}
+for the other two; bend radiation at this radius increases steeply toward
+longer wavelengths, so a wavelength-blind loss model would over-predict $\QL$
+for the reddest resonance, and a finer mesh resolving genuine radiation would
+lower it. We state this as a hypothesis: testing it requires a
+wavelength-resolved bend-loss study that we have not performed.
+
+\textbf{Insertion loss does not validate.} Drop-port peak transmission differs
+from the analytic prediction by $-12.5\%$, $+1.5\%$ and $-17.9\%$ at the
+production mesh, with no consistent sign. One of the three is not evidence at
+all: that geometry's IL is \SI{0.084}{dB}, i.e.\ $T = 0.981$, within 2\% of
+unity, where the absolute uncertainty of extracting IL from a simulated
+spectrum is comparable to the value itself.
+
+\textbf{What this does and does not affect.} Every model compared in
+the Results was trained and scored on identical labels, so a bias shared by all
+of them cancels from every model-to-model comparison: the assessment of O6,
+the metric result of Section~\ref{sec:metric}, the realisability result and
+the sample-efficiency comparison are unaffected. What must be qualified is the
+absolute accuracy of $\QL$ above $\QL \approx 4300$, the absolute accuracy of
+IL anywhere, and the scenario verdicts, which are judged against $\QL$ specifications. Of the 1{,}150 labels, $84.7\%$ have $\QL$ above 4300 and $76.3\%$ above 6351 (the analytic $\QL$ of the highest-$\QL$ geometry simulated), so most absolute $\QL$ and IL labels lie outside the range this validation supports.
+
 
 \section*{References}
 
