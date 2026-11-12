@@ -230,8 +230,7 @@ not used here.
 
 The $\kappa^2$ model was further tested on 68 coupler geometries that arose
 during closed-loop re-verification and were never seen by the fit. Every one
-fell within $10\%$, with a consistent positive bias of a few per cent that
-should be reported as a known systematic.
+fell within $10\%$, with a bias of a few per cent (the fitted model lies above the simulation on average; the per-batch bias in Table~\ref{tab:valid} ranges from $-0.36$ to $+3.33\%$), which should be reported as a known systematic.
 
 \subsection{Full 3-D validation of the ring model}
 \label{sec:ringval}
@@ -406,7 +405,7 @@ and we would specify an absolute one --- tied to the link budget, as above
 
 The resonance wavelength is not learnable by any method here. All four tree
 variants return \emph{negative} $R^2$ --- worse than predicting the mean ---
-and the network manages $0.0069$. The cause is sensitivity:
+and the network manages $0.0069$. One cause is sensitivity; another is that the target is the resonance \emph{nearest} \SI{1550}{nm}, which makes it a wrapped, discontinuous function of the geometry that no smooth regressor can fit:
 $\mathrm{d}\lres/\mathrm{d}R \approx 0.15$\,nm/nm, so placing a resonance to
 within \SI{1}{nm} requires the radius to roughly \SI{7}{nm}, about one part in $1.4\times10^3$ of the \SI{10}{\micro\metre} radius range. The consequence propagates: $\lres$ accounts for
 almost all of the forward model's residual loss, so the 144-configuration grid
@@ -645,7 +644,7 @@ complementary and both are needed; neither subsumes the other. The tandem
 network illustrates why. On its buildable predictions its closed-loop error is
 $5.936\%$, better than XGBoost's, and its $\theta$ error is a respectable
 $2.654\%$. Judged on those numbers alone it looks like a competitive model.
-Sixty per cent of its designs cannot be made.
+Over the twenty closed-loop targets, $60\%$ of its designs cannot be made ($66.5\%$ over the whole test set).
 
 \subsection{Method comparison and sample efficiency}
 \label{sec:methodcmp}
@@ -741,7 +740,7 @@ Objective O3 required, for at least one method, $\rge \le 15\%$ \emph{and} close
 Whether that shortfall reflects the models or the problem depends on how much geometric information four scalar targets contain. We draw a bank of $10^6$ distinct geometries over the design box, label it with the same analytic responder and quality gate, average for each test target the $k$ bank geometries with the closest responses, and compute the $\rge$ of that average. This is the error of one specific predictor, so it is an \emph{upper bound} on the Bayes-optimal error: a value below a threshold proves the true bound is below it; a value above proves nothing. The estimate falls from $16.063\%$ at $N = 12\,500$ to $14.323\%$ at $N = 10^6$ (Figure~\ref{fig:floor}), below $15\%$.
 
 \begin{quote}
-\textbf{At $N = 10^6$ the estimate is $14.323\%$, below the $15\%$ threshold; we therefore have no evidence that the threshold is unreachable. We do not claim it is reachable.} The neighbourhood size $k$ was chosen on the same 173 test targets and the $k$-curve is not smooth ($14.32\%$ at $k = 5$, $14.73\%$ at $k = 10$). The 95\% bootstrap interval over test targets, $[13.18, 15.42]\%$ ($[13.05, 15.32]\%$ with $k$ re-chosen per resample), contains the threshold; the estimate is below $15\%$ in $89\%$ of resamples. Three independent banks of the same size give $14.41$, $14.77$ and $14.56\%$ at their best $k$ (all prefer $k = 25$) and $14.94$, $14.81$ and $15.08\%$ at $k = 5$, so the original $14.32\%$ is the lowest of four and a fixed $k = 5$ crosses $15\%$ in one fresh bank. The margin is about $0.4$ points, against a bank-to-bank s.d.\ of $0.15$--$0.2$.
+\textbf{At $N = 10^6$ the estimate is $14.323\%$, below the $15\%$ threshold; we therefore have no evidence that the threshold is unreachable. We do not claim it is reachable.} The neighbourhood size $k$ was chosen on the same 173 test targets and the $k$-curve is not smooth ($14.32\%$ at $k = 5$, $14.73\%$ at $k = 10$). The 95\% bootstrap interval over test targets, $[13.18, 15.42]\%$ ($[13.05, 15.32]\%$ with $k$ re-chosen per resample), contains the threshold; the estimate is below $15\%$ in $89\%$ of resamples. Three independent banks of the same size give $14.41$, $14.77$ and $14.56\%$ at their best $k$ (all prefer $k = 25$) and $14.94$, $14.81$ and $15.08\%$ at $k = 5$, so the original $14.32\%$ is the lowest of four and a fixed $k = 5$ crosses $15\%$ in one fresh bank. The margin is about $0.4$ points, against a bank-to-bank s.d.\ of $0.15$--$0.2$. The bank is drawn over the whole design box, whereas the labelled set also contains a $150$-row batch from one corner, so the bound refers to the bank's sampling distribution and not exactly to that of the test targets.
 \end{quote}
 
 The estimate is not converged: the optimal $k$ drifts from $25$ to $5$ across the sweep and the descent accelerates ($0.096$ to $0.718$ points per e-fold of bank size), so the estimator's finite-sample bias is still unwinding, no rate can be read from the sweep, and a three-parameter asymptotic fit is not identifiable. The per-parameter values in Figure~\ref{fig:floor} are not individual bounds, because the estimator minimises the aggregate. Finally, enlarging the training set with rows from the \emph{fitted} analytic model lowers measured $\rge$ below $15\%$, but those rows add sampling density, not physics, so we do not report O3 as met by that route.
@@ -786,7 +785,7 @@ DE (robust) & 1549.920 & 6.493 & 12155 & 0.295 & pass (model), bias-robust \\
 \end{tabular}
 \end{table}
 
-Objective O7 asked which methods meet a CPO scenario's specification within its stated tolerance. Each candidate's coupler was re-simulated in 3-D FDTD; the ring response was then assembled analytically, so the verdicts inherit the biases of Section~\ref{sec:ringval}. Table~\ref{tab:cpo} answers in three parts.
+The two scenarios are illustrative specifications defined by the author for this study (channel count, grid, FSR, $\QL$ and IL limits); they are not taken from a standard or a vendor datasheet. Objective O7 asked which methods meet a CPO scenario's specification within its stated tolerance. Each candidate's coupler was re-simulated in 3-D FDTD; the ring response was then assembled analytically, so the verdicts inherit the biases of Section~\ref{sec:ringval}. Table~\ref{tab:cpo} answers in three parts.
 
 \textbf{(i) Given point targets, the trained models fail.} Eleven of the twelve failures involve resonance placement. The single exception is Random Forest (raw) in Scenario A, which placed the resonance at \SI{1548.058}{nm}, inside the $\pm\SI{2.0}{nm}$ window, and then missed FSR by \SI{0.13}{nm}. The naive network's closed-loop $\lres$ error is \SI{3.15}{nm} mean absolute error, \SI{4.33}{nm} RMS and \SI{10.9}{nm} at worst; always predicting the dataset's mean resonance wavelength gives \SI{2.66}{nm} RMS on the same twenty targets, and a randomly chosen geometry about \SI{4.4}{nm}.
 
@@ -908,7 +907,7 @@ Twelve of the thirteen model-level criteria were met. On both four-parameter map
 
 \paragraph{Fresh 3-D FDTD check on the all-pass ring.} To test the model-level result against a simulation, twenty test targets were taken at evenly spaced positions of the test set, designed with the naive network (seed $42$), and the coupler of each design was re-simulated in 3-D FDTD with the procedure of Section~\ref{sec:metric}, the ring being the analytic all-pass model. One design ($w = 500.4$\,nm) lies outside the design box and is counted as unbuildable; the other nineteen were simulated, with $\kappa^2 + t^2$ between $0.9996$ and $1.0000$. The FDTD $\kappa^2$ is a median $0.970$ of the fitted model's (range $0.932$--$1.029$, s.d.\ of the logarithm $0.032$). The closed-loop error, aggregated as in Section~\ref{sec:metric}, is $3.24\%$ (bootstrap $95\%$ interval over designs $[2.63, 3.78]\%$), against $3.45\%$ for the model-level replay of the same designs. Per response the RMS errors are $0.31\%$ ($\lres$), $1.94\%$ (FSR), $4.38\%$ ($\QL$) and $4.35\%$ (depth). All four FDTD criteria were met (aggregate below $20\%$; $19$ of $20$ designs buildable; largest error in $\QL$; FDTD error $0.94$ times the model-level error). The check re-simulates the coupler only: the ring is analytic and the targets come from the same analytic ring, so ring-model bias, which for the add-drop ring is $4$--$28\%$ in $\QL$ (Section~\ref{sec:ringval}), is not part of this number, and no all-pass ring was simulated in full.
 
-\paragraph{The tandem network.} The tandem network is not reported. Trained with the same recipe on the new maps, it produced designs that were buildable in only $0.6$--$4.4\%$ of cases with geometry errors of several hundred percent; this does not reproduce the add-drop result of Section~\ref{sec:methodcmp} (where the bounded variant reaches $100\%$ buildable), and we did not diagnose or tune it. We therefore make no claim about tandem networks on these maps.
+\paragraph{The tandem network.} The tandem network is not reported. The generality script contains its own implementation of the tandem pipeline. On the new maps it produced designs that were buildable in only $0.6$--$4.4\%$ of cases, with geometry errors of several hundred percent, and on the add-drop control it gave $0.6\%$ buildable against $33.5\%$ for the tandem network of Section~\ref{sec:methodcmp}, so it does not reproduce the main experiment; we did not diagnose or tune it. We therefore make no claim about tandem networks on these maps.
 
 \paragraph{Scope.} What this shows is that the counting argument predicted, before the data were seen, the geometry-space behaviour on two further response maps of one coupler and the response-space behaviour on one of them; it failed on the response-space behaviour of the six-parameter map, and the most likely cause is a symmetry the argument did not consider. It does not show that the results hold for another platform, another coupler or a measured device.
 
