@@ -14,6 +14,7 @@ from sklearn.metrics import r2_score
 import p9_responders as R9
 
 SEEDS = [42, 43, 44, 45, 46]
+ORDERED = False        # post-hoc diagnostic only (--ordered): canonical coupler order g1 <= g2
 N = 1150
 LHS_SEED = 20261112
 HID_INV = (64, 128, 64)
@@ -27,6 +28,10 @@ def pkey(p):
 def make_data(model, name):
     spec = R9.MAPS[name]
     P = R9.lhs(name, N, LHS_SEED)
+    if ORDERED and name == "addrop_asym":            # swap the two couplers so that g1 <= g2 (response is unchanged: p9_responders self-test 3)
+        sw = P[:, 2] > P[:, 4]
+        P[sw, 2], P[sw, 4] = P[sw, 4].copy(), P[sw, 2].copy()
+        P[sw, 3], P[sw, 5] = P[sw, 5].copy(), P[sw, 3].copy()
     rows = R9.evaluate(model, name, P)
     keep = [i for i, r in enumerate(rows) if not r["flag"] and all(np.isfinite(r[t]) and r[t] > 0 for t in spec["targets"])]
     G = P[keep]; T = np.array([[rows[i][t] for t in spec["targets"]] for i in keep], float)
@@ -240,14 +245,17 @@ def report(allres, smoke):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--smoke", action="store_true"); ap.add_argument("--maps", default="addrop,allpass,addrop_asym")
-    ap.add_argument("--methods", default="naive,tandem,rf,xgb"); a = ap.parse_args()
+    ap.add_argument("--methods", default="naive,tandem,rf,xgb")
+    ap.add_argument("--ordered", action="store_true", help="post-hoc diagnostic: canonical coupler order (asymmetric map only)")
+    a = ap.parse_args()
+    ORDERED = a.ordered
     model = R9.Model(R9.load_fits()); p5 = load_p5()
     seeds = SEEDS[:1] if a.smoke else SEEDS
     methods = a.methods.split(","); allres = {}
     for name in a.maps.split(","):
         print(f"[p9] {name}"); allres[name] = run_map(model, name, list(methods), seeds, a.smoke, p5)
     os.makedirs("results", exist_ok=True)
-    tag = "p9_smoke" if a.smoke else "p9"
+    tag = ("p9_smoke" if a.smoke else "p9") + ("_ordered" if a.ordered else "")
     json.dump(allres, open(os.path.join("results", tag + "_results.json"), "w"), indent=1, default=float)
     txt = report(allres, a.smoke); print(txt)
     open(os.path.join("results", tag + "_report.txt"), "w").write(txt)
