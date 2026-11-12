@@ -101,9 +101,13 @@ class Model:
 
     # ---------------- all-pass ---------------------------------------------------
     def allpass(self, R, w, g, Lc):
+        return self.allpass_given_k2(R, w, g, Lc, self.kappa2(R, w, g, Lc))
+
+    def allpass_given_k2(self, R, w, g, Lc, k):
+        """All-pass response with kappa^2 supplied (e.g. from a fresh 3-D FDTD coupler run)."""
         L_um = 2*np.pi*R + 2*Lc; L = L_um*1e3
         lr, fsr, m = self.resonances(w, L)
-        k = self.kappa2(R, w, g, Lc); t = np.sqrt(1-k)
+        t = np.sqrt(1-k)
         a, bend, rough = self.loss_amp(R, L_um)
         Tmin = ((t-a)/(1-t*a))**2
         h = (1+Tmin)/2
@@ -233,6 +237,14 @@ def selftest(model):
     c1 = ((t - a)/(1 - t*a))**2; c2 = ((t - 1.0)/(1 - t*1.0))**2
     good = abs(c1) < 1e-15 and abs(c2 - 1) < 1e-12; ok &= good
     print(f"5. all-pass limits: critical coupling Tmin = {c1:.1e} (expect 0), lossless Tmin = {c2:.3f} (expect 1)   -> {'PASS' if good else 'FAIL'}")
+    P = lhs("allpass", 100, 5); d = 0
+    for p in P:
+        a = model.allpass(*p); b = model.allpass_given_k2(*p, model.kappa2(*p))
+        for k in ("lambda_res_nm", "FSR_nm", "Q_L", "depth"):
+            if a[k] == a[k]:
+                d = max(d, abs(a[k]-b[k])/abs(a[k]))
+    good = d < 1e-12; ok &= good
+    print(f"6. all-pass with kappa^2 supplied == all-pass with the fitted kappa^2 (100 points): max rel. diff {d:.1e}   -> {'PASS' if good else 'FAIL'}")
     print("=" * 78)
     print("OVERALL:", "ALL CHECKS PASSED" if ok else "AT LEAST ONE CHECK FAILED -- do not continue, paste this output")
     return ok
