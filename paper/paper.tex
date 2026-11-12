@@ -44,8 +44,7 @@ response error. A differential-evolution optimiser on the analytic model reaches
 $2.89\%$ closed-loop error with no training data, so the networks give no accuracy
 advantage here. Posed as constraints rather than point targets, two
 co-packaged-optics channel specifications are met by direct optimisation (Scenario B at model level only), and the Scenario A design passes a complete 3-D ring simulation. The ring
-model's resonance uncertainty ($1.55$\,nm) exceeds the $\pm0.4$\,nm tolerance of the eight-channel case, so fabricated devices would still need trimming. Results are for
-one design space and one analytic ring model.
+model's resonance uncertainty ($1.55$\,nm) exceeds the $\pm0.4$\,nm tolerance of the eight-channel case, so fabricated devices would still need trimming. Two further response maps on the same coupler model, an all-pass ring and a six-parameter asymmetric add-drop ring, were tested against predictions registered in advance: the all-pass ring behaves like the add-drop ring (3-D FDTD coupler re-simulation: $3.2\%$ closed-loop error), while the asymmetric ring does not (naive-network response error $38\%$, a miss we report). Results are for one platform, one coupler model and an analytic ring model.
 \end{abstract}
 
 \section{Introduction}
@@ -110,8 +109,7 @@ $\kappa^2$ scatter against FDTD, and the benefit of choosing among equivalent de
 is extended to a hundred targets and its buildability failures are counted, and
 a $2.5$--$3.6\%$ group-index disagreement between the analytic ring and
 full 3-D FDTD is traced, with a straight-guide test, to the FDTD engine's
-dispersionless material fit.
-\end{enumerate}
+dispersionless material fit.\item \textbf{A pre-registered test of generality across response maps} (Section~\ref{sec:gen}): predictions were written and committed before the experiments, twelve of thirteen model-level criteria were met, the thirteenth (response error on the asymmetric ring) failed and is reported, and the all-pass ring passes a fresh 3-D FDTD coupler re-simulation with the four FDTD criteria met. This extends the result to other response maps on one coupler; it is not a second device or platform.\end{enumerate}
 
 \section{Device, design space and methods}
 
@@ -873,6 +871,47 @@ and \SI{40.5}{mW} at worst --- \SI{73}{mW} static for a four-channel link and
 
 The errors of every model fill most of one FSR: the circular spread is $71$--$81\%$ of the \SI{9.74}{nm} mean FSR, so every model needs a heater range of \SIrange{121}{132}{K} at the optimal design bias. Demand differs by $8\%$ between the three fully evaluated models, from twenty targets and one trained model each, which does not separate them. The ranking depends on the statistic: the random forest has the smallest maximum biased temperature rise (\SI{121.4}{K}), XGBoost the smallest mean (\SI{52.8}{K} biased, \SI{56.7}{K} unbiased). We therefore draw no conclusion about which model is cheapest to trim, and note that at the present placement accuracy the demand of every model is close to the range needed to tune across one mean FSR (about \SI{135}{K}).
 
+\subsection{Generality across response maps}
+\label{sec:gen}
+
+The weakness of a single device was addressed by changing the response map while keeping the platform, the fitted coupler model ($\kappa^2$ from the $200$ FDTD simulations) and the pipeline fixed. Three maps were used. (i) The add-drop ring of the rest of this paper (parameters $R,w,g,L_c$; targets $\lres$, FSR, $\QL$, IL), as control. (ii) An all-pass ring with the same four parameters and targets $\lres$, FSR, $\QL$ and depth $1-T_{\min}$. (iii) An add-drop ring with two different couplers (six parameters $R,w,g_1,L_{c1},g_2,L_{c2}$; the same four targets), whose response is unchanged if the two couplers are swapped. For each map the singular values of the Jacobian of the log-targets with respect to the range-scaled parameters are $5.59, 0.917, 0.125, 0.0272$ (add-drop), $4.85, 0.816, 0.124, 0.0249$ (all-pass) and $4.95, 3.02, 0.494, 0.102$ (asymmetric). The two four-parameter maps have two stiff directions and two nearly flat ones, as the counting argument says; the six-parameter map has at least two exactly flat directions, because four targets cannot fix six parameters, and a further discrete degeneracy from the swap.
+
+\paragraph{Pre-registration.} Before any model was trained on the new maps, the predictions were written down and committed (file \texttt{p9\_predictions.md}): at most one parameter (the radius) would be recovered ($R^2 \ge 0.8$) on every map; the naive network's response error would stay below $20\%$ on the two four-parameter maps; its geometry error on the all-pass ring would lie within three points of the control; on the asymmetric map the coupler parameters would have $R^2 < 0.5$, the geometry error would exceed the control's, and the response error would stay below $20\%$; the tandem network would be mostly unbuildable. The FDTD check had its own predictions (\texttt{p9\_predictions\_fdtd.md}), committed before the simulations ran: aggregate closed-loop error below $20\%$; at least $18$ of $20$ designs inside the design box; the largest per-response error in $\QL$ or depth; and an FDTD error no larger than twice the model-level error. The two sets together contain thirteen model-level and four FDTD criteria.
+
+\paragraph{Model-level results.} Naive network, Random Forest and XGBoost were trained as in Appendix~\ref{sec:appimpl} with no re-tuning, five seeds each, on the same $805/172/173$ split of the same geometries (the quality gate removed no row). Each predicted geometry is replayed through the analytic response, and the response error is the root-mean-square relative difference over the four targets, in linear units, for designs inside the box with a valid response.
+
+\begin{table}[t]
+\centering
+\caption{Three response maps, same coupler model. Mean $\pm$ s.d.\ over five seeds (Random Forest and XGBoost vary little). Response RMS is a model-level replay, not an FDTD result. The tandem network is excluded (see text).}
+\label{tab:gen}
+\small
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+Map & Method & RMS-RGE (\%) & Parameters with $R^2\ge0.8$ & Buildable (\%) & Response RMS (\%) \\
+\midrule
+Add-drop (control) & naive & $16.32 \pm 1.10$ & 1 (R) & 98.6 & $3.78$ \\
+ & Random Forest & $17.74 \pm 0.03$ & 1 (R) & 100.0 & $5.08$ \\
+ & XGBoost & $18.17 \pm 0.12$ & 1 (R) & 100.0 & $12.29$ \\
+All-pass & naive & $16.18 \pm 0.63$ & 1 (R) & 99.3 & $3.04$ \\
+ & Random Forest & $17.63 \pm 0.03$ & 1 (R) & 100.0 & $4.31$ \\
+ & XGBoost & $18.14 \pm 0.16$ & 1 (R) & 100.0 & $10.42$ \\
+Asymmetric add-drop & naive & $20.55 \pm 0.06$ & 1 (R) & 97.7 & $37.93$ \\
+ & Random Forest & $21.60 \pm 0.05$ & 1 (R) & 100.0 & $35.38$ \\
+ & XGBoost & $22.71 \pm 0.06$ & 1 (R) & 99.7 & $39.70$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Twelve of the thirteen model-level criteria were met. On both four-parameter maps only the radius is recovered, the geometry error is about $16\%$, and the naive network's response error is $3$--$4\%$, so the disagreement between the two criteria appears again on the all-pass ring, and the all-pass geometry error is within $0.14$ points of the control. On the asymmetric map the coupler parameters are essentially unrecovered ($R^2 = 0.24, 0.07, 0.20, 0.10$ for $g_1, L_{c1}, g_2, L_{c2}$) and the geometry error rises to $20.6\%$, as predicted. \textbf{The criterion that failed} is the response error on this map: $37.9\%$ for the naive network, $35.4\%$ for Random Forest and $39.7\%$ for XGBoost, against a prediction of below $20\%$. The prediction that the response would remain good despite the larger null space was therefore wrong for all three methods.
+
+\paragraph{A post-hoc diagnostic, not a pre-registered result.} A likely reason is the swap symmetry: two designs that differ only by exchanging the couplers have identical responses but opposite coordinates, and a regressor trained on them predicts something close to their mean, an intermediate design that is not equivalent to either. We tested this by relabelling every training and test geometry so that $g_1 \le g_2$ (the response is unchanged, which the response model's self-test checks). The response error falls to $9.42\%$ for the naive network, $11.99\%$ for Random Forest and $16.98\%$ for XGBoost, with the geometry error of the naive network nearly unchanged ($16.71\%$). That supports the mirror-image-average explanation for most of the failure; the remaining gap to the four-parameter maps ($3$--$4\%$) was not investigated, and this analysis was chosen after seeing the failure, so it is a diagnosis, not a confirmed mechanism.
+
+\paragraph{Fresh 3-D FDTD check on the all-pass ring.} To test the model-level result against a simulation, twenty test targets were taken at evenly spaced positions of the test set, designed with the naive network (seed $42$), and the coupler of each design was re-simulated in 3-D FDTD with the procedure of Section~\ref{sec:metric}, the ring being the analytic all-pass model. One design ($w = 500.4$\,nm) lies outside the design box and is counted as unbuildable; the other nineteen were simulated, with $\kappa^2 + t^2$ between $0.9996$ and $1.0000$. The FDTD $\kappa^2$ is a median $0.970$ of the fitted model's (range $0.932$--$1.029$, s.d.\ of the logarithm $0.032$). The closed-loop error, aggregated as in Section~\ref{sec:metric}, is $3.24\%$ (bootstrap $95\%$ interval over designs $[2.63, 3.78]\%$), against $3.45\%$ for the model-level replay of the same designs. Per response the RMS errors are $0.31\%$ ($\lres$), $1.94\%$ (FSR), $4.38\%$ ($\QL$) and $4.35\%$ (depth). All four FDTD criteria were met (aggregate below $20\%$; $19$ of $20$ designs buildable; largest error in $\QL$; FDTD error $0.94$ times the model-level error). The check re-simulates the coupler only: the ring is analytic and the targets come from the same analytic ring, so ring-model bias, which for the add-drop ring is $4$--$28\%$ in $\QL$ (Section~\ref{sec:ringval}), is not part of this number, and no all-pass ring was simulated in full.
+
+\paragraph{The tandem network.} The tandem network is not reported. Trained with the same recipe on the new maps, it produced designs that were buildable in only $0.6$--$4.4\%$ of cases with geometry errors of several hundred percent; this does not reproduce the add-drop result of Section~\ref{sec:methodcmp} (where the bounded variant reaches $100\%$ buildable), and we did not diagnose or tune it. We therefore make no claim about tandem networks on these maps.
+
+\paragraph{Scope.} What this shows is that the counting argument predicted, before the data were seen, the geometry-space behaviour on two further response maps of one coupler and the response-space behaviour on one of them; it failed on the response-space behaviour of the six-parameter map, and the most likely cause is a symmetry the argument did not consider. It does not show that the results hold for another platform, another coupler or a measured device.
+
 \section{Discussion}
 
 The central result is that, on this device, a question treated as empirical in the inverse-design literature depends on a definition. Asking whether a naive
@@ -883,7 +922,7 @@ geometry-space question is not merely harder, it is the wrong question: a
 model that lands on the correct level set has produced a valid design, and
 penalising its position along that set measures nothing a user cares about.
 
-That observation generalises beyond microrings. Wherever the forward map
+That observation may extend beyond microrings: Section~\ref{sec:gen} tests it on two further response maps built on the same coupler model, which is evidence for the counting argument but not for a different device or platform. Wherever the forward map
 compresses several geometric degrees of freedom into fewer physical ones ---
 which is to say, wherever inverse design is interesting --- the same split
 should be expected, and the recommendation follows directly: report
@@ -924,7 +963,7 @@ useful to know before pursuing it.
 \item \textbf{$\lres$ is unlearnable within this parameterisation.} An alternative target (resonance offset from a grid wavelength, azimuthal mode order) might be learnable; one candidate showed $|\mathrm{corr}(\lres, g)| = 0.095$ within matched sets, so $\lres$ is close to redundant with FSR for geometry recovery. A systematic study was not performed.
 \item \textbf{One device family and coupler symmetry.} Both couplers share a gap and coupling length; asymmetric couplers would change the degeneracy structure. The equivalent-design study uses the analytic model with thickness to first order for the resonance only, no gap-dependent coupler phase, and assumed width, gap and thickness spreads ($0.7$\,nm and $1$\,nm).
 \item \textbf{The headline tandem baseline has unbounded outputs and an unweighted loss dominated by $\lres$.} Bounded and weighted variants were evaluated for geometry, $\theta$ error and buildable fraction (Section~\ref{sec:methodcmp}) and, for two of them, in closed loop at a single initialisation (seed 43, twenty targets); the closed-loop figures in Table~\ref{tab:cl} are for the baseline at a single initialisation.
-\item \textbf{No independent expert review} of the physical methods was obtained prior to this draft.
+\item \textbf{Generality is shown across response maps, not across devices.} The all-pass and asymmetric maps (Section~\ref{sec:gen}) reuse the same fitted coupler, silicon-on-insulator platform and analytic ring model; the comparison is at model level except for one FDTD coupler check of the all-pass ring (nineteen designs, naive network, one seed, analytic ring), so ring-model bias, which was measured for the add-drop ring only, is not tested there. The tandem network is excluded from that section because the implementation did not reproduce on the new maps (buildable fraction $0.6$--$4.4\%$); no claim about tandem networks rests on it. The recovery of the asymmetric ring's response by coupler ordering is a post-hoc diagnostic and does not explain the remaining gap.\item \textbf{No independent expert review} of the physical methods was obtained prior to this draft.
 \end{enumerate}
 
 
@@ -947,7 +986,7 @@ provable $100\%$ for Random Forest to $33.5\%$ for a tandem network at the repor
 information bound computed per design space is what makes an accuracy target
 interpretable; here the point estimate gives no evidence that the missed $15\%$ threshold is fundamental.
 
-For co-packaged optics specifically, two conclusions follow. First, the scenarios are attainable: posed as constraints rather than as a point target, a direct optimiser finds geometries that pass a 3-D FDTD coupler re-simulation in both, also after the $\QL$ and IL bias measured in full-ring simulation (for Scenario B an extrapolated bias), the Scenario A design also passes a complete 3-D ring simulation, and the point-target misses of trained models should not be read as a physical limit. Second, the ring model's resonance uncertainty ($\pm1.55$\,nm) exceeds the eight-channel window by a factor of $3.9$, and fabricated geometry varies more than that, so channel assignment is achieved by post-fabrication trimming whichever method produced the geometry.
+The counting argument was then tested outside the add-drop map, against predictions fixed beforehand. On an all-pass ring with the same four parameters the pattern repeats (naive network $16.2\%$ in geometry space against $3.0\%$ in response space at model level, and $3.24\%$ when the coupler is re-simulated in 3-D FDTD for nineteen designs); on an asymmetric add-drop ring with six parameters the response-space error is $37.9\%$, which the prediction did not anticipate. Restoring the coupler-swap symmetry post hoc lowers it to $9.4\%$, so the symmetry explains most but not all of it. The result supports the argument across response maps of one coupler; it does not show that the behaviour carries to another device.\par\medskip\noindent For co-packaged optics specifically, two conclusions follow. First, the scenarios are attainable: posed as constraints rather than as a point target, a direct optimiser finds geometries that pass a 3-D FDTD coupler re-simulation in both, also after the $\QL$ and IL bias measured in full-ring simulation (for Scenario B an extrapolated bias), the Scenario A design also passes a complete 3-D ring simulation, and the point-target misses of trained models should not be read as a physical limit. Second, the ring model's resonance uncertainty ($\pm1.55$\,nm) exceeds the eight-channel window by a factor of $3.9$, and fabricated geometry varies more than that, so channel assignment is achieved by post-fabrication trimming whichever method produced the geometry.
 
 \section*{Data and code availability}
 
@@ -1095,6 +1134,11 @@ Direct optimiser & differential evolution on the analytic ring model, population
 \bottomrule
 \end{tabular}
 \end{table}
+
+\section{Generality experiment: procedure and details}
+\label{sec:appgen}
+
+The response models are in one module with a self-test, all of whose checks passed before any model was trained: (i) the add-drop map reproduces the stored add-drop dataset ($300$ rows, maximum relative difference below $10^{-11}$ in all four responses); (ii) the asymmetric map with equal couplers equals the add-drop map; (iii) swapping the two couplers leaves the asymmetric response unchanged (difference $3\times10^{-14}$); (iv) the closed-form all-pass half-depth coupling agrees with a brute-force spectrum ($3.3\times10^{-4}$ in linewidth, $5\times10^{-15}$ in depth); (v) the all-pass limits are correct (critical coupling gives $T_{\min}=0$, a lossless ring $T_{\min}=1$). Latin-hypercube designs for the Jacobian used seed $20261112$. Training of every method follows Appendix~\ref{sec:appimpl} with the add-drop settings fixed and no re-tuning on the new maps; seeds $42$--$46$. The replay response error excludes designs outside the box (buildable fractions in Table~\ref{tab:gen}) and designs whose response has no half-maximum. The order of the work was: predictions committed, model-level training, FDTD predictions committed, FDTD run, report. The FDTD run used the coupler routine of Section~\ref{sec:metric} with a resumable checkpoint, on test rows $0, 9, 18, \dots, 162$ and $172$.
 
 \section*{References}
 

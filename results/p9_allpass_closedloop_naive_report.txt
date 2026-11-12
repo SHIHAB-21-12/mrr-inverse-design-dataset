@@ -1,0 +1,17 @@
+P9 step 3 -- ALL-PASS closed loop with a fresh 3-D FDTD coupler run (naive)
+==========================================================================================
+designs requested 20; simulated and evaluable 19; unrealisable (outside the box) 1; half-maximum/other flags 0
+response          RMS %  mean |err| %  max |err| %
+lambda_res_nm     0.307         0.258        0.743
+FSR_nm            1.942         1.475        4.030
+Q_L               4.377         3.569        8.435
+depth             4.351         3.411        9.296
+AGGREGATE closed-loop error (FDTD coupler): 3.239 %   bootstrap 95% interval [2.63, 3.78] (over designs, B=10000)
+model-level error on the same designs (fitted kappa^2, replay): 3.454 %
+FDTD kappa^2 / fitted-model kappa^2: median 0.970, range 0.932-1.029, s.d. of log 0.032
+
+PRE-REGISTERED PREDICTIONS (p9_predictions_fdtd.md)
+C7 aggregate 3.24 % (<20 %) -> PASS
+C8 realisable 19 of 20 (>=18) -> PASS
+C9 largest per-response error: Q_L (Q_L or depth) -> PASS
+C10 FDTD 3.24 % vs model-level 3.45 % (ratio <= 2) -> PASS
