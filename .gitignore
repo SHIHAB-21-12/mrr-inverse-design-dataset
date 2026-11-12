@@ -27,3 +27,4 @@ desktop.ini
 .DS_Store
 paper_draft_*.zip
 *.bak_housekeeping
+results/p7_bank_s*.npz
