@@ -11,13 +11,13 @@
 \usepackage{enumitem}
 \captionsetup{font=small,labelfont=bf}
 \sisetup{detect-weight=true,detect-family=true}
+\renewcommand{\topfraction}{0.9}\renewcommand{\bottomfraction}{0.8}\renewcommand{\textfraction}{0.1}\renewcommand{\floatpagefraction}{0.7}\setcounter{topnumber}{3}\setcounter{bottomnumber}{2}\setcounter{totalnumber}{5}
 
 \newcommand{\lres}{\lambda_{\mathrm{res}}}
 \newcommand{\QL}{Q_L}
 \newcommand{\rge}{\mathrm{RMS\text{-}RGE}}
 
-\title{\bfseries ML-Driven Inverse Design of Microring Resonators for
-Co-Packaged Optics / High-Bandwidth Optical Interconnects}
+\title{\bfseries Geometry Error Versus Response Error in the Inverse Design of Silicon Microring Resonators for Photonic Integrated Circuits}
 
 \author[1]{Md Shidul Islam Shihab\thanks{mdshidulislamshihab@gmail.com}}
 \affil[1]{Department of Electronics \& Communication Engineering,
@@ -29,8 +29,7 @@ Khulna University of Engineering \& Technology (KUET), Khulna, Bangladesh}
 \maketitle
 
 \begin{abstract}
-\noindent
-Whether a naive inverse network can design photonic devices is disputed: Liu
+\noindent Microring resonators are standard wavelength-selective building blocks of silicon photonic integrated circuits (PICs), and neural networks have been proposed for designing them. Whether a naive inverse network can design photonic devices is disputed: Liu
 \emph{et al.}\ [3] reported it failing to train when training pairs conflict, while
 Chen and Jiang [7] and Adibnia \emph{et al.}\ [9] reported it working. We show
 that the answer can depend on the error criterion. On $1{,}150$ labelled geometries
@@ -42,12 +41,14 @@ Four targets impose in effect two independent constraints, so a two-dimensional
 family of geometries gives the same response, and geometry error does not predict
 response error. A differential-evolution optimiser on the analytic model reaches
 $2.89\%$ closed-loop error with no training data, so the networks give no accuracy
-advantage here. Posed as constraints rather than point targets, two
-co-packaged-optics channel specifications are met by direct optimisation (Scenario B at model level only), and the Scenario A design passes a complete 3-D ring simulation. The ring
-model's resonance uncertainty ($1.55$\,nm) exceeds the $\pm0.4$\,nm tolerance of the eight-channel case, so fabricated devices would still need trimming. Two further response maps on the same coupler model, an all-pass ring and a six-parameter asymmetric add-drop ring, were tested against predictions registered in advance: the all-pass ring behaves like the add-drop ring (3-D FDTD coupler re-simulation: $3.2\%$ closed-loop error), while the asymmetric ring does not (naive-network response error $38\%$, a miss we report). Results are for one platform, one coupler model and an analytic ring model.
+advantage here. Posed as constraints rather than point targets, two illustrative wavelength-channel specifications, of the kind used in multi-wavelength links such as co-packaged optics, are met by direct optimisation (Scenario B at model level only), and the Scenario A design passes a complete 3-D ring simulation. The ring
+model's resonance uncertainty ($1.55$\,nm) exceeds the $\pm0.4$\,nm tolerance of the eight-channel case, so fabricated devices would still need trimming, with a modelled heater range of about $121$--$132$\,K per ring over twenty closed-loop targets. Two further response maps on the same coupler model, an all-pass ring and a six-parameter asymmetric add-drop ring, were tested against predictions registered in advance: the all-pass ring behaves like the add-drop ring (3-D FDTD coupler re-simulation: $3.2\%$ closed-loop error), while the asymmetric ring does not (naive-network response error $38\%$, a miss we report). Results are for one platform, one coupler model and an analytic ring model.
 \end{abstract}
 
 \section{Introduction}
+
+Microring resonators are a standard building block of silicon photonic integrated circuits (PICs), where they act as wavelength filters, modulators and sensors [13], a role first described for channel-dropping filters [14]. Their resonance wavelength, free spectral range, loaded quality factor and insertion loss are set by a few geometric parameters of the ring and its bus coupler. In a PIC design flow these parameters are chosen by simulation and the resonance is then trimmed after fabrication, because fabricated devices show process-induced variation [19]. Choosing the geometry that gives a requested response is an inverse-design problem. One illustrative application, used for the scenarios of Section~\ref{sec:cpo}, is wavelength-channel filtering in multi-wavelength optical interconnects such as co-packaged optics (CPO); the scenario specifications there are our own and are not taken from a standard.
+
 
 Inverse design asks for a geometry given a desired optical response. Where a
 forward simulation is expensive, a natural approach is to train a surrogate on
@@ -78,12 +79,12 @@ geometry-space error. We measure both on one device.
 
 No prior study we are aware of tests this for a bus-coupled add-drop microring resonator; scoring designs by their re-simulated response is not new in itself (see below). Pal \emph{et al.}\ [6] apply decision-tree and random-forest regression to microresonator inverse design on 462 finite-element samples, and two recent preprints apply machine learning to microrings with different aims. Simsek \emph{et al.}\ [15] use neural networks to recover the width and height of a silicon-nitride ring from its dispersion data, a characterisation problem with no coupling section. Hasani \emph{et al.}\ [16] combine a generative network with gradient boosting on FDTD data for a microring parameterised by radius, gap and width, and report RMSE together with one FDTD-checked high-$Q$ design. The design space of Pal \emph{et al.}\ [6] (radius, width and height, with the integrated dispersion of an isolated ring as input) contains no bus-coupling parameter at all and so cannot predict insertion loss or any
 other coupling-dependent quantity --- the specifications that decide whether a
-filter is usable in a co-packaged-optics (CPO) link. Torabi \emph{et al.}\
+filter is usable in a wavelength-multiplexed link. Torabi \emph{et al.}\
 [12], the most recent study and the closest in parameterisation, defines the $\rge$ metric adopted here but addresses a larger biosensor ring (target $R = \SI{200}{\micro\metre}$, $w = h = \SI{2}{\micro\metre}$, with a thickness parameter), compares its physics-informed graph network only with a diffusion model and an ablation of itself, and includes no classical-machine-learning baseline; it is also an unrefereed
 preprint and is cited as such throughout. Valencia-Garz\'on \emph{et al.}\
-[10] release a $4{,}719$-sample all-pass silicon-nitride dataset of scalar metrics without modelling it. Optimisation-based and hybrid approaches also exist: DeepAdjoint [5] combines a conditional generative network with adjoint optimisation for metasurfaces, and Sadeghi Dizaji and Habibiyan [8] apply Bayesian optimisation with knowledge constraints to microring design for a quantum light source; the direct-optimiser baseline of Section~\ref{sec:baseline} is of this second kind.
+[10] release a $4{,}719$-sample all-pass silicon-nitride dataset of scalar metrics without modelling it, and Simsek \emph{et al.}\ [25] predict the broadband ring--bus coupling forward from geometry with neural networks. Optimisation-based and hybrid approaches also exist: DeepAdjoint [5] combines a conditional generative network with adjoint optimisation for metasurfaces, and Sadeghi Dizaji and Habibiyan [8] apply Bayesian optimisation with knowledge constraints to microring design for a quantum light source; the direct-optimiser baseline of Section~\ref{sec:baseline} is of this second kind.
 
-Methods that return several solutions, rather than one, are the usual remedy for non-uniqueness. Frising \emph{et al.}\ [18] use a conditional invertible network, tested on a metallic film with subwavelength indentations and compared with a conditional variational autoencoder, and Ren \emph{et al.}\ [17] benchmark eight methods (among them tandem, neural-adjoint, mixture-density, variational and invertible networks) on electromagnetic-material design problems, scoring each by re-simulation error and proposing a measure of how ill-posed a problem is. We implement none of the distribution-valued methods: our comparison is limited to a plain network, a tandem network, Random Forest, XGBoost and, in Section~\ref{sec:baseline}, a direct optimiser, and a benchmark that adds the distribution-valued methods is left to future work. Scoring an inverse design by the response of the re-simulated or reconstructed design, rather than by its geometry, is established: it is the basis of the benchmark in [17], whose measure of ill-posedness is a ratio of two re-simulation errors, and of the tandem-network study in [21]. What we add is the direct comparison with geometry error on a bus-coupled add-drop ring.
+Methods that return several solutions, rather than one, are the usual remedy for non-uniqueness. Frising \emph{et al.}\ [18] use a conditional invertible network, tested on a metallic film with subwavelength indentations and compared with a conditional variational autoencoder, and Ren \emph{et al.}\ [17] benchmark eight methods (among them tandem, neural-adjoint, mixture-density, variational and invertible networks) on electromagnetic-material design problems, scoring each by re-simulation error and proposing a measure of how ill-posed a problem is; Ma \emph{et al.}\ [26] compare tandem, variational and generative-adversarial models on accuracy, diversity and robustness. We implement none of the distribution-valued methods: our comparison is limited to a plain network, a tandem network, Random Forest, XGBoost and, in Section~\ref{sec:baseline}, a direct optimiser, and a benchmark that adds the distribution-valued methods is left to future work. Scoring an inverse design by the response of the re-simulated or reconstructed design, rather than by its geometry, is established: it is the basis of the benchmarks in [17] and [22] and of the tandem-network study in [21], and the benchmark in [17] measures ill-posedness as a ratio of two re-simulation errors. Kiarashinejad \emph{et al.}\ [23] address non-uniqueness by reducing the dimensionality of the design and response spaces; the reduction found here is analytic and specific to the coupler. What we add is a quantified paired comparison with geometry error, and an analytic cause, for a bus-coupled add-drop ring.
 
 This paper contributes the following.
 
@@ -109,7 +110,7 @@ $\kappa^2$ scatter against FDTD, and the benefit of choosing among equivalent de
 is extended to a hundred targets and its buildability failures are counted, and
 a $2.5$--$3.6\%$ group-index disagreement between the analytic ring and
 full 3-D FDTD is traced, with a straight-guide test, to the FDTD engine's
-dispersionless material fit.\item \textbf{A pre-registered test of generality across response maps} (Section~\ref{sec:gen}): predictions were written and committed before the experiments, twelve of thirteen model-level criteria were met, the thirteenth (response error on the asymmetric ring) failed and is reported, and the all-pass ring passes a fresh 3-D FDTD coupler re-simulation with the four FDTD criteria met. This extends the result to other response maps on one coupler; it is not a second device or platform.\end{enumerate}
+dispersionless material fit.\item \textbf{A pre-registered test of generality across response maps} (Section~\ref{sec:gen}): predictions were written and committed before the experiments, twelve of thirteen model-level criteria were met, the thirteenth (response error on the asymmetric ring) failed and is reported, and the all-pass ring passes a fresh 3-D FDTD coupler re-simulation with the four FDTD criteria met. This extends the result to other response maps on one coupler; it is not a second device or platform. \item \textbf{A dual-fidelity benchmark, to be released with the manuscript}: the $1{,}150$ labelled geometries, the $200$ three-dimensional FDTD coupler simulations with the fitted coupling model, and the analysis code, so that a response-space evaluation of the kind used here can be repeated by others (Data and code availability).\end{enumerate}
 
 \section{Device, design space and methods}
 
@@ -127,7 +128,7 @@ from [6], [10] and [12].
 Table~\ref{tab:space} lists the four free parameters and the four targets. The
 round-trip length is $L = 2\pi R + 2L_c$.
 
-\begin{table}[t]
+\begin{table}[!tbp]
 \centering
 \caption{Design space and target quantities.}
 \label{tab:space}
@@ -138,7 +139,7 @@ Symbol & Parameter & Range & Note \\
 \midrule
 $R$    & ring radius      & \SIrange{5}{15}{\micro\metre} & spans FSR $\approx$ \SIrange{5.7}{18.2}{nm} \\
 $w$    & waveguide width  & \SIrange{400}{500}{nm}        & single-mode strip on \SI{220}{nm} SOI \\
-$g$    & coupling gap     & \SIrange{150}{350}{nm}        & near-critical to weakly coupled \\
+$g$    & coupling gap     & \SIrange{150}{350}{nm}        & with $L_c$: loss-dominated to strongly overcoupled (Section~\ref{sec:data}) \\
 $L_c$  & coupling length  & \SIrange{0}{3}{\micro\metre}  & $L_c = 0$ is a valid design point \\
 \midrule
 $\lres$ & resonance wavelength & nm & nearest to \SI{1550}{nm} \\
@@ -149,7 +150,7 @@ IL      & insertion loss        & dB & drop port, on resonance \\
 \end{tabular}
 \end{table}
 
-\subsection{Dual-fidelity dataset construction}
+\subsection{Dual-fidelity dataset construction}\label{sec:data}
 
 A full three-dimensional FDTD simulation of the complete ring was measured at
 roughly \SI{35}{\hour} per sample, which puts a 1{,}000-sample dataset beyond
@@ -187,11 +188,11 @@ and no evidence of $\sin^2\theta$ saturation.
 
 The modelling dataset comprises 1{,}150 labelled geometries --- 1{,}000 from a
 primary Latin hypercube design plus a 150-point supplementary batch covering a
-sparse corner of the space --- split 805/172/173 into training, validation and test sets with a fixed seed. Before modelling, a quality gate removes any row whose exact drop-port half-maximum does not exist, whose peak drop transmission exceeds one, whose responses are not finite or whose $\QL \le 0$; the response bank of the information bound applies the same gate. The test set was held out from model fitting; post-hoc analyses that did use it (for example the neighbourhood size of the information bound) are marked where they occur.
+sparse corner of the space --- split 805/172/173 into training, validation and test sets with a fixed seed. Before modelling, a quality gate removes any row whose exact drop-port half-maximum does not exist, whose peak drop transmission exceeds one, whose responses are not finite or whose $\QL \le 0$; the response bank of the information bound applies the same gate. Over the $1{,}000$ primary rows $\QL$ spans roughly $8\times10^{2}$ to $1.9\times10^{5}$ (about $97\%$ between $10^{3}$ and $10^{5}$), and the coupling $\kappa^2$ divided by the intrinsic round-trip loss $1-a^2$ spans roughly $0.2$ to $10^{2}$, from loss-dominated to strongly overcoupled rings; the $200$ coupler simulations cover $\kappa^2 = 0.0019$--$0.4599$. The test set was held out from model fitting; post-hoc analyses that did use it (for example the neighbourhood size of the information bound) are marked where they occur.
 
 \subsection{Validation of the construction}
 
-\begin{table}[t]
+\begin{table}[!tbp]
 \centering
 \caption{Validation of the dual-fidelity construction. The out-of-sample
 $\kappa^2$ tests are the coupler simulations performed during closed-loop
@@ -237,7 +238,7 @@ fell within $10\%$, with a bias of a few per cent (the fitted model lies above t
 
 The coupler and mode-solver checks above do not test the coupled-mode assembly that turns $\kappa^2$, $n_g$ and loss into $\QL$ and IL, and closed-loop re-verification does not either, since it recomputes the ring with the same analytic model that produced the labels. We therefore simulated complete rings in 3-D FDTD: nine runs (three geometries at $R = \SI{5.20}{\micro\metre}$, $w = \SI{450}{nm}$, each at \SI{32}{nm} and \SI{40}{nm} mesh and with denser spectral sampling), all meeting the resolution criteria. Procedure, controls and caveats are in Appendix~\ref{sec:appring}.
 
-\begin{table}[t]
+\begin{table}[!tbp]
 \centering
 \caption{Full 3-D ring simulation against the analytic model. Richardson
 extrapolation assumes second-order convergence, which two mesh sizes cannot
@@ -303,7 +304,7 @@ consistent with the pattern in [9] without settling why [3] and [7,9] differ. Th
 met are reported as measured, with the reason in each case tested rather than
 asserted.
 
-\begin{table}[t]
+\begin{table}[!tbp]
 \centering
 \caption{Objective outcomes. O6 is the central contribution; O1--O5 and O7
 exist to support its assessment rather than to stand as independent
@@ -341,7 +342,7 @@ and the bias is extrapolated to $R \approx \SI{13}{\micro m}$ \\
 
 \subsection{The forward surrogate, and an unlearnable target}
 
-\begin{table}[t]
+\begin{table}[!tbp]
 \centering
 \caption{Forward-direction accuracy on the held-out test set ($n = 173$).
 Every method appears for every target. The best network is reported as a mean
@@ -414,7 +415,7 @@ search was in effect ranking configurations on noise.
 \subsection{The one-to-many question}
 \label{sec:o6}
 
-\begin{figure}[t]
+\begin{figure}[!tbp]
 \centering
 \includegraphics[width=\linewidth]{fig/fig1_o6_geometry_r2.pdf}
 \caption{The geometry-space half of the one-to-many test. Only the ring radius
@@ -424,7 +425,7 @@ values for $w$ and $L_c$ indicate predictions worse than the test-set mean.}
 \label{fig:o6}
 \end{figure}
 
-\begin{table}[t]
+\begin{table}[!tbp]
 \centering
 \caption{Inverse-direction accuracy, all methods on the identical test split.
 $\rge$ is Eq.~\eqref{eq:rge}; per-parameter terms and the $\{R,w,g\}$-only
@@ -533,7 +534,7 @@ measured discrepancy is geometry-dependent with a mild wavelength trend.
 \subsection{Geometry-space error does not predict response-space error}
 \label{sec:metric}
 
-\begin{figure}[t]
+\begin{figure}[!tbp]
 \centering
 \includegraphics[width=\linewidth]{fig/fig2_theta_vs_closedloop.pdf}
 \caption{Closed-loop response error against two candidate metrics, for the
@@ -545,7 +546,7 @@ factor $4.00$.}
 \label{fig:metric}
 \end{figure}
 
-\begin{table}[t]
+\begin{table}[!tbp]
 \centering
 \caption{Closed-loop re-verification, four models and a direct optimiser, twenty targets each. All
 clear the $20\%$ response-error bar. $\theta$ error is evaluated on buildable
@@ -610,7 +611,7 @@ Does the choice among equivalent designs matter for fabrication tolerance? For e
 \subsection{Physical realisability}
 \label{sec:build}
 
-\begin{figure}[t]
+\begin{figure}[!tbp]
 \centering
 \includegraphics[width=0.74\linewidth]{fig/fig5_buildable.pdf}
 \caption{Fraction of test-set predictions lying inside the design box. The
@@ -649,7 +650,7 @@ Over the twenty closed-loop targets, $60\%$ of its designs cannot be made ($66.5
 \subsection{Method comparison and sample efficiency}
 \label{sec:methodcmp}
 
-\begin{figure}[t]
+\begin{figure}[!tbp]
 \centering
 \includegraphics[width=\linewidth]{fig/fig3_sample_efficiency.pdf}
 \caption{Sample efficiency, mean $\pm$ standard deviation over five seeds
@@ -695,7 +696,7 @@ wanders is largely a function of initialisation and data. The tandem
 architecture is the standard remedy for one-to-many ambiguity in this
 literature, and, as implemented here --- unbounded outputs, and a loss in which $\lres$ contributes $99.3\%$ of the response-space gradient --- it is worse than the naive network and its error is erratic across seeds. Whether this reflects the architecture or this implementation of it was tested directly. Four tandem variants were trained over the same five seeds (42--46) through the same frozen forward model (Table~\ref{tab:tandemfix}): the baseline above; a variant with a sigmoid output, so that every prediction lies inside the design box; a variant in which each target's squared error is divided by the forward model's own validation error on that target, which has no free parameter and lowers the weight of $\lres$ to $0.003$ of the mean; and both together.
 
-\begin{table}[t]
+\begin{table}[!tbp]
 \centering
 \caption{Tandem variants, mean $\pm$ standard deviation (divisor $n$) over five seeds. Response MAPE is the mean over the four targets of the error between the requested response and the frozen forward model's response to the predicted geometry. The naive row gives $\rge$ over five seeds; its other columns are from the headline run (seed 42) over the same 173 test rows.}
 \label{tab:tandemfix}
@@ -724,7 +725,7 @@ parameter --- the coupling length is, with mean $R^2 = -0.2645$ --- so the coupl
 
 \subsection{An information bound}
 
-\begin{figure}[t]
+\begin{figure}[!tbp]
 \centering
 \includegraphics[width=\linewidth]{fig/fig4_information_floor.pdf}
 \caption{Left: the information bound against response-bank size, with the best
@@ -746,10 +747,10 @@ Whether that shortfall reflects the models or the problem depends on how much ge
 The estimate is not converged: the optimal $k$ drifts from $25$ to $5$ across the sweep and the descent accelerates ($0.096$ to $0.718$ points per e-fold of bank size), so the estimator's finite-sample bias is still unwinding, no rate can be read from the sweep, and a three-parameter asymptotic fit is not identifiable. The per-parameter values in Figure~\ref{fig:floor} are not individual bounds, because the estimator minimises the aggregate. Finally, enlarging the training set with rows from the \emph{fitted} analytic model lowers measured $\rge$ below $15\%$, but those rows add sampling density, not physics, so we do not report O3 as met by that route.
 
 
-\subsection{Translation to co-packaged-optics scenarios}
+\subsection{Translation to wavelength-channel scenarios (co-packaged-optics style)}
 \label{sec:cpo}
 
-\begin{table}[t]
+\begin{table}[!tbp]
 \centering
 \caption{Re-simulated scenario verdicts. Each candidate geometry was
 re-simulated with a fresh 3-D FDTD coupler run. Tolerance on $\lres$ is half
@@ -832,7 +833,7 @@ error. Choosing $\delta$ to minimise the worst case is a covering problem on
 a circle of circumference FSR, solved here by direct search. The requirement is bounded by one FSR --- up to about \SI{227}{K} for the largest FSR among these geometries, about \SI{135}{K} at the mean --- however
 poorly a model places $\lres$.
 
-\begin{table}[htbp]
+\begin{table}[!htbp]
 \centering
 \caption{Thermal trimming demand over the twenty closed-loop targets.
 \emph{Biased} assumes the optimal design offset; \emph{unbiased} assumes
@@ -879,7 +880,7 @@ The weakness of a single device was addressed by changing the response map while
 
 \paragraph{Model-level results.} Naive network, Random Forest and XGBoost were trained as in Appendix~\ref{sec:appimpl} with no re-tuning, five seeds each, on the same $805/172/173$ split of the same geometries (the quality gate removed no row). Each predicted geometry is replayed through the analytic response, and the response error is the root-mean-square relative difference over the four targets, in linear units, for designs inside the box with a valid response.
 
-\begin{table}[t]
+\begin{table}[!tbp]
 \centering
 \caption{Three response maps, same coupler model. Mean $\pm$ s.d.\ over five seeds (Random Forest and XGBoost vary little). Response RMS is a model-level replay, not an FDTD result. The tandem network is excluded (see text).}
 \label{tab:gen}
@@ -929,7 +930,7 @@ closed-loop response error, and report it alongside a physically meaningful
 invariant of the degeneracy rather than a raw geometric distance. Our $\theta$
 is such an invariant for this device; the general construction is to identify
 the quantity through which the degenerate parameters act and measure error in
-it. Ranking designs of similar performance by their robustness to fabrication perturbations has been proposed in a general computational-design setting [20]; Section~\ref{sec:baseline} estimates it, within the model, for one device.
+it. Ranking designs of similar performance by their robustness to fabrication perturbations has been proposed in a general computational-design setting [20]; Section~\ref{sec:baseline} estimates it, within the model, for one device. Finite-difference Jacobian sensitivities have been used to rank parameter influence in a tandem-network study of waveguide gratings [24]; here the singular values of the Jacobian are used to count independent constraints.
 
 That a direct optimiser matches the networks needs one qualification. It searches the fitted coupler model, which is itself a surrogate built from the $200$ three-dimensional FDTD simulations, and the networks are trained on the same labelled geometries. Learning an inverse map is therefore worth its cost when no cheap forward surrogate exists, or when many targets must be served at negligible marginal cost, and not as a way to gain accuracy over optimisation on a cheap model. This agrees with the caution in [2] that problems with few free parameters (three or four) may be better solved by conventional optimisation than by deep learning.
 
@@ -985,7 +986,7 @@ provable $100\%$ for Random Forest to $33.5\%$ for a tandem network at the repor
 information bound computed per design space is what makes an accuracy target
 interpretable; here the point estimate gives no evidence that the missed $15\%$ threshold is fundamental.
 
-The counting argument was then tested outside the add-drop map, against predictions fixed beforehand. On an all-pass ring with the same four parameters the pattern repeats (naive network $16.2\%$ in geometry space against $3.0\%$ in response space at model level, and $3.24\%$ when the coupler is re-simulated in 3-D FDTD for nineteen designs); on an asymmetric add-drop ring with six parameters the response-space error is $37.9\%$, which the prediction did not anticipate. Restoring the coupler-swap symmetry post hoc lowers it to $9.4\%$, so the symmetry explains most but not all of it. The result supports the argument across response maps of one coupler; it does not show that the behaviour carries to another device.\par\medskip\noindent For co-packaged optics specifically, two conclusions follow. First, the scenarios are attainable: posed as constraints rather than as a point target, a direct optimiser finds geometries that pass a 3-D FDTD coupler re-simulation in both, also after the $\QL$ and IL bias measured in full-ring simulation (for Scenario B an extrapolated bias), the Scenario A design also passes a complete 3-D ring simulation, and the point-target misses of trained models should not be read as a physical limit. Second, the ring model's resonance uncertainty ($\pm1.55$\,nm) exceeds the eight-channel window by a factor of $3.9$, and fabricated geometry varies more than that, so channel assignment is achieved by post-fabrication trimming whichever method produced the geometry.
+The counting argument was then tested outside the add-drop map, against predictions fixed beforehand. On an all-pass ring with the same four parameters the pattern repeats (naive network $16.2\%$ in geometry space against $3.0\%$ in response space at model level, and $3.24\%$ when the coupler is re-simulated in 3-D FDTD for nineteen designs); on an asymmetric add-drop ring with six parameters the response-space error is $37.9\%$, which the prediction did not anticipate. Restoring the coupler-swap symmetry post hoc lowers it to $9.4\%$, so the symmetry explains most but not all of it. The result supports the argument across response maps of one coupler; it does not show that the behaviour carries to another device.\par\medskip\noindent For multi-wavelength PIC links such as co-packaged optics, two conclusions follow. First, the scenarios are attainable: posed as constraints rather than as a point target, a direct optimiser finds geometries that pass a 3-D FDTD coupler re-simulation in both, also after the $\QL$ and IL bias measured in full-ring simulation (for Scenario B an extrapolated bias), the Scenario A design also passes a complete 3-D ring simulation, and the point-target misses of trained models should not be read as a physical limit. Second, the ring model's resonance uncertainty ($\pm1.55$\,nm) exceeds the eight-channel window by a factor of $3.9$, and fabricated geometry varies more than that, so channel assignment is achieved by post-fabrication trimming whichever method produced the geometry.
 
 \section*{Data and code availability}
 
@@ -1204,6 +1205,11 @@ preprint arXiv:2510.03651, Oct.\ 2025. (Unrefereed preprint.)
 \item R. Parsons, A. Oh, J. Robinson, S. Wang, M. Cullen, K. Jang, A. James, Y. Wang, and K. Bergman, ``Foundry-enabled wafer-scale characterization and modeling of silicon photonic DWDM links,'' \emph{Nanophotonics}, vol.~14, no.~27, pp.~5363--5374, 2025, doi:~10.1515/nanoph-2025-0439.
 \item N. Ansari, H.-P. Seidel, and V. Babaei, ``Mixed integer neural inverse design,'' ACM SIGGRAPH 2022, doi:~10.1145/3528223.3530083.
 \item L. Grbcic, J. M\"uller, and W. A. de Jong, ``AutoTandemML: Active learning enhanced tandem neural networks for inverse design problems,'' arXiv preprint arXiv:2502.15643, 2025.
+\item S. Ren, W. Padilla, and J. Malof, ``Benchmarking deep inverse models over time, and the Neural-Adjoint method,'' in \emph{Advances in Neural Information Processing Systems}, vol.~33, 2020, arXiv:2009.12919.
+\item Y. Kiarashinejad, S. Abdollahramezani, and A. Adibi, ``Deep learning approach based on dimensionality reduction for designing electromagnetic nanostructures,'' arXiv preprint arXiv:1902.03865, 2019.
+\item S. Dehghani, C. Knoth, S. Eskandari, M. Buchm\"uller, T. Meisen, and P. G\"orrn, ``Data-driven inverse design of hybrid waveguide gratings using reflection spectra via tandem networks and conditional VAEs,'' \emph{Optics}, vol.~6, no.~4, art.~61, 2025, doi:~10.3390/opt6040061.
+\item E. Simsek, M. Soroush, G. Moille, K. Srinivasan, and C. Menyuk, ``Predicting broadband resonator-waveguide coupling for microresonator frequency combs through fully connected and recurrent neural networks with and without attention mechanism,'' \emph{ACS Photonics}, 2023, doi:~10.1021/acsphotonics.3c00054.
+\item T. Ma, M. Tobah, H. Wang, and L. J. Guo, ``Benchmarking deep learning-based models on nanophotonic inverse design problems,'' \emph{Opto-Electronic Science}, vol.~1, no.~1, art.~210012, 2022.
 \end{enumerate}
 \endgroup
 
