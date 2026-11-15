@@ -10,8 +10,12 @@ cladding, fundamental TE mode, 1500-1600 nm.
 
 ## The dataset
 
-`data/mrr_dataset.csv` - 1,000 samples, Latin Hypercube over the four design
-parameters (seed 42).
+`data/mrr_dataset.csv` - the 1,000 primary samples, Latin Hypercube over the four
+design parameters (seed 42). `data/train.csv`, `data/val.csv` and `data/test.csv`
+hold the 1,150 labelled rows used in the paper (805 / 172 / 173): the 1,000
+primary rows plus 150 supplementary rows from a targeted batch (107 / 20 / 23
+in train / val / test, marked in the `origin` column). The splits also contain
+the scaled columns.
 
 | Input | Range | Output | Unit |
 |---|---|---|---|
@@ -31,7 +35,8 @@ Full-ring 3-D FDTD was **not affordable**: one sample projected to ~35 h
 against a 25 min/sample limit (see `records/substudy1_timing_verdict.txt`).
 The dataset therefore uses the **dual-fidelity** strategy:
 
-1. **3-D FDTD of the coupling region only** (48 geometries). The coupler is
+1. **3-D FDTD of the coupling region only** (200 geometries, built in two
+   stages: 48, then 152). The coupler is
    single-pass, so its cost does not scale with Q.
 2. **Eigenmode sweep** for n_eff and n_g versus width and wavelength (30 solves).
 3. **3-D FDTD of a 90-degree bend** for bend-radiation loss versus radius (5 radii).
@@ -42,7 +47,8 @@ Every row carries an `origin` label saying so.
 
 ### Limitations
 
-- **The dataset contains the information of 83 simulations, not 1,000.** Each
+- **The dataset contains the information of 235 simulations (200 coupler, 30
+  mode solves, 5 bend runs), not 1,150.** Each
   row is an analytic evaluation of models fitted to those runs.
 - **Sidewall roughness is not simulated.** A literature value of 1.3 dB/cm
   (measured, Paper 11) is added to the simulated bend radiation.
@@ -72,7 +78,8 @@ This refits every model from the raw FDTD CSVs and rewrites `mrr_dataset.csv`.
 
 To re-run the simulations themselves (requires Lumerical FDTD):
 
-    python mrr_template.py --couplerset   # 48 coupler runs, ~12.5 h
+    python mrr_template.py --couplerset   # first 48 coupler runs, ~12.5 h
+    python mrr_template.py --couplerext   # 152 augmented coupler runs
     python mrr_template.py --modesweep    # n_eff, n_g + literature check
     python mrr_template.py --bendloss     # bend loss vs R
 
